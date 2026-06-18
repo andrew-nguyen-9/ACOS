@@ -4,6 +4,10 @@ from backend.repositories.skill import SkillRepository
 from backend.repositories.application import ApplicationRepository
 from backend.repositories.document import DocumentRepository
 from backend.repositories.system_config import SystemConfigRepository
+from backend.repositories.knowledge_graph import (
+    KnowledgeGraphNodeRepository,
+    KnowledgeGraphEdgeRepository,
+)
 
 __all__ = [
     "BaseRepository",
@@ -12,4 +16,6 @@ __all__ = [
     "ApplicationRepository",
     "DocumentRepository",
     "SystemConfigRepository",
+    "KnowledgeGraphNodeRepository",
+    "KnowledgeGraphEdgeRepository",
 ]
