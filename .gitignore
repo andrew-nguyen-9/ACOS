@@ -1,0 +1,27 @@
+# ── Secrets — NEVER commit ──────────────────────────────
+.env
+.env.local
+.env.*
+*.env
+!.env.example
+!.env.local.example
+.static_files/
+
+# ── Python ──────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.cache/
+
+# ── Node / Next ─────────────────────────────────────────
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# ── Misc ────────────────────────────────────────────────
+.DS_Store
+*.log
