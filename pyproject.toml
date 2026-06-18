@@ -1,0 +1,20 @@
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+pythonpath = ["."]
+addopts = "--cov=backend --cov-report=term-missing --cov-report=html:.coverage_html -v"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["backend"]
+omit = ["backend/tests/*"]
+
+[tool.coverage.report]
+fail_under = 90
+show_missing = true
+
+[tool.pyright]
+include = ["backend"]
+pythonVersion = "3.11"
+typeCheckingMode = "standard"
