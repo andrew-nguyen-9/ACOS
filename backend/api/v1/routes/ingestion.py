@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import shutil
 import tempfile
 from pathlib import Path
@@ -37,7 +38,14 @@ def ingest_file(
         )
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        dest = Path(tmpdir) / (file.filename or "upload")
+        # Sanitize filename — take only the basename, strip path separators
+        safe_name = Path(file.filename or "upload").name
+        if not safe_name or safe_name in (".", ".."):
+            safe_name = "upload"
+        dest = (Path(tmpdir) / safe_name).resolve()
+        # Verify dest is inside tmpdir
+        if not str(dest).startswith(str(Path(tmpdir).resolve()) + os.sep):
+            raise HTTPException(status_code=400, detail="Invalid filename")
         with dest.open("wb") as f:
             shutil.copyfileobj(file.file, f)
 
