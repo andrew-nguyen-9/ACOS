@@ -22,7 +22,7 @@ _KNOWN_SKILLS: frozenset[str] = frozenset({
     "machine learning", "deep learning", "nlp", "rag", "llm",
 })
 
-_EMPTY: dict = {"skills": [], "experiences": [], "projects": []}
+_EMPTY: dict[str, list] = {"skills": [], "experiences": [], "projects": []}
 
 
 def _load_prompt() -> dict:
@@ -75,6 +75,9 @@ class EntityExtractor:
                 "experiences": data.get("experiences", []),
                 "projects": data.get("projects", []),
             }
-        except (json.JSONDecodeError, Exception) as exc:
-            logger.warning("entity_extractor: LLM extraction failed: %s", exc)
+        except json.JSONDecodeError as exc:
+            logger.warning("entity_extractor: LLM returned invalid JSON: %s", exc)
             return dict(_EMPTY)
+        except Exception as exc:
+            logger.warning("entity_extractor: LLM call failed, falling back to patterns: %s", exc)
+            return self.extract_patterns(text)
