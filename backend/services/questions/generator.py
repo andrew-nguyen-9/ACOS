@@ -124,7 +124,7 @@ class QuestionGenerator:
         try:
             evidence = self._selector.select(interpolated, {}, max_bullets=6)
         except Exception:
-            logger.warning("Evidence selection failed; proceeding with empty evidence")
+            logger.exception("Evidence selection failed; proceeding with empty evidence")
             evidence = []
         answer_text, evidence_ids, confidence = self._llm_generate_answer(
             interpolated, evidence, length_target

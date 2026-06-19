@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
-
 
 def test_generate_questions(client):
     resp = client.post(
