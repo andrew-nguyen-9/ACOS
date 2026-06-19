@@ -6,6 +6,8 @@ import re
 from collections.abc import Mapping
 from typing import Any, cast
 
+from backend.observability import log_operation
+
 logger = logging.getLogger(__name__)
 
 _DEFAULT_RESULT: dict[str, object] = {
@@ -37,8 +39,11 @@ class ATSScorer:
         keywords: Mapping[str, object],
     ) -> dict[str, object]:
         if self._ollama and self._ollama.is_available():
-            return self._llm_score(resume_text, job_description)
-        return self._keyword_score(resume_text, keywords)
+            result = self._llm_score(resume_text, job_description)
+        else:
+            result = self._keyword_score(resume_text, keywords)
+        log_operation("ats_score", overall=result.get("overall_score", 0))
+        return result
 
     def _llm_score(self, resume_text: str, job_description: str) -> dict[str, object]:
         try:

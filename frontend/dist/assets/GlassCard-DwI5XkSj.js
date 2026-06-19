@@ -1,0 +1,1 @@
+import{j as e,h as o}from"./index-BAWRvLch.js";function x({children:r,className:s,onClick:a}){return e.jsx("div",{className:o("rounded-2xl bg-white/[0.05] border border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_18px_50px_rgba(0,0,0,0.28)]",s),onClick:a,children:r})}export{x as G};

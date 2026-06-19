@@ -1,0 +1,1 @@
+import{a as t}from"./api-BsZw5QNm.js";const o={list:()=>t("/applications/"),get:i=>t(`/applications/${i}`),create:i=>t("/applications/",{method:"POST",body:JSON.stringify(i)}),update:(i,a)=>t(`/applications/${i}`,{method:"PATCH",body:JSON.stringify(a)}),delete:i=>t(`/applications/${i}`,{method:"DELETE"})};export{o as a};

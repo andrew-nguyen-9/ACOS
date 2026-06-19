@@ -1,51 +1,43 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense } from "react";
+import { Routes, Route } from "react-router-dom";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import AppShell from "@/layouts/AppShell";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
-const API_BASE = "http://localhost:8000/api/v1";
+const Dashboard = lazy(() => import("@/pages/Dashboard"));
+const ResumePage = lazy(() => import("@/pages/ResumePage"));
+const CoverLetterPage = lazy(() => import("@/pages/CoverLetterPage"));
+const AtsPage = lazy(() => import("@/pages/AtsPage"));
+const InterviewPrepPage = lazy(() => import("@/pages/InterviewPrepPage"));
+const ApplicationsPage = lazy(() => import("@/pages/ApplicationsPage"));
+const LearningPage = lazy(() => import("@/pages/LearningPage"));
+const CopilotPage = lazy(() => import("@/pages/CopilotPage"));
+const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
 
-interface HealthResponse {
-  status: string;
-  db: string;
-  version: string;
-}
+const PageFallback = () => (
+  <div className="flex flex-1 items-center justify-center p-16">
+    <LoadingSpinner size="lg" />
+  </div>
+);
 
 export default function App() {
-  const [health, setHealth] = useState<HealthResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetch(`${API_BASE}/health`)
-      .then((r) => r.json())
-      .then(setHealth)
-      .catch(() => setError("Backend unreachable"));
-  }, []);
-
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 flex flex-col items-center justify-center gap-4">
-      <h1 className="text-3xl font-bold tracking-tight">ACOS</h1>
-      <p className="text-gray-400 text-sm">AI Career Operating System</p>
-
-      {error && (
-        <div className="mt-4 px-4 py-2 bg-red-900/40 border border-red-700 rounded text-red-300 text-sm">
-          {error}
-        </div>
-      )}
-
-      {health && (
-        <div className="mt-4 px-6 py-4 bg-gray-900 border border-gray-800 rounded-lg text-sm space-y-1">
-          <div>
-            Status:{" "}
-            <span className="text-green-400 font-mono">{health.status}</span>
-          </div>
-          <div>
-            DB:{" "}
-            <span className="text-green-400 font-mono">{health.db}</span>
-          </div>
-          <div>
-            Version:{" "}
-            <span className="text-blue-400 font-mono">{health.version}</span>
-          </div>
-        </div>
-      )}
-    </div>
+    <ErrorBoundary>
+      <AppShell>
+        <Suspense fallback={<PageFallback />}>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/resumes" element={<ResumePage />} />
+            <Route path="/cover-letters" element={<CoverLetterPage />} />
+            <Route path="/ats" element={<AtsPage />} />
+            <Route path="/interview-prep" element={<InterviewPrepPage />} />
+            <Route path="/applications" element={<ApplicationsPage />} />
+            <Route path="/learning" element={<LearningPage />} />
+            <Route path="/copilot" element={<CopilotPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+          </Routes>
+        </Suspense>
+      </AppShell>
+    </ErrorBoundary>
   );
 }

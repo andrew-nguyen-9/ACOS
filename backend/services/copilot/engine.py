@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from backend.observability import log_operation
 from backend.services.rag.service import RAGService
 
 _INTENT_KEYWORDS: dict[str, list[str]] = {
@@ -54,10 +55,12 @@ class CopilotEngine:
             }
             for e in evidence[:5]
         ]
-        return {
+        result = {
             "response": rag_result.get("response", ""),
             "intent": intent,
             "confidence": rag_result.get("confidence_summary", "no_evidence"),
             "citations": citations,
             "evidence_count": len(evidence),
         }
+        log_operation("copilot_chat", intent=intent, citations=len(citations))
+        return result

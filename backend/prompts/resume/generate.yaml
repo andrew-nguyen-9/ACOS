@@ -25,7 +25,6 @@ user_template: |
 
   Generate a one-page resume in JSON format:
   {{
-    "summary": "2-3 sentence professional summary",
     "experiences": [
       {{
         "title": "...", "company": "...", "dates": "...",
