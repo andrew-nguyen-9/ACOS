@@ -88,12 +88,17 @@ function AddApplicationModal({
 export default function ApplicationsPage() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [showAdd, setShowAdd] = useState(false);
 
   useEffect(() => {
-    applicationsService.list().then(setApplications).finally(() => setLoading(false));
+    applicationsService
+      .list()
+      .then(setApplications)
+      .catch((e) => setFetchError(e instanceof Error ? e.message : "Failed to load applications"))
+      .finally(() => setLoading(false));
   }, []);
 
   const filtered = applications.filter((a) => {
@@ -118,6 +123,13 @@ export default function ApplicationsPage() {
           onClose={() => setShowAdd(false)}
           onAdd={(app) => setApplications((prev) => [app, ...prev])}
         />
+      )}
+
+      {fetchError && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/20">
+          <AlertTriangle className="size-4 text-red-400 flex-shrink-0" />
+          <p className="text-sm text-red-400">{fetchError}</p>
+        </div>
       )}
 
       <div className="flex items-center justify-between">

@@ -14,7 +14,7 @@ interface CoverLetterResponse {
 
 export const coverLetterService = {
   generate: (req: CoverLetterRequest) =>
-    apiFetch<CoverLetterResponse>("/cover_letter/generate", {
+    apiFetch<CoverLetterResponse>("/cover-letter/generate", {
       method: "POST",
       body: JSON.stringify(req),
     }),

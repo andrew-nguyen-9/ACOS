@@ -23,8 +23,12 @@ export default function InterviewPrepPage() {
   const generateQuestions = async () => {
     if (!selectedAppId) return;
     setGenerating(true);
+    const selectedApplication = applications.find((a) => a.id === selectedAppId);
     try {
-      const res = await learningService.generateQuestions(selectedAppId);
+      const res = await learningService.generateQuestions({
+        application_id: selectedAppId,
+        job_description: selectedApplication?.job_description ?? "",
+      });
       setQuestions(res.questions ?? []);
       setCurrentIdx(0);
       setShowAnswer(false);

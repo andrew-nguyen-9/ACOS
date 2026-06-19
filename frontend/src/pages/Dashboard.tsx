@@ -23,13 +23,18 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([
-      apiFetch<Health>("/health"),
-      applicationsService.list(),
-    ]).then(([h, apps]) => {
-      setHealth(h);
-      setApplications(apps);
-    }).catch(console.error).finally(() => setLoading(false));
+    let settled = 0;
+    const done = () => { settled += 1; if (settled === 2) setLoading(false); };
+
+    apiFetch<Health>("/health")
+      .then(setHealth)
+      .catch(console.error)
+      .finally(done);
+
+    applicationsService.list()
+      .then(setApplications)
+      .catch(console.error)
+      .finally(done);
   }, []);
 
   if (loading) {

@@ -41,7 +41,7 @@ export default function ResumePage() {
   const downloadDocx = async () => {
     if (!result) return;
     try {
-      const blob = await resumeService.exportDocx(result.resume_id);
+      const blob = await resumeService.exportDocx({ job_description: jd, template_name: template });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;

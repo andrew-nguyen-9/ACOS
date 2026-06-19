@@ -16,11 +16,11 @@ export interface AtsVsOutcome {
 
 export const learningService = {
   // Used by InterviewPrepPage
-  generateQuestions: (applicationId: string) =>
-    apiFetch<{ questions: GeneratedQuestion[] }>(
-      `/questions/generate?application_id=${applicationId}`,
-      { method: "POST" }
-    ),
+  generateQuestions: (req: { application_id: string; job_description: string }) =>
+    apiFetch<{ questions: GeneratedQuestion[] }>("/questions/generate", {
+      method: "POST",
+      body: JSON.stringify(req),
+    }),
   recordOutcome: (outcome: LearningOutcome) =>
     apiFetch<{ recorded: boolean }>("/learning/outcome", {
       method: "POST",

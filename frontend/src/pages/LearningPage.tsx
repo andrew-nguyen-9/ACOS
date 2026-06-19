@@ -22,49 +22,6 @@ import { learningService, type TemplateRanking, type AtsVsOutcome } from "@/serv
 import { applicationsService } from "@/services/applications";
 import type { Application } from "@/types/api";
 
-// ── Static insights (no API endpoint) ─────────────────────────────────────────
-const STATIC_INSIGHTS = [
-  {
-    type: "verified" as const,
-    text: "Product leadership stories increase interview rate by ",
-    highlight: "18%",
-    meta: "Verified · High Confidence",
-  },
-  {
-    type: "strong" as const,
-    text: "AI projects outperform analytics-only projects in ",
-    highlight: "tech roles",
-    meta: "Strong Inference · Medium Confidence",
-  },
-  {
-    type: "weak" as const,
-    text: "Compliance experience highly valued in ",
-    highlight: "fintech roles",
-    meta: "Strong Inference · Medium Confidence",
-  },
-];
-
-const INSIGHT_STYLES: Record<string, { card: string; border: string; icon: string; highlight: string }> = {
-  verified: {
-    card: "rounded-xl bg-[#32d583]/5 border-l-2 border-[#32d583] flex p-3 items-start gap-3",
-    border: "",
-    icon: "text-[#32d583]",
-    highlight: "font-bold text-[#32d583]",
-  },
-  strong: {
-    card: "rounded-xl bg-neutral-200/5 border-l-2 border-neutral-200 flex p-3 items-start gap-3",
-    border: "",
-    icon: "text-neutral-200",
-    highlight: "font-bold text-neutral-200",
-  },
-  weak: {
-    card: "rounded-xl bg-[#ffb547]/5 border-l-2 border-[#ffb547] flex p-3 items-start gap-3",
-    border: "",
-    icon: "text-[#ffb547]",
-    highlight: "font-bold text-[#ffb547]",
-  },
-};
-
 // ── Rank badge styles ─────────────────────────────────────────────────────────
 function rankBadgeClass(rank: number): string {
   if (rank === 1) return "size-6 font-bold rounded-lg bg-neutral-200/15 text-neutral-200 text-[11px] border border-neutral-200/25 flex justify-center items-center";
@@ -360,23 +317,11 @@ export default function LearningPage() {
                 Recent Learning Insights
               </h2>
             </div>
-            <div className="flex flex-col gap-3">
-              {STATIC_INSIGHTS.map((insight) => {
-                const styles = INSIGHT_STYLES[insight.type];
-                return (
-                  <div key={insight.meta} className={styles.card}>
-                    <Lightbulb className={`size-4 flex-shrink-0 ${styles.icon} mt-0.5`} />
-                    <div>
-                      <p className="leading-relaxed font-medium text-neutral-50 text-xs leading-4">
-                        {insight.text}
-                        <span className={styles.highlight}>{insight.highlight}</span>
-                      </p>
-                      <span className="text-[#a1a1a1] text-[10px]">{insight.meta}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <EmptyState
+              icon={Brain}
+              title="Insights coming soon"
+              description="Complete more sessions to unlock personalized coaching insights."
+            />
           </div>
 
           {/* Next Optimization Cycle */}
