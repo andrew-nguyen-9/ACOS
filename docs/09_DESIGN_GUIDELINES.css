@@ -1,0 +1,508 @@
+# /*
+
+ACOS TAHOE PRO DESIGN GUIDELINES
+Inspired by macOS Tahoe 26 Liquid Glass
+Optimized for Professional Productivity Apps
+============================================
+
+*/
+
+/* =====================================================
+CORE DESIGN PHILOSOPHY
+===================================================== */
+
+/*
+
+1. Content First
+   UI should disappear behind information.
+
+2. Liquid Materials
+   Surfaces feel translucent and adaptive.
+
+3. Layered Depth
+   Every surface exists on a depth plane.
+
+4. Spatial Hierarchy
+   Use elevation instead of borders.
+
+5. Typography Drives Hierarchy
+   Not color.
+
+6. Color Is Reserved For Meaning
+   Selection
+   Status
+   Confidence
+   Warnings
+
+7. Motion Is Functional
+   Never decorative.
+
+*/
+
+/* =====================================================
+TYPOGRAPHY
+===================================================== */
+
+:root {
+
+/* Primary System Fonts */
+
+--font-display:
+"SF Pro Display",
+Inter,
+sans-serif;
+
+--font-body:
+"SF Pro Text",
+Inter,
+sans-serif;
+
+--font-mono:
+"SF Mono",
+"JetBrains Mono",
+monospace;
+
+--font-editor:
+"IBM Plex Sans",
+Inter,
+sans-serif;
+}
+
+/* Large Page Titles */
+
+.display-xl {
+font-size: 56px;
+font-weight: 700;
+letter-spacing: -0.06em;
+}
+
+/* Window Titles */
+
+.display-lg {
+font-size: 40px;
+font-weight: 700;
+letter-spacing: -0.05em;
+}
+
+/* Section Titles */
+
+.heading-1 {
+font-size: 32px;
+font-weight: 700;
+letter-spacing: -0.04em;
+}
+
+.heading-2 {
+font-size: 24px;
+font-weight: 650;
+}
+
+.heading-3 {
+font-size: 18px;
+font-weight: 600;
+}
+
+.body {
+font-size: 14px;
+line-height: 1.65;
+}
+
+.caption {
+font-size: 12px;
+opacity: .75;
+}
+
+.mono {
+font-family: var(--font-mono);
+}
+
+/* =====================================================
+COLOR SYSTEM
+===================================================== */
+
+:root {
+
+/* Dark Tahoe */
+
+--bg-0: #090b0f;
+--bg-1: #11141a;
+--bg-2: #171b24;
+--bg-3: #202635;
+
+/* Liquid Layers */
+
+--glass-1: rgba(255,255,255,.03);
+--glass-2: rgba(255,255,255,.05);
+--glass-3: rgba(255,255,255,.08);
+--glass-4: rgba(255,255,255,.12);
+
+/* Text */
+
+--text-primary: #ffffff;
+--text-secondary: #c4cad3;
+--text-muted: #8c94a1;
+
+/* Apple System Colors */
+
+--blue: #007AFF;
+--purple: #AF52DE;
+--indigo: #5856D6;
+--teal: #5AC8FA;
+--green: #30D158;
+--orange: #FF9F0A;
+--red: #FF453A;
+
+/* Confidence */
+
+--verified: #30D158;
+--strong: #5AC8FA;
+--weak: #FF9F0A;
+}
+
+/* =====================================================
+LIQUID GLASS MATERIALS
+===================================================== */
+
+.material-thin {
+
+background:
+rgba(255,255,255,.04);
+
+backdrop-filter:
+blur(20px)
+saturate(180%);
+}
+
+.material-medium {
+
+background:
+rgba(255,255,255,.06);
+
+backdrop-filter:
+blur(35px)
+saturate(180%);
+}
+
+.material-thick {
+
+background:
+rgba(255,255,255,.08);
+
+backdrop-filter:
+blur(50px)
+saturate(200%);
+}
+
+.material-floating {
+
+background:
+linear-gradient(
+180deg,
+rgba(255,255,255,.10),
+rgba(255,255,255,.04)
+);
+
+backdrop-filter:
+blur(60px)
+saturate(220%);
+}
+
+/* =====================================================
+DEPTH SYSTEM
+===================================================== */
+
+.depth-1 {
+box-shadow:
+0 4px 12px rgba(0,0,0,.15);
+}
+
+.depth-2 {
+box-shadow:
+0 10px 30px rgba(0,0,0,.22);
+}
+
+.depth-3 {
+box-shadow:
+0 24px 60px rgba(0,0,0,.35);
+}
+
+.depth-4 {
+box-shadow:
+0 40px 100px rgba(0,0,0,.45);
+}
+
+/* =====================================================
+CORNER RADII
+===================================================== */
+
+:root {
+
+--radius-small: 12px;
+--radius-medium: 18px;
+--radius-large: 24px;
+--radius-xl: 32px;
+--radius-floating: 40px;
+}
+
+/* =====================================================
+SIDEBARS
+===================================================== */
+
+.sidebar {
+
+background:
+rgba(255,255,255,.03);
+
+backdrop-filter:
+blur(50px);
+
+width: 280px;
+
+border-right:
+1px solid rgba(255,255,255,.04);
+}
+
+/* =====================================================
+TOOLBARS
+===================================================== */
+
+.toolbar {
+
+height: 60px;
+
+background:
+rgba(255,255,255,.03);
+
+backdrop-filter:
+blur(50px);
+
+position: sticky;
+top: 0;
+}
+
+/* =====================================================
+GLASS CARDS
+===================================================== */
+
+.card {
+
+background:
+linear-gradient(
+180deg,
+rgba(255,255,255,.08),
+rgba(255,255,255,.04)
+);
+
+border-radius: 24px;
+
+border:
+1px solid rgba(255,255,255,.05);
+
+backdrop-filter:
+blur(40px);
+
+box-shadow:
+0 20px 60px rgba(0,0,0,.25);
+}
+
+/* =====================================================
+BUTTONS
+===================================================== */
+
+.button-primary {
+
+background:
+linear-gradient(
+180deg,
+#3f93ff,
+#007AFF
+);
+
+color: white;
+
+border: none;
+
+border-radius: 14px;
+
+height: 40px;
+
+padding:
+0 18px;
+}
+
+.button-glass {
+
+background:
+rgba(255,255,255,.06);
+
+backdrop-filter:
+blur(30px);
+
+border:
+1px solid rgba(255,255,255,.06);
+}
+
+/* =====================================================
+SEARCH
+===================================================== */
+
+.search {
+
+height: 44px;
+
+border-radius: 14px;
+
+background:
+rgba(255,255,255,.05);
+
+backdrop-filter:
+blur(25px);
+
+border:
+1px solid rgba(255,255,255,.06);
+}
+
+/* =====================================================
+KNOWLEDGE GRAPH NODES
+===================================================== */
+
+.graph-node {
+
+background:
+rgba(255,255,255,.08);
+
+backdrop-filter:
+blur(40px);
+
+border-radius:
+20px;
+
+border:
+1px solid rgba(255,255,255,.08);
+
+min-width: 180px;
+min-height: 90px;
+}
+
+/* =====================================================
+CONFIDENCE SYSTEM
+===================================================== */
+
+.badge-verified {
+background:
+rgba(48,209,88,.12);
+color:
+var(--verified);
+}
+
+.badge-strong {
+background:
+rgba(90,200,250,.12);
+color:
+var(--strong);
+}
+
+.badge-weak {
+background:
+rgba(255,159,10,.12);
+color:
+var(--weak);
+}
+
+/* =====================================================
+ACOS SPECIFIC COMPONENTS
+===================================================== */
+
+/* Interview Probability */
+
+.interview-score {
+
+font-size: 72px;
+
+font-weight: 700;
+
+background:
+linear-gradient(
+180deg,
+#ffffff,
+#9bc2ff
+);
+
+-webkit-background-clip: text;
+-webkit-text-fill-color: transparent;
+}
+
+/* ATS Match Ring */
+
+.ats-ring {
+
+background:
+conic-gradient(
+var(--blue) 0deg 310deg,
+rgba(255,255,255,.08) 310deg
+);
+}
+
+/* Evidence Traceability */
+
+.evidence-panel {
+
+background:
+rgba(255,255,255,.04);
+
+backdrop-filter:
+blur(50px);
+
+border-radius:
+24px;
+}
+
+/* AI Copilot */
+
+.copilot-window {
+
+background:
+linear-gradient(
+180deg,
+rgba(255,255,255,.08),
+rgba(255,255,255,.04)
+);
+
+backdrop-filter:
+blur(60px);
+
+border-radius:
+32px;
+}
+
+# /*
+
+FINAL RULES
+
+Avoid:
+
+* Hard black borders
+* Pure white backgrounds
+* Neon colors
+* Excessive gradients
+* Tiny typography
+* Dense tables without spacing
+
+Prefer:
+
+* Glass
+* Blur
+* Large typography
+* Floating panels
+* Spacious layouts
+* Adaptive color
+* Layered depth
+* Strong readability
+
+The goal is:
+"Apple Pro App"
+not
+"Dribbble Concept"
+==================
+
+*/
