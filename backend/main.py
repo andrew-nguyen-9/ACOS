@@ -8,6 +8,7 @@ from backend.config import get_settings
 from backend.database import init_db, seed_system_config, SessionLocal
 from backend.logging_config import configure_logging
 from backend.api.v1.routes.application import router as application_router
+from backend.api.v1.routes.copilot import router as copilot_router
 from backend.api.v1.routes.cover_letter import router as cover_letter_router
 from backend.api.v1.routes.health import router as health_router
 from backend.api.v1.routes.ingestion import router as ingestion_router
@@ -51,6 +52,7 @@ def create_app() -> FastAPI:
     app.include_router(questions_router, prefix="/api/v1")
     app.include_router(application_router, prefix="/api/v1")
     app.include_router(learning_router, prefix="/api/v1")
+    app.include_router(copilot_router, prefix="/api/v1")
 
     return app
 
