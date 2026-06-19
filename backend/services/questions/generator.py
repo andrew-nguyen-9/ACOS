@@ -121,7 +121,11 @@ class QuestionGenerator:
         if question is None:
             raise ValueError(f"Question not found: {question_id}")
         interpolated = _interpolate(question.question_template, variables)
-        evidence = self._selector.select(interpolated, {}, max_bullets=6)
+        try:
+            evidence = self._selector.select(interpolated, {}, max_bullets=6)
+        except Exception:
+            logger.warning("Evidence selection failed; proceeding with empty evidence")
+            evidence = []
         answer_text, evidence_ids, confidence = self._llm_generate_answer(
             interpolated, evidence, length_target
         )

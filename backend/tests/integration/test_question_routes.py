@@ -1,0 +1,117 @@
+from __future__ import annotations
+
+from unittest.mock import MagicMock, patch
+
+
+def test_generate_questions(client):
+    resp = client.post(
+        "/api/v1/questions/generate",
+        json={"job_description": "Python engineer needed", "company": "Acme", "position": "Engineer"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "questions" in data
+    assert isinstance(data["questions"], list)
+    assert len(data["questions"]) > 0
+    q = data["questions"][0]
+    assert "id" in q
+    assert "question_template" in q
+    assert "interpolated" in q
+    assert "category" in q
+
+
+def test_generate_answer(client):
+    # First generate a question
+    gen_resp = client.post(
+        "/api/v1/questions/generate",
+        json={"job_description": "Python engineer", "company": "Acme", "position": "Dev"},
+    )
+    q_id = gen_resp.json()["questions"][0]["id"]
+
+    resp = client.post(
+        f"/api/v1/questions/{q_id}/answer",
+        json={"variables": {"company": "Acme", "position": "Dev"}, "length_target": "short"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "answer_id" in data
+    assert "original_answer" in data
+    assert "confidence_level" in data
+    assert data["confidence_level"] in ("verified", "strong_inference", "weak_inference")
+    assert "requires_approval" in data
+
+
+def test_generate_answer_invalid_length(client):
+    gen_resp = client.post(
+        "/api/v1/questions/generate",
+        json={"job_description": "Dev role"},
+    )
+    q_id = gen_resp.json()["questions"][0]["id"]
+    resp = client.post(f"/api/v1/questions/{q_id}/answer", json={"length_target": "huge"})
+    assert resp.status_code == 422
+
+
+def test_generate_answer_question_not_found(client):
+    resp = client.post("/api/v1/questions/doesnotexist/answer", json={})
+    assert resp.status_code == 404
+
+
+def test_edit_answer(client):
+    gen_resp = client.post(
+        "/api/v1/questions/generate", json={"job_description": "Dev role"}
+    )
+    q_id = gen_resp.json()["questions"][0]["id"]
+    ans_resp = client.post(f"/api/v1/questions/{q_id}/answer", json={})
+    answer_id = ans_resp.json()["answer_id"]
+
+    edit_resp = client.patch(
+        f"/api/v1/questions/{q_id}/answers/{answer_id}",
+        json={"edited_text": "My refined answer", "diff_summary": "Improved tone"},
+    )
+    assert edit_resp.status_code == 200
+    assert edit_resp.json()["edited_answer"] == "My refined answer"
+
+
+def test_edit_answer_not_found(client):
+    resp = client.patch(
+        "/api/v1/questions/q1/answers/doesnotexist",
+        json={"edited_text": "text"},
+    )
+    assert resp.status_code == 404
+
+
+def test_list_questions_empty(client):
+    resp = client.get("/api/v1/questions")
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+def test_list_questions_after_generation(client):
+    client.post("/api/v1/questions/generate", json={"job_description": "Dev role"})
+    resp = client.get("/api/v1/questions")
+    assert resp.status_code == 200
+    assert len(resp.json()) > 0
+
+
+def test_list_questions_filter_by_category(client):
+    client.post("/api/v1/questions/generate", json={"job_description": "Dev role"})
+    resp = client.get("/api/v1/questions?category=behavioral")
+    assert resp.status_code == 200
+    for q in resp.json():
+        assert q["category"] == "behavioral"
+
+
+def test_list_answers_for_question(client):
+    gen_resp = client.post(
+        "/api/v1/questions/generate", json={"job_description": "Dev role"}
+    )
+    q_id = gen_resp.json()["questions"][0]["id"]
+    client.post(f"/api/v1/questions/{q_id}/answer", json={})
+    resp = client.get(f"/api/v1/questions/{q_id}/answers")
+    assert resp.status_code == 200
+    assert len(resp.json()) == 1
+
+
+def test_list_answers_question_not_found(client):
+    resp = client.get("/api/v1/questions/doesnotexist/answers")
+    assert resp.status_code == 404

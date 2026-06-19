@@ -11,6 +11,7 @@ from backend.api.v1.routes.application import router as application_router
 from backend.api.v1.routes.cover_letter import router as cover_letter_router
 from backend.api.v1.routes.health import router as health_router
 from backend.api.v1.routes.ingestion import router as ingestion_router
+from backend.api.v1.routes.questions import router as questions_router
 from backend.api.v1.routes.rag import router as rag_router
 from backend.api.v1.routes.resume import router as resume_router
 
@@ -46,6 +47,7 @@ def create_app() -> FastAPI:
     app.include_router(rag_router, prefix="/api/v1")
     app.include_router(resume_router, prefix="/api/v1")
     app.include_router(cover_letter_router, prefix="/api/v1")
+    app.include_router(questions_router, prefix="/api/v1")
     app.include_router(application_router, prefix="/api/v1")
 
     return app
