@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from backend.ingestion import security
 from backend.ingestion.entity_extractor import EntityExtractor
 from backend.ingestion.normalizer import normalize
+from backend.models.document import Document
 from backend.rag.indexer import RAGIndexer
 from backend.repositories.document import DocumentRepository
 from backend.services.knowledge_graph.service import KnowledgeGraphService
@@ -99,6 +100,8 @@ class IngestionPipeline:
             if "resume" in validated.name.lower()
             else "acos_experiences"
         )
+        # TODO(Phase 3): If this call succeeds but a later step raises, ChromaDB and SQLite diverge.
+        # Add a try/except that sets ingestion_status="failed" and logs the divergence before re-raising.
         self._indexer.index_document(
             collection,
             doc.id,
@@ -106,7 +109,7 @@ class IngestionPipeline:
             {
                 "document_id": doc.id,
                 "source_type": doc.source_type,
-                "confidence_level": "verified",
+                "confidence_level": "strong_inference",
             },
         )
 
@@ -114,7 +117,7 @@ class IngestionPipeline:
         self._session.flush()
         return doc.id
 
-    def _store_entities(self, doc, entities: dict) -> None:
+    def _store_entities(self, doc: Document, entities: dict) -> None:
         doc_node = self._kg.get_or_create_node(
             "document", doc.id, doc.filename, {}
         )

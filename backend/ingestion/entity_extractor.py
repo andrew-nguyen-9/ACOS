@@ -7,6 +7,8 @@ from pathlib import Path
 
 import yaml
 
+from backend.services.ollama_client import OllamaClient
+
 logger = logging.getLogger(__name__)
 
 _PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "extract_entities.yaml"
@@ -31,7 +33,7 @@ def _load_prompt() -> dict:
 
 
 class EntityExtractor:
-    def __init__(self, ollama_client) -> None:
+    def __init__(self, ollama_client: OllamaClient | None) -> None:
         self._ollama = ollama_client
         self._prompt = _load_prompt() if _PROMPT_PATH.exists() else {}
 
