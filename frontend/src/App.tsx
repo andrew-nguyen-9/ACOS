@@ -1,4 +1,5 @@
 import { Routes, Route } from "react-router-dom";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import AppShell from "@/layouts/AppShell";
 import Dashboard from "@/pages/Dashboard";
 import ResumePage from "@/pages/ResumePage";
@@ -12,18 +13,20 @@ import SettingsPage from "@/pages/SettingsPage";
 
 export default function App() {
   return (
-    <AppShell>
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/resumes" element={<ResumePage />} />
-        <Route path="/cover-letters" element={<CoverLetterPage />} />
-        <Route path="/ats" element={<AtsPage />} />
-        <Route path="/interview-prep" element={<InterviewPrepPage />} />
-        <Route path="/applications" element={<ApplicationsPage />} />
-        <Route path="/learning" element={<LearningPage />} />
-        <Route path="/copilot" element={<CopilotPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-      </Routes>
-    </AppShell>
+    <ErrorBoundary>
+      <AppShell>
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/resumes" element={<ResumePage />} />
+          <Route path="/cover-letters" element={<CoverLetterPage />} />
+          <Route path="/ats" element={<AtsPage />} />
+          <Route path="/interview-prep" element={<InterviewPrepPage />} />
+          <Route path="/applications" element={<ApplicationsPage />} />
+          <Route path="/learning" element={<LearningPage />} />
+          <Route path="/copilot" element={<CopilotPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+        </Routes>
+      </AppShell>
+    </ErrorBoundary>
   );
 }
