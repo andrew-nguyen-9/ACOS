@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.database import get_session
@@ -46,6 +47,8 @@ def record_outcome(
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
+    except IntegrityError:
+        raise HTTPException(status_code=422, detail="Invalid application_id: application not found")
 
 
 @router.get("/learning/rankings")

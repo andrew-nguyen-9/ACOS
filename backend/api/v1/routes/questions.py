@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.config import Settings, get_settings
@@ -89,6 +90,8 @@ def generate_answer(
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
+    except IntegrityError:
+        raise HTTPException(status_code=422, detail="Invalid application_id: application not found")
 
 
 @router.patch("/questions/{question_id}/answers/{answer_id}")

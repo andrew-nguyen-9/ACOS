@@ -47,9 +47,9 @@ class CopilotEngine:
         evidence = rag_result.get("evidence", [])
         citations = [
             {
-                "source": e["source"],
+                "source": e.get("source", ""),
                 "text": e.get("text", "")[:150],
-                "confidence": e["confidence"],
+                "confidence": e.get("confidence", "strong_inference"),
                 "similarity": e.get("similarity_score", 0.0),
             }
             for e in evidence[:5]
