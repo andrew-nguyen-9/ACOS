@@ -35,26 +35,28 @@ class GenerateRequest(BaseModel):
     application_id: str | None = None
 
 
-def _build_deps(settings: object) -> tuple[OllamaClient, PromptLoader, KeywordExtractor, ATSScorer, EvidenceSelector]:
+def _build_deps(settings: object, session: Session) -> tuple[ResumeGenerator, ResumeDOCXExporter]:
     ollama = OllamaClient(base_url=settings.ollama_base_url)  # type: ignore[union-attr]
-    loader = PromptLoader()
-    extractor = KeywordExtractor(ollama, loader)
-    scorer = ATSScorer(ollama, loader)
     embedder = Embedder(ollama, model=settings.embedding_model)  # type: ignore[union-attr]
     chroma = ChromaManager(path=settings.chroma_db_path)  # type: ignore[union-attr]
     retriever = RAGRetriever(chroma, embedder)
     reranker = Reranker()
+    loader = PromptLoader()
+    extractor = KeywordExtractor(ollama, loader)
+    scorer = ATSScorer(ollama, loader)
     selector = EvidenceSelector(retriever, reranker)
-    return ollama, loader, extractor, scorer, selector
+    gen = ResumeGenerator(selector, extractor, scorer, ollama, loader, session)
+    exporter = ResumeDOCXExporter()
+    return gen, exporter
 
 
 @router.post("/resume/analyze-ats")
-def analyze_ats(
-    body: ATSRequest,
-    session: Session = Depends(get_session),
-) -> dict[str, object]:
+def analyze_ats(body: ATSRequest) -> dict[str, object]:
     settings = get_settings()
-    ollama, loader, extractor, scorer, _ = _build_deps(settings)
+    ollama = OllamaClient(base_url=settings.ollama_base_url)  # type: ignore[union-attr]
+    loader = PromptLoader()
+    extractor = KeywordExtractor(ollama, loader)
+    scorer = ATSScorer(ollama, loader)
     keywords = extractor.extract(body.job_description)
     score = scorer.score(body.resume_text, body.job_description, keywords)
     return {"keywords": keywords, "ats_score": score}
@@ -71,8 +73,7 @@ def generate_resume(
             detail=f"Invalid template: '{body.template_name}'. Valid options: {TEMPLATE_NAMES}",
         )
     settings = get_settings()
-    ollama, loader, extractor, scorer, selector = _build_deps(settings)
-    gen = ResumeGenerator(selector, extractor, scorer, ollama, loader, session)
+    gen, _ = _build_deps(settings, session)
     return gen.generate(body.job_description, body.template_name, body.application_id)
 
 
@@ -87,10 +88,8 @@ def generate_resume_docx(
             detail=f"Invalid template: '{body.template_name}'. Valid options: {TEMPLATE_NAMES}",
         )
     settings = get_settings()
-    ollama, loader, extractor, scorer, selector = _build_deps(settings)
-    gen = ResumeGenerator(selector, extractor, scorer, ollama, loader, session)
+    gen, exporter = _build_deps(settings, session)
     result = gen.generate(body.job_description, body.template_name, body.application_id)
-    exporter = ResumeDOCXExporter()
     docx_bytes = exporter.export(result["content_json"], body.template_name)
     return Response(
         content=docx_bytes,

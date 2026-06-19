@@ -60,9 +60,8 @@ def test_generate_resume_returns_structure(client: TestClient) -> None:
 
     assert response.status_code == 200
     data = response.json()
-    assert "resume_id" in data
-    assert "ats_score" in data
-    assert "requires_approval" in data
+    for key in ["resume_id", "ats_score", "requires_approval", "content_json", "weak_inference_count"]:
+        assert key in data
 
 
 def test_generate_resume_invalid_template(client: TestClient) -> None:
@@ -75,3 +74,33 @@ def test_generate_resume_invalid_template(client: TestClient) -> None:
         },
     )
     assert response.status_code == 422
+
+
+def test_generate_resume_download_returns_docx(client: TestClient) -> None:
+    """POST /api/v1/resume/generate/download returns 200 with DOCX content-type.
+
+    OllamaClient is patched to offline; RAGRetriever and Reranker return empty
+    lists so EvidenceSelector yields no bullets and the fallback path runs.
+    """
+    mock_ollama = MagicMock()
+    mock_ollama.is_available.return_value = False
+
+    mock_retriever = MagicMock()
+    mock_retriever.retrieve.return_value = []
+
+    mock_reranker = MagicMock()
+    mock_reranker.rerank.return_value = []
+
+    with patch("backend.api.v1.routes.resume.OllamaClient", return_value=mock_ollama), \
+         patch("backend.api.v1.routes.resume.RAGRetriever", return_value=mock_retriever), \
+         patch("backend.api.v1.routes.resume.Reranker", return_value=mock_reranker):
+        response = client.post(
+            "/api/v1/resume/generate/download",
+            json={
+                "job_description": "Python data engineer role",
+                "template_name": "software",
+            },
+        )
+
+    assert response.status_code == 200
+    assert "wordprocessingml" in response.headers["content-type"]

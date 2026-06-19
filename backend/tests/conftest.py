@@ -10,7 +10,7 @@ from sqlalchemy.orm import sessionmaker, Session
 
 import backend.models  # noqa: F401 — registers all models
 from backend.models.base import Base
-from backend.database import get_session, build_engine
+from backend.database import get_session
 from backend.main import create_app
 
 
