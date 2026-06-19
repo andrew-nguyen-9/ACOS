@@ -41,8 +41,8 @@ def test_timing_middleware_sets_header_and_logs(caplog):
     with caplog.at_level(logging.INFO, logger="acos.perf"):
         r = c.get("/ping")
     assert r.status_code == 200
-    assert "X-Process-Time-Ms" in r.headers
-    assert float(r.headers["X-Process-Time-Ms"]) >= 0.0
+    assert "X-Response-Time" in r.headers
+    assert float(r.headers["X-Response-Time"]) >= 0.0
     perf = [rec.getMessage() for rec in caplog.records if rec.name == "acos.perf"]
     assert any("path=/ping" in m and "status=200" in m and "ms=" in m for m in perf)
 
@@ -58,7 +58,7 @@ def test_timing_middleware_header_format(caplog):
 
     c = TestClient(app)
     r = c.get("/check")
-    header_val = r.headers["X-Process-Time-Ms"]
+    header_val = r.headers["X-Response-Time"]
     # Must be parseable as float and have 2 decimal places
     assert "." in header_val
     parts = header_val.split(".")
