@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -138,8 +139,10 @@ class CoverLetterGenerator:
         for e in evidence[:3]:
             bullet = e.get("bullet_text", "")
             title = e.get("title", "a professional")
+            # Strip action verbs from start of bullet (led, built, improved, designed, managed, etc.)
+            stripped = re.sub(r'^(led|built|improved|designed|managed|created|developed|implemented)\s+', '', bullet.lower(), flags=re.IGNORECASE)
             lines.append(
-                f"In my previous role as {title}, I {bullet.lower().lstrip('abcdefghijklmnopqrstuvwxyz ')}."
+                f"In my previous role as {title}, I {stripped}."
             )
         lines += [
             "",
