@@ -5,6 +5,7 @@ import {
 import { GlassCard } from "@/components/ui/GlassCard";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { ConfidenceBadge } from "@/components/ui/ConfidenceBadge";
+import { EvidencePanel, type EvidenceItem } from "@/components/shared/EvidencePanel";
 import { resumeService } from "@/services/resume";
 import type { ResumeGenerateResponse } from "@/types/api";
 
@@ -68,7 +69,7 @@ export default function ResumePage() {
         )}
       </div>
 
-      <div className="grid grid-cols-[1fr_1fr] gap-6 flex-1">
+      <div className="grid grid-cols-[1fr_1fr_280px] gap-6 flex-1">
         <div className="flex flex-col gap-4">
           <GlassCard className="p-5">
             <label className="block text-sm font-medium text-neutral-200 mb-3">Template</label>
@@ -199,6 +200,22 @@ export default function ResumePage() {
               )}
             </>
           )}
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <EvidencePanel
+            items={
+              result
+                ? result.content_json.experiences.flatMap((exp) =>
+                    exp.bullets.map((b): EvidenceItem => ({
+                      id: b.evidence_id,
+                      text: b.text,
+                      confidence: b.confidence,
+                    }))
+                  )
+                : []
+            }
+          />
         </div>
       </div>
     </div>

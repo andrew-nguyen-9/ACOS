@@ -3,6 +3,7 @@ import { Mail, RefreshCw, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { ConfidenceBadge } from "@/components/ui/ConfidenceBadge";
+import { EvidencePanel, type EvidenceItem } from "@/components/shared/EvidencePanel";
 import { coverLetterService } from "@/services/coverLetter";
 
 interface Result {
@@ -39,7 +40,7 @@ export default function CoverLetterPage() {
         <p className="text-[#a1a1a1] text-sm mt-1">Tailored to the job — grounded in your evidence</p>
       </div>
 
-      <div className="grid grid-cols-[1fr_1fr] gap-6 flex-1">
+      <div className="grid grid-cols-[1fr_1fr_240px] gap-6 flex-1">
         <GlassCard className="p-5 flex flex-col">
           <label className="block text-sm font-medium text-neutral-200 mb-3">Job Description</label>
           <textarea
@@ -93,6 +94,19 @@ export default function CoverLetterPage() {
               </div>
             </GlassCard>
           )}
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <EvidencePanel
+            title="Confidence Summary"
+            items={
+              result
+                ? result.requires_approval
+                  ? [{ id: "ai-output", text: "Output contains weak inferences requiring review", confidence: "weak_inference" } satisfies EvidenceItem]
+                  : [{ id: "ai-output", text: "Output grounded in profile evidence", confidence: "strong_inference" } satisfies EvidenceItem]
+                : []
+            }
+          />
         </div>
       </div>
     </div>

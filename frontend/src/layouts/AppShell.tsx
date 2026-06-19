@@ -1,8 +1,8 @@
-import { type ReactNode } from "react";
+import { type ReactNode, useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard, FileText, Mail, BarChart3, MessageSquareMore,
-  Briefcase, Sparkles, Bot, Settings, BriefcaseBusiness,
+  Briefcase, Sparkles, Bot, Settings, BriefcaseBusiness, AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +19,32 @@ const NAV_ITEMS = [
 ];
 
 export default function AppShell({ children }: { children: ReactNode }) {
+  const [degraded, setDegraded] = useState<{ degraded: boolean; message: string } | null>(null);
+
+  useEffect(() => {
+    const check = async () => {
+      try {
+        const res = await fetch("http://localhost:8000/api/v1/health/ollama");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.degraded) {
+            const msg = !data.available
+              ? "AI engine offline — Ollama is not reachable. Outputs fall back to templates."
+              : `AI degraded — missing model(s): ${data.missing_models.join(", ")}`;
+            setDegraded({ degraded: true, message: msg });
+          } else {
+            setDegraded({ degraded: false, message: "" });
+          }
+        }
+      } catch {
+        setDegraded({ degraded: true, message: "AI engine offline — backend unreachable." });
+      }
+    };
+    check();
+    const id = setInterval(check, 15_000);
+    return () => clearInterval(id);
+  }, []);
+
   return (
     <div className="bg-neutral-950 text-neutral-50 min-h-screen w-screen overflow-hidden">
       <div className="bg-[#4c8dff]/[0.18] flex p-8 h-screen overflow-hidden">
@@ -62,7 +88,15 @@ export default function AppShell({ children }: { children: ReactNode }) {
               ))}
             </nav>
           </aside>
-          <main className="flex-1 overflow-auto">{children}</main>
+          <main className="flex-1 overflow-auto flex flex-col">
+            {degraded?.degraded && (
+              <div className="flex items-center gap-2 px-6 py-2 bg-[#FF9F0A]/10 border-b border-[#FF9F0A]/20 text-[#FF9F0A] text-xs flex-shrink-0">
+                <AlertTriangle className="size-3.5 flex-shrink-0" />
+                {degraded.message}
+              </div>
+            )}
+            <div className="flex-1 overflow-auto">{children}</div>
+          </main>
         </div>
       </div>
     </div>
