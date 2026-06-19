@@ -99,3 +99,25 @@ def test_generate_offline_returns_text(mock_selector, mock_voice, mock_loader):
     result = gen.generate("Role", "Co", "Title", "medium")
     assert isinstance(result["text"], str)
     assert len(result["text"]) > 0
+
+
+def test_generate_weak_inference_sets_approval(mock_voice, mock_loader, mock_ollama):
+    sel = MagicMock()
+    sel.select.return_value = [
+        {"bullet_text": "Possibly managed a team", "evidence_id": "w1",
+         "experience_id": "exp1", "company": "Corp", "title": "Manager",
+         "dates": "2020–2021", "confidence": "weak_inference"}
+    ]
+    gen = CoverLetterGenerator(sel, mock_voice, mock_ollama, mock_loader)
+    result = gen.generate("Management role", "Corp", "Manager", "medium")
+    assert result["requires_approval"] is True
+
+
+def test_generate_llm_exception_falls_back(mock_selector, mock_voice, mock_loader):
+    failing_ollama = MagicMock()
+    failing_ollama.is_available.return_value = True
+    failing_ollama.generate.side_effect = RuntimeError("connection refused")
+    gen = CoverLetterGenerator(mock_selector, mock_voice, failing_ollama, mock_loader)
+    result = gen.generate("Python role", "Co", "Dev", "medium")
+    assert isinstance(result["text"], str)
+    assert len(result["text"]) > 0

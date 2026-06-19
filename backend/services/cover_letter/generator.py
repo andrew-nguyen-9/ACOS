@@ -139,7 +139,7 @@ class CoverLetterGenerator:
             bullet = e.get("bullet_text", "")
             title = e.get("title", "a professional")
             lines.append(
-                f"In my previous role as {title}, I {bullet.lower().lstrip('abcdefghijklmnopqrstuvwxyz '[:0])}."
+                f"In my previous role as {title}, I {bullet.lower().lstrip('abcdefghijklmnopqrstuvwxyz ')}."
             )
         lines += [
             "",
