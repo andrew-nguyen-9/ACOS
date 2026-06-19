@@ -4,6 +4,8 @@ import pytest
 from backend.repositories.question import QuestionRepository, AnswerRepository
 from backend.repositories.outcome import OutcomeSignalRepository
 from backend.repositories.application import ApplicationRepository
+from backend.repositories.base import BaseRepository
+from backend.models.resume import Resume
 
 
 def _make_question(session, template="Tell me about {{company}}.", category="behavioral"):
@@ -20,6 +22,11 @@ def _make_question(session, template="Tell me about {{company}}.", category="beh
 def _make_app(session):
     repo = ApplicationRepository(session)
     return repo.create(company="Acme", position="Engineer")
+
+
+def _make_resume(session):
+    repo = BaseRepository(Resume, session)
+    return repo.create(name="Test Resume", content_json={})
 
 
 def test_question_repo_get_by_category(test_session):
@@ -82,6 +89,7 @@ def test_answer_repo_get_latest(test_session):
     )
     latest = a_repo.get_latest(q.id)
     assert latest is not None
+    assert latest.original_answer in ("First", "Second")
 
 
 def test_answer_repo_get_latest_no_answers(test_session):
@@ -108,3 +116,14 @@ def test_outcome_signal_repo_get_by_signal_type(test_session):
     offers = repo.get_by_signal_type("offer")
     assert len(offers) == 1
     assert offers[0].signal_type == "offer"
+
+
+def test_outcome_signal_repo_get_by_resume(test_session):
+    app = _make_app(test_session)
+    resume = _make_resume(test_session)
+    repo = OutcomeSignalRepository(test_session)
+    repo.create(application_id=app.id, resume_id=resume.id, signal_type="offer", signal_weight=1.0)
+    repo.create(application_id=app.id, signal_type="rejected", signal_weight=0.1)  # no resume_id
+    results = repo.get_by_resume(resume.id)
+    assert len(results) == 1
+    assert results[0].resume_id == resume.id
