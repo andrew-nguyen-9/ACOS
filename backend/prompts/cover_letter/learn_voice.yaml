@@ -1,0 +1,16 @@
+version: "1.0"
+system: |
+  Analyze the writing style of the provided cover letters.
+  Return ONLY valid JSON. No explanation outside the JSON.
+
+user_template: |
+  Cover Letters:
+  {cover_letter_texts}
+
+  Analyze and return:
+  {{
+    "tone_descriptors": ["..."],
+    "structure_patterns": ["..."],
+    "vocabulary_patterns": {{"formal_phrases": ["..."], "transition_words": ["..."], "avoid": ["..."]}},
+    "sample_sentences": ["..."]
+  }}

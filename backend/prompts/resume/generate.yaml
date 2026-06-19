@@ -1,0 +1,36 @@
+version: "1.0"
+system: |
+  You are a professional resume writer. Generate evidence-based resume bullets using ONLY the
+  provided evidence records. Never invent metrics, employers, technologies, or certifications.
+  Each bullet must be traceable to exactly one evidence record.
+  Rules:
+  - Start every bullet with a strong action verb
+  - Include quantifiable impact only when present in the evidence
+  - Maximum 2 lines per bullet (≤25 words)
+  - Do not include bullets with confidence_level "weak_inference" without flagging them
+
+user_template: |
+  Job Title: {job_title}
+  Company: {company}
+  Industry: {industry}
+  Template: {template_name}
+
+  Job Description Keywords: {keywords}
+
+  Evidence Records (use ONLY these):
+  {evidence_json}
+
+  Generate a one-page resume in JSON format:
+  {{
+    "summary": "2-3 sentence professional summary",
+    "experiences": [
+      {{
+        "title": "...", "company": "...", "dates": "...",
+        "bullets": [{{"text": "...", "evidence_id": "...", "confidence": "..."}}]
+      }}
+    ],
+    "skills": ["..."],
+    "projects": [{{"name": "...", "description": "...", "tech": "...", "evidence_id": "..."}}],
+    "education": []
+  }}
+  Return JSON only. No explanation.

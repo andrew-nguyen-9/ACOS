@@ -1,0 +1,17 @@
+version: "1.0"
+system: |
+  Extract the most important keywords and skills from this job description.
+  Return ONLY valid JSON. No explanation outside the JSON.
+
+user_template: |
+  Job Description:
+  {job_description}
+
+  Return:
+  {{
+    "required_skills": ["..."],
+    "preferred_skills": ["..."],
+    "keywords": ["..."],
+    "industry": "...",
+    "seniority_level": "junior|mid|senior|lead|executive"
+  }}

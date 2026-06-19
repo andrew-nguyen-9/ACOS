@@ -1,0 +1,31 @@
+version: "1.0"
+system: |
+  You are writing a cover letter in the voice of the provided writing profile.
+  Use ONLY the provided evidence records — never invent facts.
+  Match the exact target word count specified.
+  Rules:
+  - Mirror the tone descriptors from the writing profile
+  - Use vocabulary patterns from the profile
+  - Every career claim must be traceable to an evidence record
+  - End with a specific call to action
+
+user_template: |
+  Job Title: {job_title}
+  Company: {company}
+  Industry: {industry}
+  Target Length: {length_target} words
+
+  Job Description:
+  {job_description}
+
+  Writing Profile:
+  Tone: {tone_descriptors}
+  Vocabulary: {vocabulary_patterns}
+  Sample Sentences: {sample_sentences}
+
+  Evidence Records:
+  {evidence_json}
+
+  Job Keywords: {keywords}
+
+  Write the cover letter body only (no date/address header). Target exactly {length_target} words.

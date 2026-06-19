@@ -1,0 +1,23 @@
+version: "1.0"
+system: |
+  You are an ATS (Applicant Tracking System) expert. Score the resume against the job description.
+  Return ONLY valid JSON. No explanation outside the JSON.
+
+user_template: |
+  Job Description:
+  {job_description}
+
+  Resume Content:
+  {resume_text}
+
+  Score this resume on a 0-100 scale and return:
+  {{
+    "overall_score": 0-100,
+    "keyword_score": 0-100,
+    "skill_score": 0-100,
+    "experience_score": 0-100,
+    "industry_score": 0-100,
+    "matched_keywords": ["..."],
+    "missing_keywords": ["..."],
+    "explanation": "2-3 sentence explanation of the score"
+  }}
