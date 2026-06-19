@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 
+from backend.observability import log_operation
+
 logger = logging.getLogger(__name__)
 
 _INTENT_COLLECTIONS: dict[str, list[str]] = {
@@ -49,6 +51,7 @@ class RAGService:
         ]
 
         conf_summary = self._summarize_confidence(ranked)
+        log_operation("rag_retrieve", intent=intent, evidence=len(evidence))
 
         if not self._ollama or not self._ollama.is_available():
             return {

@@ -7,6 +7,7 @@ from typing import Any
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from backend.observability import log_operation
 from backend.repositories.resume import ResumeRepository
 from backend.services.resume.templates import get_template
 
@@ -87,13 +88,24 @@ class ResumeGenerator:
         except IntegrityError as exc:
             raise ValueError(f"Invalid application_id: {application_id}") from exc
 
-        return {
+        result = {
             "resume_id": resume.id,
             "content_json": content_json,
             "ats_score": ats_score,
             "weak_inference_count": weak_count,
             "requires_approval": weak_count > 0,
         }
+        bullet_count = sum(
+            len(exp.get("bullets", [])) for exp in content_json.get("experiences", [])
+        )
+        log_operation(
+            "resume_generate",
+            resume_id=resume.id,
+            template=template_name,
+            bullets=bullet_count,
+            weak=weak_count,
+        )
+        return result
 
     # ------------------------------------------------------------------
     # Internal helpers

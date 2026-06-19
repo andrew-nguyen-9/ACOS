@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.database import get_session
+from backend.observability import log_operation
 from backend.repositories.application import ApplicationRepository
 
 router = APIRouter(tags=["applications"])
@@ -72,6 +73,12 @@ def create_application(
         recruiter_name=body.recruiter_name,
         recruiter_email=body.recruiter_email,
         notes=body.notes,
+    )
+    log_operation(
+        "application_event",
+        application_id=app.id,
+        event="created",
+        status=app.status,
     )
     return {
         "id": app.id,
@@ -143,6 +150,12 @@ def update_status(
     app = repo.transition_status(application_id, body.status)
     if app is None:
         raise HTTPException(status_code=404, detail="Application not found")
+    log_operation(
+        "application_event",
+        application_id=app.id,
+        event="status_change",
+        status=app.status,
+    )
     return {"id": app.id, "status": app.status}
 
 

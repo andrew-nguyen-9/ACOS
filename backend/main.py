@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.api.errors import install_error_handlers
+from backend.observability import TimingMiddleware
 from backend.config import get_settings
 from backend.database import init_db, seed_system_config, SessionLocal
 from backend.logging_config import configure_logging
@@ -39,6 +40,7 @@ def create_app() -> FastAPI:
     )
 
     install_error_handlers(app)
+    app.add_middleware(TimingMiddleware)
 
     app.add_middleware(
         CORSMiddleware,
