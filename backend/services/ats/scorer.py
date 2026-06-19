@@ -4,6 +4,7 @@ import json
 import logging
 import re
 from collections.abc import Mapping
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,8 @@ def _clamp(value: int | float) -> int:
 
 
 class ATSScorer:
-    def __init__(self, ollama_client: object, prompt_loader: object) -> None:
+    # ollama_client and prompt_loader are duck-typed; Any avoids Protocol overhead
+    def __init__(self, ollama_client: Any, prompt_loader: Any) -> None:
         self._ollama = ollama_client
         self._loader = prompt_loader
 
@@ -34,18 +36,18 @@ class ATSScorer:
         job_description: str,
         keywords: Mapping[str, object],
     ) -> dict[str, object]:
-        if self._ollama and self._ollama.is_available():  # type: ignore[union-attr]
+        if self._ollama and self._ollama.is_available():
             return self._llm_score(resume_text, job_description)
         return self._keyword_score(resume_text, keywords)
 
     def _llm_score(self, resume_text: str, job_description: str) -> dict[str, object]:
         try:
-            prompt_data = self._loader.load("resume/score_ats")  # type: ignore[union-attr]
+            prompt_data = self._loader.load("resume/score_ats")
             user = prompt_data["user_template"].format(
                 job_description=job_description[:3000],
                 resume_text=resume_text[:3000],
             )
-            raw = self._ollama.generate(  # type: ignore[union-attr]
+            raw = self._ollama.generate(
                 model=None,
                 prompt=user,
                 temperature=0.1,
@@ -70,8 +72,8 @@ class ATSScorer:
             return dict(_DEFAULT_RESULT) | {"explanation": str(exc)}
 
     def _keyword_score(self, resume_text: str, keywords: Mapping[str, object]) -> dict[str, object]:
-        required: list[str] = keywords.get("required_skills", [])  # type: ignore[assignment]
-        all_kw_raw: list[str] = keywords.get("keywords", [])  # type: ignore[assignment]
+        required = cast(list[str], keywords.get("required_skills", []))
+        all_kw_raw = cast(list[str], keywords.get("keywords", []))
         all_kw = [k.lower() for k in required] + [k.lower() for k in all_kw_raw]
         resume_lower = resume_text.lower()
         matched = [k for k in all_kw if re.search(r"\b" + re.escape(k) + r"\b", resume_lower)]
