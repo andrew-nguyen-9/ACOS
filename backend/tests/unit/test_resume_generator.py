@@ -55,7 +55,6 @@ def mock_ollama():
     client = MagicMock()
     client.is_available.return_value = True
     client.generate.return_value = json.dumps({
-        "summary": "Senior Data Engineer with Python expertise.",
         "experiences": [{"title": "Data Engineer", "company": "Acme Corp", "dates": "2022–2024",
                          "bullets": [{"text": "Built Python ETL pipeline", "evidence_id": "b1", "confidence": "verified"}]}],
         "skills": ["Python", "ETL", "SQL"],

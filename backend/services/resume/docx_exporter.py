@@ -26,7 +26,6 @@ class ResumeDOCXExporter:
         try:
             doc = Document()  # type: ignore[operator]
             self._set_margins(doc)
-            self._add_summary(doc, content_json.get("summary", ""))
             self._add_experiences(doc, content_json.get("experiences", []))
             self._add_skills(doc, content_json.get("skills", []))
             self._add_projects(doc, content_json.get("projects", []))
@@ -48,13 +47,6 @@ class ResumeDOCXExporter:
             section.bottom_margin = Pt(36)
             section.left_margin = Pt(54)
             section.right_margin = Pt(54)
-
-    def _add_summary(self, doc: object, summary: str) -> None:
-        """Add summary section if provided."""
-        if not summary:
-            return
-        doc.add_heading("Summary", level=2)  # type: ignore[attr-defined]
-        doc.add_paragraph(summary)  # type: ignore[attr-defined]
 
     def _add_experiences(self, doc: object, experiences: list[dict]) -> None:
         """Add experiences section with title, company, dates, and bullets."""

@@ -6,7 +6,7 @@ RESUME_TEMPLATES: dict[str, dict] = {
     "software": {
         "layout": "single_column",
         "bullet_style": "action_impact",
-        "sections": ["summary", "experience", "skills", "projects", "education"],
+        "sections": ["experience", "skills", "projects", "education"],
         "skills_position": "after_experience",
         "max_experience_bullets": 4,
         "emphasis": "technical_depth",
@@ -14,7 +14,7 @@ RESUME_TEMPLATES: dict[str, dict] = {
     "ai": {
         "layout": "single_column",
         "bullet_style": "action_impact",
-        "sections": ["summary", "experience", "projects", "skills", "education"],
+        "sections": ["experience", "projects", "skills", "education"],
         "skills_position": "after_projects",
         "max_experience_bullets": 3,
         "emphasis": "research_and_systems",
@@ -22,7 +22,7 @@ RESUME_TEMPLATES: dict[str, dict] = {
     "product": {
         "layout": "single_column",
         "bullet_style": "metrics_first",
-        "sections": ["summary", "experience", "skills", "education"],
+        "sections": ["experience", "skills", "education"],
         "skills_position": "end",
         "max_experience_bullets": 4,
         "emphasis": "stakeholder_impact",
@@ -30,7 +30,7 @@ RESUME_TEMPLATES: dict[str, dict] = {
     "consulting": {
         "layout": "single_column",
         "bullet_style": "star",
-        "sections": ["summary", "experience", "education", "skills"],
+        "sections": ["experience", "education", "skills"],
         "skills_position": "end",
         "max_experience_bullets": 4,
         "emphasis": "client_outcomes",
@@ -38,7 +38,7 @@ RESUME_TEMPLATES: dict[str, dict] = {
     "data_analytics": {
         "layout": "single_column",
         "bullet_style": "action_impact",
-        "sections": ["summary", "experience", "skills", "projects", "education"],
+        "sections": ["experience", "skills", "projects", "education"],
         "skills_position": "after_experience",
         "max_experience_bullets": 4,
         "emphasis": "data_tools_and_business_impact",
@@ -46,7 +46,7 @@ RESUME_TEMPLATES: dict[str, dict] = {
     "healthcare": {
         "layout": "single_column",
         "bullet_style": "action_impact",
-        "sections": ["summary", "experience", "education", "certifications", "skills"],
+        "sections": ["experience", "education", "certifications", "skills"],
         "skills_position": "end",
         "max_experience_bullets": 4,
         "emphasis": "clinical_and_compliance",

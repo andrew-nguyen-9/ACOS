@@ -180,7 +180,6 @@ class ResumeGenerator:
                 }
             )
         return {
-            "summary": "",
             "experiences": list(by_exp.values()),
             "skills": [],
             "projects": [],
@@ -188,7 +187,7 @@ class ResumeGenerator:
         }
 
     def _content_to_text(self, content_json: dict) -> str:
-        parts: list[str] = [content_json.get("summary", "")]
+        parts: list[str] = []
         for exp in content_json.get("experiences", []):
             parts.append(f"{exp.get('title', '')} at {exp.get('company', '')}")
             for bullet in exp.get("bullets", []):
