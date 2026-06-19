@@ -1,10 +1,6 @@
 from __future__ import annotations
 
-import logging
-
 from backend.services.rag.service import RAGService
-
-logger = logging.getLogger(__name__)
 
 _INTENT_KEYWORDS: dict[str, list[str]] = {
     "resume_help": ["resume", "cv", "bullet", "template", "one-page", "tailor"],
@@ -52,14 +48,14 @@ class CopilotEngine:
         citations = [
             {
                 "source": e["source"],
-                "text": e["text"][:150],
+                "text": e.get("text", "")[:150],
                 "confidence": e["confidence"],
                 "similarity": e.get("similarity_score", 0.0),
             }
             for e in evidence[:5]
         ]
         return {
-            "response": rag_result["response"],
+            "response": rag_result.get("response", ""),
             "intent": intent,
             "confidence": rag_result.get("confidence_summary", "no_evidence"),
             "citations": citations,
