@@ -33,3 +33,16 @@ def compute_checksum(path: Path) -> str:
         for chunk in iter(lambda: f.read(65536), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+def sanitize_filename(name: str | None) -> str:
+    """Return only the basename of *name*, replacing dangerous values with 'upload'.
+
+    Strips all path separators so callers cannot traverse outside a temp dir.
+    """
+    if not name:
+        return "upload"
+    base = Path(name).name
+    if not base or base in (".", ".."):
+        return "upload"
+    return base

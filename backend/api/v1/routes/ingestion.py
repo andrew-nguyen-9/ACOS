@@ -38,12 +38,9 @@ def ingest_file(
         )
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        # Sanitize filename — take only the basename, strip path separators
-        safe_name = Path(file.filename or "upload").name
-        if not safe_name or safe_name in (".", ".."):
-            safe_name = "upload"
+        from backend.ingestion.security import sanitize_filename
+        safe_name = sanitize_filename(file.filename)
         dest = (Path(tmpdir) / safe_name).resolve()
-        # Verify dest is inside tmpdir
         if not str(dest).startswith(str(Path(tmpdir).resolve()) + os.sep):
             raise HTTPException(status_code=400, detail="Invalid filename")
         with dest.open("wb") as f:
