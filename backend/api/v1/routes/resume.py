@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from backend.config import get_settings
+from backend.config import Settings, get_settings
 from backend.database import get_session
 from backend.rag.chroma_client import ChromaManager
 from backend.rag.embedder import Embedder
@@ -35,10 +35,10 @@ class GenerateRequest(BaseModel):
     application_id: str | None = None
 
 
-def _build_deps(settings: object, session: Session) -> tuple[ResumeGenerator, ResumeDOCXExporter]:
-    ollama = OllamaClient(base_url=settings.ollama_base_url)  # type: ignore[union-attr]
-    embedder = Embedder(ollama, model=settings.embedding_model)  # type: ignore[union-attr]
-    chroma = ChromaManager(path=settings.chroma_db_path)  # type: ignore[union-attr]
+def _build_deps(settings: Settings, session: Session) -> tuple[ResumeGenerator, ResumeDOCXExporter]:
+    ollama = OllamaClient(base_url=settings.ollama_base_url)
+    embedder = Embedder(ollama, model=settings.embedding_model)
+    chroma = ChromaManager(path=settings.chroma_db_path)
     retriever = RAGRetriever(chroma, embedder)
     reranker = Reranker()
     loader = PromptLoader()
@@ -74,7 +74,10 @@ def generate_resume(
         )
     settings = get_settings()
     gen, _ = _build_deps(settings, session)
-    return gen.generate(body.job_description, body.template_name, body.application_id)
+    try:
+        return gen.generate(body.job_description, body.template_name, body.application_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
 
 
 @router.post("/resume/generate/download")
@@ -89,7 +92,10 @@ def generate_resume_docx(
         )
     settings = get_settings()
     gen, exporter = _build_deps(settings, session)
-    result = gen.generate(body.job_description, body.template_name, body.application_id)
+    try:
+        result = gen.generate(body.job_description, body.template_name, body.application_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
     docx_bytes = exporter.export(result["content_json"], body.template_name)
     return Response(
         content=docx_bytes,

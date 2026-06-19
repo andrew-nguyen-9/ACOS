@@ -4,6 +4,7 @@ import json
 import logging
 from typing import Any
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.repositories.resume import ResumeRepository
@@ -12,6 +13,16 @@ from backend.services.resume.templates import get_template
 logger = logging.getLogger(__name__)
 
 _DEFAULT_MODEL = "qwen3:8b"
+_VALID_CONFIDENCE = {"verified", "strong_inference", "weak_inference"}
+
+
+def _normalize_confidence(content: dict) -> dict:
+    for exp in content.get("experiences", []):
+        for bullet in exp.get("bullets", []):
+            if isinstance(bullet, dict):
+                if bullet.get("confidence") not in _VALID_CONFIDENCE:
+                    bullet["confidence"] = "weak_inference"  # conservative fallback
+    return content
 
 
 class ResumeGenerator:
@@ -64,14 +75,17 @@ class ResumeGenerator:
         ats_score: dict = self._ats_scorer.score(resume_text, job_description, keywords)
 
         # Step 7: persist to DB
-        resume = self._resume_repo.create(
-            name=f"Resume — {keywords.get('industry', 'general')} ({template_name})",
-            application_id=application_id,
-            content_json=content_json,
-            ats_score=float(ats_score["overall_score"]),
-            page_count=1,
-            is_master=False,
-        )
+        try:
+            resume = self._resume_repo.create(
+                name=f"Resume — {keywords.get('industry', 'general')} ({template_name})",
+                application_id=application_id,
+                content_json=content_json,
+                ats_score=float(ats_score["overall_score"]),
+                page_count=1,
+                is_master=False,
+            )
+        except IntegrityError as exc:
+            raise ValueError(f"Invalid application_id: {application_id}") from exc
 
         return {
             "resume_id": resume.id,
@@ -136,7 +150,8 @@ class ResumeGenerator:
                 temperature=0.2,
                 system=prompt_data["system"],
             )
-            return json.loads(raw)  # type: ignore[no-any-return]
+            content: dict = json.loads(raw)
+            return _normalize_confidence(content)
         except Exception as exc:
             logger.warning(
                 "resume_generator: LLM build failed (%s), using rule-based fallback",

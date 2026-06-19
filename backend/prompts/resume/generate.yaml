@@ -15,6 +15,9 @@ user_template: |
   Industry: {industry}
   Template: {template_name}
 
+  Job Description:
+  {job_description}
+
   Job Description Keywords: {keywords}
 
   Evidence Records (use ONLY these):
