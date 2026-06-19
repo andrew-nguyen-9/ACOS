@@ -19,6 +19,10 @@ def _app() -> FastAPI:
     def starlette():
         raise StarletteHTTPException(status_code=403, detail="nope")
 
+    @app.get("/starlette-dict")
+    def starlette_dict():
+        raise StarletteHTTPException(status_code=400, detail={"field": "bad"})
+
     @app.get("/crash")
     def crash():
         raise RuntimeError("unexpected")
@@ -52,6 +56,16 @@ def test_starlette_http_exception_envelope():
     r = c.get("/starlette")
     assert r.status_code == 403
     assert r.json()["error"]["code"] == "HTTP_403"
+
+
+def test_starlette_http_exception_dict_detail():
+    c = TestClient(_app(), raise_server_exceptions=False)
+    r = c.get("/starlette-dict")
+    assert r.status_code == 400
+    body = r.json()
+    assert body["error"]["code"] == "HTTP_400"
+    assert body["error"]["message"] == "HTTP error"
+    assert body["error"]["detail"] == {"field": "bad"}
 
 
 def test_unhandled_exception_envelope():
