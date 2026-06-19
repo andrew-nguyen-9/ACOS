@@ -30,3 +30,48 @@ def test_analyze_ats_returns_score_and_keywords(client: TestClient) -> None:
     assert "keywords" in data
     assert isinstance(data["ats_score"]["overall_score"], int)
     assert isinstance(data["keywords"], dict)
+
+
+def test_generate_resume_returns_structure(client: TestClient) -> None:
+    """POST /api/v1/resume/generate returns 200 with resume_id, ats_score, requires_approval.
+
+    OllamaClient is offline; RAGRetriever and Reranker are patched to return empty
+    lists so EvidenceSelector yields no bullets and the rule-based fallback runs.
+    """
+    mock_ollama = MagicMock()
+    mock_ollama.is_available.return_value = False
+
+    mock_retriever = MagicMock()
+    mock_retriever.retrieve.return_value = []
+
+    mock_reranker = MagicMock()
+    mock_reranker.rerank.return_value = []
+
+    with patch("backend.api.v1.routes.resume.OllamaClient", return_value=mock_ollama), \
+         patch("backend.api.v1.routes.resume.RAGRetriever", return_value=mock_retriever), \
+         patch("backend.api.v1.routes.resume.Reranker", return_value=mock_reranker):
+        response = client.post(
+            "/api/v1/resume/generate",
+            json={
+                "job_description": "Python data engineer role",
+                "template_name": "software",
+            },
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert "resume_id" in data
+    assert "ats_score" in data
+    assert "requires_approval" in data
+
+
+def test_generate_resume_invalid_template(client: TestClient) -> None:
+    """POST /api/v1/resume/generate with unknown template_name returns 422."""
+    response = client.post(
+        "/api/v1/resume/generate",
+        json={
+            "job_description": "Python role",
+            "template_name": "nonexistent_template",
+        },
+    )
+    assert response.status_code == 422
