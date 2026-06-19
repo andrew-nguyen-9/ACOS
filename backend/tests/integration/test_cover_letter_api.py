@@ -33,6 +33,7 @@ def test_generate_cover_letter_returns_text(client):
     assert "text" in data
     assert "word_count" in data
     assert "requires_approval" in data
+    assert "length_target" in data
 
 
 def test_generate_cover_letter_invalid_length(client):

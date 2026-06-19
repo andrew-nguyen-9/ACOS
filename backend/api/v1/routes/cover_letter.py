@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-from typing import Any
-
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from backend.config import get_settings
+from backend.config import Settings, get_settings
 from backend.database import get_session
 from backend.rag.chroma_client import ChromaManager
 from backend.rag.embedder import Embedder
@@ -36,8 +34,8 @@ class LearnVoiceRequest(BaseModel):
     texts: list[str]
 
 
-def _build_generator(
-    settings: Any, session: Session
+def _build_cl_deps(
+    settings: Settings, session: Session
 ) -> tuple[CoverLetterGenerator, CoverLetterDOCXExporter]:
     """Instantiate and wire all dependencies for cover letter generation."""
     ollama = OllamaClient(base_url=settings.ollama_base_url)
@@ -67,7 +65,7 @@ def generate_cover_letter(
             ),
         )
     settings = get_settings()
-    generator, _ = _build_generator(settings, session)
+    generator, _ = _build_cl_deps(settings, session)
     return generator.generate(
         body.job_description, body.company, body.job_title, body.length_target
     )
@@ -87,7 +85,7 @@ def generate_cover_letter_docx(
             ),
         )
     settings = get_settings()
-    generator, exporter = _build_generator(settings, session)
+    generator, exporter = _build_cl_deps(settings, session)
     result = generator.generate(
         body.job_description, body.company, body.job_title, body.length_target
     )
