@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, Briefcase, Search, Filter, Clock3 } from "lucide-react";
+import { Plus, Briefcase, Search, Filter, Clock3, AlertTriangle } from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { applicationsService } from "@/services/applications";
@@ -24,14 +24,18 @@ function AddApplicationModal({
 }) {
   const [form, setForm] = useState<ApplicationCreate>({ company: "", role: "", status: "applied" });
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const submit = async () => {
     if (!form.company || !form.role) return;
     setLoading(true);
+    setError(null);
     try {
       const app = await applicationsService.create(form);
       onAdd(app);
       onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to add application");
     } finally {
       setLoading(false);
     }
@@ -63,6 +67,12 @@ function AddApplicationModal({
               {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{STATUS_CONFIG[s]?.label ?? s}</option>)}
             </select>
           </div>
+          {error && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/20">
+              <AlertTriangle className="size-4 text-red-400 flex-shrink-0" />
+              <p className="text-sm text-red-400">{error}</p>
+            </div>
+          )}
           <div className="flex gap-3 mt-2">
             <button onClick={onClose} className="flex-1 py-2.5 rounded-xl bg-white/[0.06] text-neutral-300 text-sm font-medium hover:bg-white/[0.1] transition-colors">Cancel</button>
             <button onClick={submit} disabled={loading || !form.company || !form.role} className="flex-1 py-2.5 rounded-xl bg-[#4c8dff] text-white text-sm font-semibold disabled:opacity-40 hover:opacity-90 transition-opacity">
