@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.config import get_settings
 from backend.database import init_db, seed_system_config, SessionLocal
 from backend.logging_config import configure_logging
+from backend.api.v1.routes.cover_letter import router as cover_letter_router
 from backend.api.v1.routes.health import router as health_router
 from backend.api.v1.routes.ingestion import router as ingestion_router
 from backend.api.v1.routes.rag import router as rag_router
@@ -43,6 +44,7 @@ def create_app() -> FastAPI:
     app.include_router(ingestion_router, prefix="/api/v1")
     app.include_router(rag_router, prefix="/api/v1")
     app.include_router(resume_router, prefix="/api/v1")
+    app.include_router(cover_letter_router, prefix="/api/v1")
 
     return app
 
