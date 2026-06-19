@@ -1,20 +1,20 @@
 from __future__ import annotations
 
-import logging
-
-logger = logging.getLogger(__name__)
+from typing import Any
 
 _EXPERIENCE_COLLECTIONS = ["acos_experiences", "acos_projects", "acos_skills"]
 
 
 class EvidenceSelector:
-    def __init__(self, rag_retriever, reranker) -> None:
+    # duck-typed: concrete types are RAGRetriever and Reranker from backend/rag/
+    def __init__(self, rag_retriever: Any, reranker: Any) -> None:
         self._retriever = rag_retriever
         self._reranker = reranker
 
     def select(
         self, job_description: str, keywords: dict, max_bullets: int = 8
     ) -> list[dict]:
+        # keywords reserved for future JD-keyword-boosted filtering; currently unused
         raw = self._retriever.retrieve(
             query=job_description,
             collections=_EXPERIENCE_COLLECTIONS,

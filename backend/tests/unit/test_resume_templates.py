@@ -23,6 +23,6 @@ def test_software_template_has_skills_section():
     assert "skills" in tmpl["sections"]
 
 
-def test_consulting_template_has_impact_section():
+def test_consulting_template_bullet_style():
     tmpl = get_template("consulting")
     assert tmpl["bullet_style"] == "star"
