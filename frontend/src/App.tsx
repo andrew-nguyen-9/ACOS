@@ -1,51 +1,29 @@
-import { useEffect, useState } from "react";
-
-const API_BASE = "http://localhost:8000/api/v1";
-
-interface HealthResponse {
-  status: string;
-  db: string;
-  version: string;
-}
+import { Routes, Route } from "react-router-dom";
+import AppShell from "@/layouts/AppShell";
+import Dashboard from "@/pages/Dashboard";
+import ResumePage from "@/pages/ResumePage";
+import CoverLetterPage from "@/pages/CoverLetterPage";
+import AtsPage from "@/pages/AtsPage";
+import InterviewPrepPage from "@/pages/InterviewPrepPage";
+import ApplicationsPage from "@/pages/ApplicationsPage";
+import LearningPage from "@/pages/LearningPage";
+import CopilotPage from "@/pages/CopilotPage";
+import SettingsPage from "@/pages/SettingsPage";
 
 export default function App() {
-  const [health, setHealth] = useState<HealthResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetch(`${API_BASE}/health`)
-      .then((r) => r.json())
-      .then(setHealth)
-      .catch(() => setError("Backend unreachable"));
-  }, []);
-
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 flex flex-col items-center justify-center gap-4">
-      <h1 className="text-3xl font-bold tracking-tight">ACOS</h1>
-      <p className="text-gray-400 text-sm">AI Career Operating System</p>
-
-      {error && (
-        <div className="mt-4 px-4 py-2 bg-red-900/40 border border-red-700 rounded text-red-300 text-sm">
-          {error}
-        </div>
-      )}
-
-      {health && (
-        <div className="mt-4 px-6 py-4 bg-gray-900 border border-gray-800 rounded-lg text-sm space-y-1">
-          <div>
-            Status:{" "}
-            <span className="text-green-400 font-mono">{health.status}</span>
-          </div>
-          <div>
-            DB:{" "}
-            <span className="text-green-400 font-mono">{health.db}</span>
-          </div>
-          <div>
-            Version:{" "}
-            <span className="text-blue-400 font-mono">{health.version}</span>
-          </div>
-        </div>
-      )}
-    </div>
+    <AppShell>
+      <Routes>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/resumes" element={<ResumePage />} />
+        <Route path="/cover-letters" element={<CoverLetterPage />} />
+        <Route path="/ats" element={<AtsPage />} />
+        <Route path="/interview-prep" element={<InterviewPrepPage />} />
+        <Route path="/applications" element={<ApplicationsPage />} />
+        <Route path="/learning" element={<LearningPage />} />
+        <Route path="/copilot" element={<CopilotPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+      </Routes>
+    </AppShell>
   );
 }

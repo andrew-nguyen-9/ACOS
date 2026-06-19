@@ -1,3 +1,25 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --accent: #4c8dff;
+  --verified: #30D158;
+  --strong: #5AC8FA;
+  --weak: #FF9F0A;
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+* {
+  scrollbar-width: none;
+}
+*::-webkit-scrollbar {
+  display: none;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: #0a0a0a;
+  color: #fafafa;
+}
