@@ -8,6 +8,8 @@ from backend.repositories.knowledge_graph import (
     KnowledgeGraphNodeRepository,
     KnowledgeGraphEdgeRepository,
 )
+from backend.repositories.question import QuestionRepository, AnswerRepository
+from backend.repositories.outcome import OutcomeSignalRepository
 
 __all__ = [
     "BaseRepository",
@@ -18,4 +20,7 @@ __all__ = [
     "SystemConfigRepository",
     "KnowledgeGraphNodeRepository",
     "KnowledgeGraphEdgeRepository",
+    "QuestionRepository",
+    "AnswerRepository",
+    "OutcomeSignalRepository",
 ]
