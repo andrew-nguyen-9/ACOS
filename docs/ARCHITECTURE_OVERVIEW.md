@@ -113,8 +113,7 @@ All routes are versioned under `/api/v1`.
 |-------|-----------|---------|
 | `/health` | GET | Backend liveness check |
 | `/health/ollama` | GET | Ollama connectivity and model availability |
-| `/ingest` | POST | Upload a document (multipart file) |
-| `/ingest/{id}` | GET | Poll ingestion status |
+| `/ingest` | POST | Upload a document (multipart file); returns ingestion_status synchronously |
 | `/resume/generate` | POST | Generate a tailored resume from a JD |
 | `/resume/analyze-ats` | POST | Score a resume against a job description |
 | `/cover-letter/generate` | POST | Generate a cover letter from a JD |
@@ -135,12 +134,12 @@ Full schema: `docs/04_DATABASE_SCHEMA.md`
 |----------|---------|
 | `documents`, `ingestion_log` | Raw files and parse status |
 | `experiences`, `skills`, `projects` | Structured profile data |
-| `kg_nodes`, `kg_edges` | Knowledge graph topology |
+| `knowledge_graph_nodes`, `knowledge_graph_edges` | Knowledge graph topology |
 | `resumes`, `resume_sections`, `resume_bullets` | Generated resume artifacts |
 | `applications`, `timeline_events` | CRM / application tracking |
 | `outcome_signals` | Learning feedback from application outcomes |
 | `system_config` | Key-value settings store |
-| `question_bank`, `question_answers` | Q&A engine |
+| `questions`, `answers` | Q&A engine |
 
 ## ChromaDB Collections
 
@@ -148,16 +147,16 @@ Ten collections defined in `backend/rag/collections.py`:
 
 | Collection | Contents |
 |------------|---------|
-| `experiences` | Work experience embeddings |
-| `skills` | Skill descriptions and context |
-| `projects` | Project descriptions |
-| `resumes` | Generated resume content |
-| `cover_letters` | Generated and imported cover letters |
-| `jd_analysis` | Parsed job description entities |
-| `questions` | Question bank entries |
-| `outcomes` | Outcome signals for learning |
-| `kg_nodes` | Knowledge graph node embeddings |
-| `documents` | Raw ingested document chunks |
+| `acos_experiences` | Work experience embeddings |
+| `acos_projects` | Project descriptions |
+| `acos_skills` | Skill descriptions and context |
+| `acos_resumes` | Generated resume content |
+| `acos_cover_letters` | Generated and imported cover letters |
+| `acos_questions` | Question bank entries |
+| `acos_answers` | Historical Q&A answers |
+| `acos_job_descriptions` | Parsed job description entities |
+| `acos_github` | GitHub repository README content |
+| `acos_claude_exports` | Claude conversation exports |
 
 ## Data Flow: Resume Generation
 

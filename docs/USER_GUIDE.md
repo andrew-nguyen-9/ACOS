@@ -48,11 +48,7 @@ curl -X POST http://localhost:8000/api/v1/ingest \
   -F "file=@/path/to/resume.pdf"
 ```
 
-Response includes an `id` and `ingestion_status` field. Poll until status is `"complete"`:
-
-```bash
-curl http://localhost:8000/api/v1/ingest/{id}
-```
+Ingestion is synchronous — the response is returned when processing completes and includes the `ingestion_status` directly. No polling is needed.
 
 ### Via the Seed Script
 

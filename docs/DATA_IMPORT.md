@@ -62,27 +62,24 @@ curl -X POST http://localhost:8000/api/v1/ingest \
 
 ```json
 {
-  "id": "b3d12f8a-...",
-  "filename": "resume.pdf",
-  "ingestion_status": "processing"
+  "status": "ok",
+  "document_id": "b3d12f8a-..."
 }
 ```
 
-Ingestion is asynchronous. The document is parsed and embedded in the background.
-Poll for completion using the returned `id`:
-
-```bash
-curl http://localhost:8000/api/v1/ingest/b3d12f8a-...
-```
+Ingestion is synchronous. The document is parsed and embedded before the response
+is returned. The `ingestion_status` field in the `documents` table reflects the
+final outcome; there is no polling endpoint.
 
 ### Ingestion Status Values
 
 | Status | Meaning |
 |--------|---------|
-| `queued` | Waiting for a worker slot |
+| `pending` | Document record created; pipeline not yet started |
 | `processing` | Currently being parsed and embedded |
 | `complete` | Fully embedded and searchable |
 | `failed` | An error occurred; check Ollama availability |
+| `skipped` | Duplicate document (matched by checksum); not re-processed |
 
 When `ingestion_status` is `"complete"`, the document's entities and embeddings
 are available to the resume generator, cover letter generator, and copilot.
@@ -182,8 +179,8 @@ curl -X POST http://localhost:8000/api/v1/questions/import-answers \
 ```
 
 The file should be a Markdown document with question-answer pairs. The importer
-extracts Q&A blocks and embeds them into the `questions` and `outcomes` ChromaDB
-collections.
+extracts Q&A blocks and embeds them into the `acos_questions` and `acos_answers`
+ChromaDB collections.
 
 ### Via the Seed Script
 
@@ -219,7 +216,7 @@ Key fields in the response:
 |-------|-------------|
 | `id` | Document UUID |
 | `filename` | Original filename |
-| `ingestion_status` | `queued`, `processing`, `complete`, or `failed` |
+| `ingestion_status` | `pending`, `processing`, `complete`, `failed`, or `skipped` |
 | `entity_count` | Number of structured entities extracted |
 | `embedding_status` | Whether ChromaDB embedding is complete |
 | `created_at` | ISO 8601 timestamp of upload |

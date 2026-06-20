@@ -129,11 +129,7 @@ pkill ollama && ollama serve
 - **Path traversal:** Filenames containing `..` or `/` are blocked by the sanitizer.
   Rename the file and retry.
 
-- **Check ingestion status:**
-  ```bash
-  curl http://localhost:8000/api/v1/ingest/{id}
-  ```
-  If `ingestion_status` is `"failed"`, the embedding step raised an error.
+- **Check the response from the POST:** Ingestion is synchronous; the `POST /api/v1/ingest` response includes `ingestion_status`. If it is `"failed"`, the embedding step raised an error.
 
 - **Embedding failure:** Verify Ollama is running and `nomic-embed-text` is available:
   ```bash
