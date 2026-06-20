@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 
+from sqlalchemy.orm import Session
+
 logger = logging.getLogger(__name__)
 
 
@@ -39,3 +41,27 @@ class RAGIndexer:
 
     def delete_document(self, collection_name: str, doc_id: str) -> None:
         self._chroma.delete(collection=collection_name, ids=[doc_id])
+
+    def index_all(self, session: Session) -> int:
+        """Re-embed all ingested documents stored in the database.
+
+        Queries Document rows with status 'complete' and non-empty raw_text in
+        metadata_json, then upserts each into the 'acos_documents' collection.
+        Returns the count of documents indexed.
+        """
+        from backend.models.document import Document
+
+        rows = session.query(Document).filter(Document.ingestion_status == "complete").all()
+        count = 0
+        for doc in rows:
+            text: str = (doc.metadata_json or {}).get("raw_text", "")
+            if not text:
+                continue
+            self.index_document(
+                collection_name="acos_documents",
+                doc_id=str(doc.id),
+                text=text,
+                metadata={"source": doc.original_path or "", "confidence": "verified"},
+            )
+            count += 1
+        return count

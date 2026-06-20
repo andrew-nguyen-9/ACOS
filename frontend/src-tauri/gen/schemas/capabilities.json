@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"Default capability set for ACOS","local":true,"windows":["main"],"permissions":["core:default","shell:allow-open",{"identifier":"shell:allow-execute","allow":[{"name":"acos-backend","sidecar":true}]},"shell:allow-kill"]}}

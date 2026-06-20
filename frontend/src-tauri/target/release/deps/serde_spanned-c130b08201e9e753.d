@@ -1,0 +1,9 @@
+/Users/andrew/Documents/GitHub/ACOS/frontend/src-tauri/target/release/deps/serde_spanned-c130b08201e9e753.d: /Users/andrew/Library/Caches/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_spanned-1.1.1/src/lib.rs /Users/andrew/Library/Caches/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_spanned-1.1.1/src/spanned.rs /Users/andrew/Library/Caches/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_spanned-1.1.1/src/de.rs
+
+/Users/andrew/Documents/GitHub/ACOS/frontend/src-tauri/target/release/deps/libserde_spanned-c130b08201e9e753.rlib: /Users/andrew/Library/Caches/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_spanned-1.1.1/src/lib.rs /Users/andrew/Library/Caches/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_spanned-1.1.1/src/spanned.rs /Users/andrew/Library/Caches/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_spanned-1.1.1/src/de.rs
+
+/Users/andrew/Documents/GitHub/ACOS/frontend/src-tauri/target/release/deps/libserde_spanned-c130b08201e9e753.rmeta: /Users/andrew/Library/Caches/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_spanned-1.1.1/src/lib.rs /Users/andrew/Library/Caches/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_spanned-1.1.1/src/spanned.rs /Users/andrew/Library/Caches/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_spanned-1.1.1/src/de.rs
+
+/Users/andrew/Library/Caches/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_spanned-1.1.1/src/lib.rs:
+/Users/andrew/Library/Caches/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_spanned-1.1.1/src/spanned.rs:
+/Users/andrew/Library/Caches/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_spanned-1.1.1/src/de.rs:

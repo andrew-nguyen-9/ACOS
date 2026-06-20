@@ -61,6 +61,8 @@ def seed_system_config(session: Session) -> None:
         ("ats_experience_weight", "0.20", "ATS scoring: experience match weight"),
         ("ats_industry_weight", "0.10", "ATS scoring: industry match weight"),
         ("ats_education_weight", "0.10", "ATS scoring: education match weight"),
+        ("github_username", "", "GitHub username for profile integration"),
+        ("onboarding_complete", "false", "Whether the first-run wizard has been completed"),
     ]
     for key, value, description in defaults:
         exists = session.get(SystemConfig, key)
