@@ -15,9 +15,9 @@ def test_seed_from_disk_creates_active_version(test_session):
 
 def test_create_variant_increments_minor(test_session):
     ev = PromptEvolver(test_session)
-    base = ev.seed_from_disk("ats/score_ats"); test_session.commit()
+    base = ev.seed_from_disk("resume/score_ats"); test_session.commit()
     variant = ev.create_variant(
-        "ats/score_ats", content_yaml="system: tuned", change_rationale="tighter scoring"
+        "resume/score_ats", content_yaml="system: tuned", change_rationale="tighter scoring"
     )
     test_session.commit()
     assert variant.is_active is False
