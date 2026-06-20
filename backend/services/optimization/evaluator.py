@@ -65,9 +65,13 @@ class Evaluator:
 
     def ats_outcome_correlation(self) -> dict:
         base = self._ranker.get_ats_vs_outcome_correlation()
-        signals = [s for s in self._repo.list() if s.ats_score is not None]
-        xs = [float(s.ats_score) for s in signals]
-        ys = [1.0 if s.signal_type in STRONG_SIGNALS else 0.0 for s in signals]
+        all_signals = self._repo.list()
+        xs = [float(s.ats_score) for s in all_signals if s.ats_score is not None]
+        ys = [
+            1.0 if s.signal_type in STRONG_SIGNALS else 0.0
+            for s in all_signals
+            if s.ats_score is not None
+        ]
         base["correlation"] = _pearson(xs, ys)
         return base
 
