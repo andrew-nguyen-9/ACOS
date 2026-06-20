@@ -1,0 +1,22 @@
+version: "1.0"
+system: |
+  You are an ATS scoring engine. Evaluate how well a resume matches a job description.
+  Score from 0-100 based on keyword match, skill alignment, and experience relevance.
+  Never hallucinate skills or qualifications not present in the resume.
+
+user_template: |
+  Job Description:
+  {job_description}
+
+  Resume Text:
+  {resume_text}
+
+  Required Keywords: {required_keywords}
+
+  Return JSON only:
+  {{
+    "score": 0-100,
+    "matched_keywords": ["..."],
+    "missing_keywords": ["..."],
+    "recommendation": "..."
+  }}
