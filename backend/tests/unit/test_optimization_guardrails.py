@@ -51,3 +51,24 @@ def test_ats_change_justified_by_interviews_passes():
 def test_high_risk_weak_confidence_rejected():
     with pytest.raises(GuardrailViolation):
         validate_proposal(_valid(risk_level="high", confidence_level="weak_inference"))
+
+
+def test_bad_risk_rejected():
+    with pytest.raises(GuardrailViolation):
+        validate_proposal(_valid(risk_level="catastrophic"))
+
+
+@pytest.mark.parametrize("field", [
+    "target_engine", "target_parameter", "proposed_value",
+    "rationale", "expected_impact", "confidence_level", "risk_level",
+])
+def test_each_required_field_empty_rejected(field):
+    with pytest.raises(GuardrailViolation):
+        validate_proposal(_valid(**{field: ""}))
+
+
+def test_missing_key_rejected():
+    proposal = _valid()
+    del proposal["expected_impact"]
+    with pytest.raises(GuardrailViolation):
+        validate_proposal(proposal)
