@@ -24,12 +24,35 @@ const PageFallback = () => (
 
 export default function App() {
   const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
+  const [backendError, setBackendError] = useState(false);
 
   useEffect(() => {
-    getOnboardingStatus()
-      .then(setOnboardingDone)
-      .catch(() => setOnboardingDone(true)); // fallback: skip wizard if backend unreachable
+    const checkWithRetry = async (attemptsLeft: number): Promise<void> => {
+      try {
+        const done = await getOnboardingStatus();
+        setOnboardingDone(done);
+      } catch {
+        if (attemptsLeft > 1) {
+          await new Promise((r) => setTimeout(r, 2000));
+          return checkWithRetry(attemptsLeft - 1);
+        }
+        // All retries exhausted — backend not reachable
+        setBackendError(true);
+      }
+    };
+    void checkWithRetry(3);
   }, []);
+
+  if (backendError) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-950 text-white">
+        <div className="text-center">
+          <h1 className="text-xl font-semibold mb-2">Backend not reachable</h1>
+          <p className="text-gray-400 text-sm">ACOS backend failed to start. Try relaunching the app.</p>
+        </div>
+      </div>
+    );
+  }
 
   if (onboardingDone === null) {
     return (

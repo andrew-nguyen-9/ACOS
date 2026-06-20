@@ -8,6 +8,8 @@ const EDITABLE_LABELS: Record<string, string> = {
   embedding_model: "Embedding Model",
   github_username: "GitHub Username",
   learning_trigger_count: "Learning Trigger (# applications)",
+  ats_keyword_weight: "ATS Keyword Weight",
+  ats_skill_weight: "ATS Skill Weight",
 };
 
 export default function SettingsPage() {

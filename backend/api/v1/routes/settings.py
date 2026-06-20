@@ -16,7 +16,36 @@ _EDITABLE_KEYS = {
     "learning_trigger_count",
     "ats_keyword_weight",
     "ats_skill_weight",
+    "ats_experience_weight",
+    "ats_industry_weight",
+    "ats_education_weight",
 }
+
+_FLOAT_KEYS = {
+    "ats_keyword_weight",
+    "ats_skill_weight",
+    "ats_experience_weight",
+    "ats_industry_weight",
+    "ats_education_weight",
+}
+_INT_KEYS = {"learning_trigger_count"}
+
+
+def _validate_value(key: str, value: str) -> None:
+    if key in _FLOAT_KEYS:
+        try:
+            v = float(value)
+        except ValueError:
+            raise HTTPException(status_code=422, detail=f"{key} must be a float")
+        if not (0.0 <= v <= 1.0):
+            raise HTTPException(status_code=422, detail=f"{key} must be between 0 and 1")
+    elif key in _INT_KEYS:
+        try:
+            v = int(value)
+        except ValueError:
+            raise HTTPException(status_code=422, detail=f"{key} must be a positive integer")
+        if v < 1:
+            raise HTTPException(status_code=422, detail=f"{key} must be >= 1")
 
 
 class UpdateSettingRequest(BaseModel):
@@ -36,6 +65,7 @@ def update_setting(
 ) -> dict:
     if key not in _EDITABLE_KEYS:
         raise HTTPException(status_code=404, detail=f"Unknown setting key '{key}'")
+    _validate_value(key, body.value)
     repo = SystemConfigRepository(session)
     record = repo.set_value(key, body.value)
     return {"key": record.key, "value": record.value}

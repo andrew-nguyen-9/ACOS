@@ -15,6 +15,7 @@ from backend.database import SessionLocal, init_db
 from backend.rag.chroma_client import ChromaManager
 from backend.rag.embedder import Embedder
 from backend.rag.indexer import RAGIndexer
+from backend.repositories.system_config import SystemConfigRepository
 from backend.services.ollama_client import OllamaClient
 
 
@@ -31,11 +32,12 @@ def main() -> None:
         )
         return
 
-    embedder = Embedder(ollama, model=settings.embedding_model)
-    chroma = ChromaManager(path=settings.chroma_db_path)
-    indexer = RAGIndexer(chroma, embedder)
-
     with SessionLocal() as session:
+        repo = SystemConfigRepository(session)
+        embedding_model = repo.get_value("embedding_model") or settings.embedding_model
+        embedder = Embedder(ollama, model=embedding_model)
+        chroma = ChromaManager(path=settings.chroma_db_path)
+        indexer = RAGIndexer(chroma, embedder)
         count = indexer.index_all(session)
         session.commit()
 

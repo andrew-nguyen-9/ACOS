@@ -133,10 +133,10 @@ export default function FirstRunWizard({ onComplete }: Props) {
               </button>
               <button
                 onClick={() => setStep("profile")}
-                disabled={!ollamaStatus || checking}
+                disabled={!ollamaStatus || checking || !ollamaStatus.available}
                 className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition disabled:opacity-50"
               >
-                Continue
+                {ollamaStatus?.available ? "Continue" : "Ollama Required"}
               </button>
             </div>
           </>

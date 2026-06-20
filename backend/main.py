@@ -45,7 +45,11 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:1420"],  # Tauri dev server
+        allow_origins=[
+            "http://localhost:1420",   # Tauri dev server
+            "tauri://localhost",       # Tauri v2 production (macOS)
+            "https://tauri.localhost", # Tauri v2 production (Windows)
+        ],
         allow_methods=["*"],
         allow_headers=["*"],
     )
