@@ -26,7 +26,9 @@ class OptimizationLogRepository(BaseRepository[OptimizationLog]):
     def list_for_proposal(self, proposal_id: str) -> list[OptimizationLog]:
         return list(
             self.session.scalars(
-                select(OptimizationLog).where(OptimizationLog.proposal_id == proposal_id)
+                select(OptimizationLog)
+                .where(OptimizationLog.proposal_id == proposal_id)
+                .order_by(OptimizationLog.created_at.asc())
             ).all()
         )
 

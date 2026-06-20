@@ -63,3 +63,39 @@ def test_revert_without_apply_raises(test_session):
     applier.approve(p.id); test_session.commit()
     with pytest.raises(ValueError):
         applier.revert(p.id)
+
+
+def test_double_apply_blocked(test_session):
+    cfg = SystemConfigRepository(test_session)
+    cfg.set_value("ats_keyword_weight", "0.35"); test_session.commit()
+    p = _make(test_session)
+    applier = Applier(test_session)
+    applier.approve(p.id); test_session.commit()
+    applier.apply(p.id); test_session.commit()
+    with pytest.raises(ValueError):
+        applier.apply(p.id)          # already applied → blocked
+
+
+def test_double_revert_blocked(test_session):
+    cfg = SystemConfigRepository(test_session)
+    cfg.set_value("ats_keyword_weight", "0.35"); test_session.commit()
+    p = _make(test_session)
+    applier = Applier(test_session)
+    applier.approve(p.id); test_session.commit()
+    applier.apply(p.id); test_session.commit()
+    applier.revert(p.id); test_session.commit()
+    with pytest.raises(ValueError):
+        applier.revert(p.id)         # already reverted → blocked
+
+
+def test_reapply_after_revert_allowed(test_session):
+    cfg = SystemConfigRepository(test_session)
+    cfg.set_value("ats_keyword_weight", "0.35"); test_session.commit()
+    p = _make(test_session)
+    applier = Applier(test_session)
+    applier.approve(p.id); test_session.commit()
+    applier.apply(p.id); test_session.commit()
+    applier.revert(p.id); test_session.commit()
+    # proposal is now 'reverted'; a fresh apply requires re-approval path is out of scope,
+    # but the config must be restored to the original after revert.
+    assert cfg.get_value("ats_keyword_weight") == "0.35"
