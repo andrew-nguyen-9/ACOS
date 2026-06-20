@@ -37,10 +37,7 @@
       "binaries/acos-backend"
     ],
     "macOS": {
-      "minimumSystemVersion": "10.15",
-      "dmg": {
-        "appName": "ACOS"
-      }
+      "minimumSystemVersion": "10.15"
     },
     "resources": []
   }
