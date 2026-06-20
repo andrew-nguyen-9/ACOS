@@ -5,8 +5,13 @@ from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from backend.config import get_settings
 from backend.database import get_session
+from backend.rag.chroma_client import ChromaManager
+from backend.rag.embedder import Embedder
+from backend.rag.indexer import RAGIndexer
 from backend.services.learning.ranker import OutcomeRanker
+from backend.services.ollama_client import OllamaClient
 
 router = APIRouter(tags=["learning"])
 
@@ -49,6 +54,17 @@ def record_outcome(
         raise HTTPException(status_code=422, detail=str(exc))
     except IntegrityError:
         raise HTTPException(status_code=422, detail="Invalid application_id: application not found")
+
+
+@router.post("/learning/reindex")
+def trigger_reindex(session: Session = Depends(get_session)) -> dict:
+    settings = get_settings()
+    ollama = OllamaClient(base_url=settings.ollama_base_url)
+    embedder = Embedder(ollama, model=settings.embedding_model)
+    chroma = ChromaManager(path=settings.chroma_db_path)
+    indexer = RAGIndexer(chroma, embedder)
+    count = indexer.index_all(session)
+    return {"status": "ok", "indexed": count}
 
 
 @router.get("/learning/rankings")
