@@ -10,6 +10,7 @@ def test_get_settings_returns_seeded_defaults(client, test_session):
     assert "settings" in data
     assert "default_model" in data["settings"]
     assert "github_username" in data["settings"]
+    assert "onboarding_complete" not in data["settings"]
 
 
 def test_update_known_setting(client, test_session):
