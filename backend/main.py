@@ -18,6 +18,7 @@ from backend.api.v1.routes.learning import router as learning_router
 from backend.api.v1.routes.questions import router as questions_router
 from backend.api.v1.routes.rag import router as rag_router
 from backend.api.v1.routes.resume import router as resume_router
+from backend.api.v1.routes.settings import router as settings_router
 
 
 @asynccontextmanager
@@ -58,6 +59,7 @@ def create_app() -> FastAPI:
     app.include_router(application_router, prefix="/api/v1")
     app.include_router(learning_router, prefix="/api/v1")
     app.include_router(copilot_router, prefix="/api/v1")
+    app.include_router(settings_router, prefix="/api/v1")
 
     return app
 
