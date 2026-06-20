@@ -52,6 +52,7 @@ def test_ats_proposal_passes_guardrail(test_session):
     rec = Recommender(test_session)
     created = rec.generate_proposals(min_sample_size=5)
     ats = [p for p in created if p.target_engine == "ats"]
+    assert len(ats) >= 1, "expected an ATS recalibration proposal to be created"
     # If created, the rationale mentions interview (guardrail-compliant).
     for p in ats:
         assert "interview" in (p.rationale + p.expected_impact).lower()
