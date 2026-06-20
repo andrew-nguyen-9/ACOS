@@ -2,7 +2,7 @@ import { type ReactNode, useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard, FileText, Mail, BarChart3, MessageSquareMore,
-  Briefcase, Sparkles, Bot, Settings, BriefcaseBusiness, AlertTriangle,
+  Briefcase, Sparkles, Bot, Settings, BriefcaseBusiness, AlertTriangle, Wand2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { to: "/interview-prep", label: "Interview Prep", icon: MessageSquareMore },
   { to: "/applications", label: "Applications CRM", icon: Briefcase },
   { to: "/learning", label: "Learning Engine", icon: Sparkles },
+  { to: "/optimization", label: "Optimization", icon: Wand2 },
   { to: "/copilot", label: "Copilot", icon: Bot },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
