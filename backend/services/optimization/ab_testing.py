@@ -6,6 +6,7 @@ import json
 from sqlalchemy.orm import Session
 
 from backend.models.base import utcnow
+from backend.models.optimization import ABExperiment
 from backend.repositories.optimization import ABExperimentRepository, ABVariantRepository
 
 
@@ -16,7 +17,7 @@ class ABTestingService:
         self._var = ABVariantRepository(session)
 
     def create_experiment(self, name: str, target_engine: str,
-                          variant_a: dict, variant_b: dict):
+                          variant_a: dict, variant_b: dict) -> ABExperiment:
         exp = self._exp.create(name=name, target_engine=target_engine)
         self._var.create(experiment_id=exp.id, label="A", config_json=json.dumps(variant_a))
         self._var.create(experiment_id=exp.id, label="B", config_json=json.dumps(variant_b))
@@ -43,7 +44,7 @@ class ABTestingService:
             return 0.0
         return round(v.conversions / v.impressions, 4)
 
-    def conclude(self, experiment_id: str):
+    def conclude(self, experiment_id: str) -> ABExperiment:
         exp = self._exp.get(experiment_id)
         if exp is None:
             raise ValueError(f"Experiment {experiment_id} not found")

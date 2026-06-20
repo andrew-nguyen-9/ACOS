@@ -35,3 +35,35 @@ def test_conclude_requires_data(test_session):
     test_session.commit()
     with pytest.raises(ValueError):
         svc.conclude(exp.id)        # no impressions yet
+
+
+def test_record_unknown_variant_raises(test_session):
+    svc = ABTestingService(test_session)
+    with pytest.raises(ValueError):
+        svc.record_impression("does-not-exist")
+    with pytest.raises(ValueError):
+        svc.record_conversion("does-not-exist")
+
+
+def test_conversion_rate_zero_impressions(test_session):
+    svc = ABTestingService(test_session)
+    exp = svc.create_experiment("x", "resume", {"a": 1}, {"b": 2})
+    test_session.commit()
+    v = ABVariantRepository(test_session).list_for_experiment(exp.id)[0]
+    assert svc.conversion_rate(v.id) == 0.0          # no impressions, no ZeroDivisionError
+
+
+def test_conclude_tie_breaks_to_variant_a(test_session):
+    svc = ABTestingService(test_session)
+    exp = svc.create_experiment("tie", "ats", {"a": 1}, {"b": 2})
+    test_session.commit()
+    variants = {v.label: v for v in ABVariantRepository(test_session).list_for_experiment(exp.id)}
+    a, b = variants["A"], variants["B"]
+    # Both 1/2 = 0.5 → tie → A wins
+    for _ in range(2): svc.record_impression(a.id)
+    svc.record_conversion(a.id)
+    for _ in range(2): svc.record_impression(b.id)
+    svc.record_conversion(b.id)
+    test_session.commit()
+    concluded = svc.conclude(exp.id); test_session.commit()
+    assert concluded.winner_variant_id == a.id       # tie resolves to variant A
