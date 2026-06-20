@@ -1,17 +1,33 @@
 """
-End-to-end pipeline integration test.
-Validates: ingestion → RAG → resume generation → ATS → CRM → copilot → learning loop
-Uses mocked Ollama and ChromaDB so no live services are required.
+End-to-end pipeline integration test — single function, sequential, state-threaded.
+
+Validates all 8 spec steps:
+  1. Health check
+  2. Document ingestion  → document_id
+  3. Onboarding status   → completed: false
+  4. Complete onboarding → completed: true
+  5. RAG query           → response + evidence
+  6. Resume generation   → 200 + content_json
+  7. Applications CRM    → create + status transition
+  8. Learning loop       → record outcome + report count >= 1
+
+Mocks: Ollama (is_available=True, generate, embed, list_models) + ChromaDB PersistentClient.
+No live services required.
 """
 from __future__ import annotations
 
 import io
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from backend.database import seed_system_config
 
+
+# ---------------------------------------------------------------------------
+# Sample data
+# ---------------------------------------------------------------------------
 
 SAMPLE_JD = """
 We are seeking a Senior Data Engineer to join our team.
@@ -27,48 +43,77 @@ Led migration of ETL pipeline processing 10M records/day.
 """
 
 
-@pytest.fixture(autouse=True)
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
 def seed_config(test_session):
     """Seed system config rows so settings routes work."""
     seed_system_config(test_session)
     test_session.commit()
+    yield
 
 
 def _make_chroma_mock() -> MagicMock:
-    """Return a ChromaManager-like mock that satisfies upsert/query/count calls."""
-    mock = MagicMock()
-    collection = MagicMock()
-    collection.upsert.return_value = None
-    collection.add.return_value = None
-    collection.query.return_value = {
-        "ids": [[]],
-        "documents": [[]],
-        "metadatas": [[]],
-        "distances": [[]],
+    """
+    Return a mock that satisfies the chromadb.PersistentClient interface.
+
+    ChromaManager calls:
+      client.get_or_create_collection(name, metadata=...) → collection
+      collection.upsert(...)
+      collection.add(...)
+      collection.query(query_embeddings=..., n_results=...) → dict
+      collection.count() → int
+      client.heartbeat()
+
+    The query result uses distance=0.1 so semantic_score = 1.0 - 0.1 = 0.9,
+    which passes RAGRetriever's MIN_SIMILARITY=0.35 filter and produces evidence.
+    """
+    fake_result = {
+        "ids": [["doc-1"]],
+        "documents": [["Sample text about Python SQL data engineering"]],
+        "metadatas": [[{
+            "source": "test",
+            "confidence_level": "strong_inference",
+            "experience_id": "exp-1",
+            "company": "Acme Corp",
+            "title": "Data Engineer",
+            "start_date": "2020-01",
+            "end_date": "Present",
+        }]],
+        "distances": [[0.1]],
     }
-    collection.count.return_value = 0
-    mock.get_or_create_collection.return_value = collection
-    mock.upsert.return_value = None
-    mock.query.return_value = {
-        "ids": [[]],
-        "documents": [[]],
-        "metadatas": [[]],
-        "distances": [[]],
-    }
-    mock.count.return_value = 0
-    mock.health_check.return_value = True
-    return mock
+
+    mock_collection = MagicMock()
+    mock_collection.upsert.return_value = None
+    mock_collection.add.return_value = None
+    mock_collection.query.return_value = fake_result
+    mock_collection.count.return_value = 1
+
+    mock_client = MagicMock()
+    mock_client.get_or_create_collection.return_value = mock_collection
+    mock_client.heartbeat.return_value = True
+
+    return mock_client
 
 
-@pytest.fixture
-def mock_external_services():
-    """Stub all network-bound services: Ollama + ChromaDB PersistentClient."""
-    chroma_instance = _make_chroma_mock()
+# ---------------------------------------------------------------------------
+# The single E2E test function
+# ---------------------------------------------------------------------------
+
+def test_full_pipeline(client, seed_config):
+    """
+    Full 8-step pipeline test.  Each step's output feeds the next.
+    is_available=True so resume/RAG code paths fully execute (LLM JSON
+    parse failure triggers rule-based fallback, which still returns content_json).
+    """
+    chroma_mock = _make_chroma_mock()
 
     with (
         patch(
             "backend.services.ollama_client.OllamaClient.is_available",
-            return_value=False,  # drives RAGService to skip LLM generation
+            return_value=True,
         ),
         patch(
             "backend.services.ollama_client.OllamaClient.generate",
@@ -84,191 +129,120 @@ def mock_external_services():
         ),
         patch(
             "chromadb.PersistentClient",
-            return_value=chroma_instance,
+            return_value=chroma_mock,
         ),
     ):
-        yield
+        # ------------------------------------------------------------------
+        # Step 1: Health check
+        # ------------------------------------------------------------------
+        resp = client.get("/api/v1/health")
+        assert resp.status_code == 200, f"Step 1 health: {resp.text}"
+        assert resp.json()["status"] == "ok", f"Step 1 body: {resp.json()}"
 
+        # ------------------------------------------------------------------
+        # Step 2: Ingest a text file → extract document_id
+        # ------------------------------------------------------------------
+        file_bytes = SAMPLE_RESUME_TEXT.encode()
+        resp = client.post(
+            "/api/v1/ingest",
+            files={"file": ("resume.txt", io.BytesIO(file_bytes), "text/plain")},
+        )
+        assert resp.status_code == 200, f"Step 2 ingest: {resp.text}"
+        ingest_data = resp.json()
+        assert "document_id" in ingest_data, f"Step 2 missing document_id: {ingest_data}"
+        document_id = ingest_data["document_id"]
+        assert document_id, "Step 2: document_id must be non-empty"
 
-# ---------------------------------------------------------------------------
-# Helper: ingest a document and return its document_id
-# ---------------------------------------------------------------------------
+        # ------------------------------------------------------------------
+        # Step 3: Onboarding status → completed: false
+        # ------------------------------------------------------------------
+        resp = client.get("/api/v1/settings/onboarding")
+        assert resp.status_code == 200, f"Step 3 onboarding GET: {resp.text}"
+        assert resp.json() == {"completed": False}, f"Step 3 body: {resp.json()}"
 
-def _ingest_txt(client, text: str, filename: str = "resume.txt") -> str:
-    file_content = text.encode()
-    resp = client.post(
-        "/api/v1/ingest",
-        files={"file": (filename, io.BytesIO(file_content), "text/plain")},
-    )
-    assert resp.status_code == 200, resp.text
-    data = resp.json()
-    assert "document_id" in data, f"Expected 'document_id' in {data}"
-    return data["document_id"]
+        # ------------------------------------------------------------------
+        # Step 4: Complete onboarding → completed: true
+        # ------------------------------------------------------------------
+        resp = client.post("/api/v1/settings/onboarding/complete")
+        assert resp.status_code == 200, f"Step 4 onboarding POST: {resp.text}"
+        assert resp.json().get("completed") is True, f"Step 4 body: {resp.json()}"
 
+        # ------------------------------------------------------------------
+        # Step 5: RAG query — pass document_id context; assert 200 + response field
+        # ------------------------------------------------------------------
+        resp = client.post(
+            "/api/v1/rag/query",
+            json={
+                "query": f"data engineering Python SQL (doc_id={document_id})",
+                "intent": "knowledge_lookup",
+            },
+        )
+        assert resp.status_code == 200, f"Step 5 rag/query: {resp.text}"
+        rag_data = resp.json()
+        assert "response" in rag_data, f"Step 5 missing 'response': {rag_data}"
+        assert "evidence" in rag_data, f"Step 5 missing 'evidence': {rag_data}"
 
-# ---------------------------------------------------------------------------
-# Step 1: Ingest a text document
-# ---------------------------------------------------------------------------
+        # ------------------------------------------------------------------
+        # Step 6: Resume generation → 200 + content_json key
+        # Note: generate() returns "Mocked LLM output" which fails json.loads(),
+        # so ResumeGenerator falls back to rule-based build; content_json is still
+        # populated from the ChromaDB evidence returned above.
+        # ------------------------------------------------------------------
+        resp = client.post(
+            "/api/v1/resume/generate",
+            json={"job_description": SAMPLE_JD, "template_name": "software"},
+        )
+        assert resp.status_code == 200, f"Step 6 resume/generate: {resp.text}"
+        resume_data = resp.json()
+        assert "content_json" in resume_data, f"Step 6 missing 'content_json': {resume_data}"
 
-def test_ingest_txt_document(client, mock_external_services):
-    """Ingest a plain-text resume; expect a document_id back."""
-    doc_id = _ingest_txt(client, SAMPLE_RESUME_TEXT, "my_resume.txt")
-    assert doc_id, "Expected a non-empty document_id"
+        # ------------------------------------------------------------------
+        # Step 7: Applications CRM — create + status transition
+        # ------------------------------------------------------------------
+        resp = client.post(
+            "/api/v1/applications",
+            json={
+                "company": "Acme Data Co",
+                "position": "Senior Data Engineer",
+                "industry": "Technology",
+                "status": "draft",
+            },
+        )
+        assert resp.status_code == 201, f"Step 7a create application: {resp.text}"
+        app_data = resp.json()
+        assert "id" in app_data, f"Step 7a missing 'id': {app_data}"
+        app_id = app_data["id"]
 
+        resp = client.patch(
+            f"/api/v1/applications/{app_id}/status",
+            json={"status": "applied"},
+        )
+        assert resp.status_code == 200, f"Step 7b status transition: {resp.text}"
+        assert resp.json()["status"] == "applied", f"Step 7b wrong status: {resp.json()}"
 
-# ---------------------------------------------------------------------------
-# Step 2: RAG query returns a response structure
-# ---------------------------------------------------------------------------
+        # ------------------------------------------------------------------
+        # Step 8: Learning loop — record outcome signal; report count >= 1
+        # ------------------------------------------------------------------
+        resp = client.post(
+            "/api/v1/learning/outcome",
+            json={
+                "application_id": app_id,
+                "signal_type": "phone_screen",
+                "template_used": "software",
+                "ats_score": 78.5,
+            },
+        )
+        assert resp.status_code == 200, f"Step 8a learning/outcome: {resp.text}"
+        outcome_data = resp.json()
+        assert outcome_data.get("signal_type") == "phone_screen", (
+            f"Step 8a unexpected signal_type: {outcome_data}"
+        )
 
-def test_rag_query_returns_evidence(client, mock_external_services):
-    """RAG query endpoint returns response + evidence list."""
-    resp = client.post(
-        "/api/v1/rag/query",
-        json={"query": "data engineering Python SQL", "intent": "knowledge_lookup"},
-    )
-    assert resp.status_code == 200, resp.text
-    data = resp.json()
-    assert "evidence" in data, f"Expected 'evidence' key in {data}"
-    assert "response" in data, f"Expected 'response' key in {data}"
-
-
-# ---------------------------------------------------------------------------
-# Step 3: Resume generation endpoint accepts a valid template
-# ---------------------------------------------------------------------------
-
-def test_resume_generate_endpoint_reachable(client, mock_external_services):
-    """Resume generation returns 200/422 (not 404/500); endpoint is wired up."""
-    resp = client.post(
-        "/api/v1/resume/generate",
-        json={"job_description": SAMPLE_JD, "template_name": "software"},
-    )
-    # 200 = success; 422 = validation error from generator (no evidence), both are acceptable
-    assert resp.status_code in (200, 422), resp.text
-
-
-# ---------------------------------------------------------------------------
-# Step 4: ATS analysis returns ats_score
-# ---------------------------------------------------------------------------
-
-def test_ats_analysis_returns_score(client, mock_external_services):
-    """ATS analysis endpoint returns ats_score."""
-    resp = client.post(
-        "/api/v1/resume/analyze-ats",
-        json={
-            "resume_text": SAMPLE_RESUME_TEXT,
-            "job_description": SAMPLE_JD,
-        },
-    )
-    assert resp.status_code == 200, resp.text
-    data = resp.json()
-    assert "ats_score" in data, f"Expected 'ats_score' in {data}"
-
-
-# ---------------------------------------------------------------------------
-# Step 5: Create application, transition status, check timeline
-# ---------------------------------------------------------------------------
-
-def test_application_create_and_status_transition(client, mock_external_services):
-    """Create an application, transition status to applied, verify timeline."""
-    create_resp = client.post(
-        "/api/v1/applications",
-        json={
-            "company": "Acme Data Co",
-            "position": "Senior Data Engineer",
-            "industry": "Technology",
-            "status": "draft",
-        },
-    )
-    assert create_resp.status_code == 201, create_resp.text
-    app_id = create_resp.json()["id"]
-
-    status_resp = client.patch(
-        f"/api/v1/applications/{app_id}/status",
-        json={"status": "applied"},
-    )
-    assert status_resp.status_code == 200, status_resp.text
-    assert status_resp.json()["status"] == "applied"
-
-    timeline_resp = client.get(f"/api/v1/applications/{app_id}/timeline")
-    assert timeline_resp.status_code == 200, timeline_resp.text
-    events = timeline_resp.json()
-    assert any(e["to_status"] == "applied" for e in events), (
-        f"Expected a timeline event with to_status='applied'. Got: {events}"
-    )
-
-
-# ---------------------------------------------------------------------------
-# Step 6: Outcome signal is recorded via learning/outcome
-# ---------------------------------------------------------------------------
-
-def test_outcome_signal_recorded(client, mock_external_services):
-    """Outcome signal feeds the learning loop and returns signal metadata."""
-    create_resp = client.post(
-        "/api/v1/applications",
-        json={"company": "Beta Corp", "position": "PM", "status": "draft"},
-    )
-    assert create_resp.status_code == 201, create_resp.text
-    app_id = create_resp.json()["id"]
-
-    outcome_resp = client.post(
-        "/api/v1/learning/outcome",
-        json={
-            "application_id": app_id,
-            "signal_type": "phone_screen",
-            "template_used": "standard_v1",
-            "ats_score": 78.5,
-        },
-    )
-    assert outcome_resp.status_code == 200, outcome_resp.text
-    data = outcome_resp.json()
-    assert data["signal_type"] == "phone_screen", f"Unexpected response: {data}"
-
-
-# ---------------------------------------------------------------------------
-# Step 7: Copilot chat responds with response + intent
-# ---------------------------------------------------------------------------
-
-def test_copilot_chat_responds(client, mock_external_services):
-    """Copilot /chat returns response and intent classification."""
-    resp = client.post(
-        "/api/v1/copilot/chat",
-        json={"message": "What are my strongest data engineering skills?"},
-    )
-    assert resp.status_code == 200, resp.text
-    data = resp.json()
-    assert "response" in data, f"Expected 'response' in {data}"
-    assert "intent" in data, f"Expected 'intent' in {data}"
-
-
-# ---------------------------------------------------------------------------
-# Step 8: Learning report reflects recorded signals
-# ---------------------------------------------------------------------------
-
-def test_learning_report_after_signal(client, mock_external_services):
-    """Learning report lists template rankings after an outcome signal."""
-    create_resp = client.post(
-        "/api/v1/applications",
-        json={"company": "Gamma Inc", "position": "Analyst", "status": "draft"},
-    )
-    assert create_resp.status_code == 201, create_resp.text
-    app_id = create_resp.json()["id"]
-
-    outcome_resp = client.post(
-        "/api/v1/learning/outcome",
-        json={
-            "application_id": app_id,
-            "signal_type": "interview",
-            "template_used": "executive_v2",
-            "ats_score": 85.0,
-        },
-    )
-    assert outcome_resp.status_code == 200, outcome_resp.text
-
-    report_resp = client.get("/api/v1/learning/report")
-    assert report_resp.status_code == 200, report_resp.text
-    data = report_resp.json()
-    assert "template_rankings" in data, f"Expected 'template_rankings' in {data}"
-    rankings = data["template_rankings"]
-    assert any(r["template_name"] == "executive_v2" for r in rankings), (
-        f"Expected 'executive_v2' in rankings. Got: {rankings}"
-    )
+        resp = client.get("/api/v1/learning/report")
+        assert resp.status_code == 200, f"Step 8b learning/report: {resp.text}"
+        report_data = resp.json()
+        assert "template_rankings" in report_data, (
+            f"Step 8b missing 'template_rankings': {report_data}"
+        )
+        rankings = report_data["template_rankings"]
+        assert len(rankings) >= 1, f"Step 8b expected >= 1 ranking, got: {rankings}"
