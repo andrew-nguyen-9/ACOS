@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import NoReturn
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
@@ -99,7 +100,7 @@ def run_loop(session: Session = Depends(get_session)) -> dict:
     return LearningLoop(session).maybe_run()
 
 
-def _raise_not_found_or_conflict(exc: ValueError) -> None:
+def _raise_not_found_or_conflict(exc: ValueError) -> NoReturn:
     msg = str(exc)
     if "not found" in msg:
         raise HTTPException(status_code=404, detail=msg)
