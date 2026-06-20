@@ -1,9 +1,0 @@
-/Users/andrew/Documents/GitHub/ACOS/frontend/src-tauri/target/release/deps/once_cell-31c350781f419a1d.d: /Users/andrew/Library/Caches/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/once_cell-1.21.4/src/lib.rs /Users/andrew/Library/Caches/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/once_cell-1.21.4/src/imp_std.rs /Users/andrew/Library/Caches/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/once_cell-1.21.4/src/race.rs
-
-/Users/andrew/Documents/GitHub/ACOS/frontend/src-tauri/target/release/deps/libonce_cell-31c350781f419a1d.rlib: /Users/andrew/Library/Caches/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/once_cell-1.21.4/src/lib.rs /Users/andrew/Library/Caches/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/once_cell-1.21.4/src/imp_std.rs /Users/andrew/Library/Caches/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/once_cell-1.21.4/src/race.rs
-
-/Users/andrew/Documents/GitHub/ACOS/frontend/src-tauri/target/release/deps/libonce_cell-31c350781f419a1d.rmeta: /Users/andrew/Library/Caches/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/once_cell-1.21.4/src/lib.rs /Users/andrew/Library/Caches/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/once_cell-1.21.4/src/imp_std.rs /Users/andrew/Library/Caches/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/once_cell-1.21.4/src/race.rs
-
-/Users/andrew/Library/Caches/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/once_cell-1.21.4/src/lib.rs:
-/Users/andrew/Library/Caches/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/once_cell-1.21.4/src/imp_std.rs:
-/Users/andrew/Library/Caches/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/once_cell-1.21.4/src/race.rs:

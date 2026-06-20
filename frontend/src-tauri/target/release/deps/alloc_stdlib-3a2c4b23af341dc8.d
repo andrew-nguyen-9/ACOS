@@ -1,9 +1,0 @@
-/Users/andrew/Documents/GitHub/ACOS/frontend/src-tauri/target/release/deps/alloc_stdlib-3a2c4b23af341dc8.d: /Users/andrew/Library/Caches/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/alloc-stdlib-0.2.4/src/lib.rs /Users/andrew/Library/Caches/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/alloc-stdlib-0.2.4/src/heap_alloc.rs /Users/andrew/Library/Caches/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/alloc-stdlib-0.2.4/src/std_alloc.rs
-
-/Users/andrew/Documents/GitHub/ACOS/frontend/src-tauri/target/release/deps/liballoc_stdlib-3a2c4b23af341dc8.rlib: /Users/andrew/Library/Caches/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/alloc-stdlib-0.2.4/src/lib.rs /Users/andrew/Library/Caches/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/alloc-stdlib-0.2.4/src/heap_alloc.rs /Users/andrew/Library/Caches/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/alloc-stdlib-0.2.4/src/std_alloc.rs
-
-/Users/andrew/Documents/GitHub/ACOS/frontend/src-tauri/target/release/deps/liballoc_stdlib-3a2c4b23af341dc8.rmeta: /Users/andrew/Library/Caches/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/alloc-stdlib-0.2.4/src/lib.rs /Users/andrew/Library/Caches/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/alloc-stdlib-0.2.4/src/heap_alloc.rs /Users/andrew/Library/Caches/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/alloc-stdlib-0.2.4/src/std_alloc.rs
-
-/Users/andrew/Library/Caches/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/alloc-stdlib-0.2.4/src/lib.rs:
-/Users/andrew/Library/Caches/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/alloc-stdlib-0.2.4/src/heap_alloc.rs:
-/Users/andrew/Library/Caches/puccinialin/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/alloc-stdlib-0.2.4/src/std_alloc.rs:
