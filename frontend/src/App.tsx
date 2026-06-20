@@ -15,6 +15,7 @@ const ApplicationsPage = lazy(() => import("@/pages/ApplicationsPage"));
 const LearningPage = lazy(() => import("@/pages/LearningPage"));
 const CopilotPage = lazy(() => import("@/pages/CopilotPage"));
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
+const OptimizationPage = lazy(() => import("@/pages/OptimizationPage"));
 
 const PageFallback = () => (
   <div className="flex flex-1 items-center justify-center p-16">
@@ -82,6 +83,7 @@ export default function App() {
             <Route path="/interview-prep" element={<InterviewPrepPage />} />
             <Route path="/applications" element={<ApplicationsPage />} />
             <Route path="/learning" element={<LearningPage />} />
+            <Route path="/optimization" element={<OptimizationPage />} />
             <Route path="/copilot" element={<CopilotPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Routes>
