@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import String, Text, CheckConstraint
+from sqlalchemy import String, Text, CheckConstraint, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.models.base import Base, generate_uuid, utcnow
@@ -41,3 +41,25 @@ class OptimizationProposal(Base):
     created_at: Mapped[str] = mapped_column(String(32), default=utcnow)
     updated_at: Mapped[str] = mapped_column(String(32), default=utcnow, onupdate=utcnow)
     decided_at: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
+
+class OptimizationLog(Base):
+    __tablename__ = "optimization_logs"
+    __table_args__ = (
+        CheckConstraint(
+            "action IN ('applied','reverted')",
+            name="ck_opt_log_action",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=generate_uuid)
+    proposal_id: Mapped[str | None] = mapped_column(
+        String(32), ForeignKey("optimization_proposals.id", ondelete="SET NULL"), nullable=True
+    )
+    action: Mapped[str] = mapped_column(String(10), nullable=False)
+    target_engine: Mapped[str] = mapped_column(String(20), nullable=False)
+    target_parameter: Mapped[str] = mapped_column(Text, nullable=False)
+    old_value: Mapped[str | None] = mapped_column(Text, nullable=True)
+    new_value: Mapped[str | None] = mapped_column(Text, nullable=True)
+    actor: Mapped[str] = mapped_column(String(40), nullable=False, default="user")
+    created_at: Mapped[str] = mapped_column(String(32), default=utcnow)
