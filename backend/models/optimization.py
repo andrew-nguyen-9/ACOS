@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import String, Text, CheckConstraint, ForeignKey, Boolean, UniqueConstraint
+from sqlalchemy import String, Text, CheckConstraint, ForeignKey, Boolean, UniqueConstraint, Integer
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.models.base import Base, generate_uuid, utcnow
@@ -78,4 +78,38 @@ class PromptVersion(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     parent_version: Mapped[str | None] = mapped_column(String(20), nullable=True)
     change_rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[str] = mapped_column(String(32), default=utcnow)
+
+
+class ABExperiment(Base):
+    __tablename__ = "ab_experiments"
+    __table_args__ = (
+        CheckConstraint(
+            "target_engine IN ('resume','ats','rag','cover_letter','copilot')",
+            name="ck_ab_experiment_engine",
+        ),
+        CheckConstraint("status IN ('running','concluded')", name="ck_ab_experiment_status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=generate_uuid)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    target_engine: Mapped[str] = mapped_column(String(20), nullable=False)
+    metric: Mapped[str] = mapped_column(Text, nullable=False, default="interview_conversion_rate")
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="running")
+    winner_variant_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    created_at: Mapped[str] = mapped_column(String(32), default=utcnow)
+    concluded_at: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
+
+class ABVariant(Base):
+    __tablename__ = "ab_variants"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=generate_uuid)
+    experiment_id: Mapped[str] = mapped_column(
+        String(32), ForeignKey("ab_experiments.id", ondelete="CASCADE"), nullable=False
+    )
+    label: Mapped[str] = mapped_column(String(20), nullable=False)
+    config_json: Mapped[str] = mapped_column(Text, nullable=False)
+    impressions: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    conversions: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[str] = mapped_column(String(32), default=utcnow)

@@ -3,7 +3,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from backend.models.optimization import OptimizationProposal, OptimizationLog, PromptVersion
+from backend.models.optimization import OptimizationProposal, OptimizationLog, PromptVersion, ABExperiment, ABVariant
 from backend.repositories.base import BaseRepository
 
 
@@ -70,3 +70,27 @@ class PromptVersionRepository(BaseRepository[PromptVersion]):
             sibling.is_active = sibling.id == version_id
         self.session.flush()
         return target
+
+
+class ABExperimentRepository(BaseRepository[ABExperiment]):
+    def __init__(self, session: Session) -> None:
+        super().__init__(ABExperiment, session)
+
+    def list_running(self) -> list[ABExperiment]:
+        return list(
+            self.session.scalars(
+                select(ABExperiment).where(ABExperiment.status == "running")
+            ).all()
+        )
+
+
+class ABVariantRepository(BaseRepository[ABVariant]):
+    def __init__(self, session: Session) -> None:
+        super().__init__(ABVariant, session)
+
+    def list_for_experiment(self, experiment_id: str) -> list[ABVariant]:
+        return list(
+            self.session.scalars(
+                select(ABVariant).where(ABVariant.experiment_id == experiment_id)
+            ).all()
+        )

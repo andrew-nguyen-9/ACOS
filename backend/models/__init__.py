@@ -9,7 +9,9 @@ from backend.models.resume import Resume, ResumeTemplate, WritingProfile
 from backend.models.question import Question, Answer
 from backend.models.knowledge_graph import KnowledgeGraphNode, KnowledgeGraphEdge
 from backend.models.outcome import OutcomeSignal
-from backend.models.optimization import OptimizationProposal, OptimizationLog, PromptVersion
+from backend.models.optimization import (
+    OptimizationProposal, OptimizationLog, PromptVersion, ABExperiment, ABVariant,
+)
 from backend.models.generation import GenerationLog
 from backend.models.system_config import SystemConfig
 
@@ -40,6 +42,8 @@ __all__ = [
     "OptimizationProposal",
     "OptimizationLog",
     "PromptVersion",
+    "ABExperiment",
+    "ABVariant",
     "GenerationLog",
     "SystemConfig",
 ]
