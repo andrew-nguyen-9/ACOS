@@ -100,18 +100,25 @@ class IngestionPipeline:
             if "resume" in validated.name.lower()
             else "acos_experiences"
         )
-        # TODO(Phase 3): If this call succeeds but a later step raises, ChromaDB and SQLite diverge.
-        # Add a try/except that sets ingestion_status="failed" and logs the divergence before re-raising.
-        self._indexer.index_document(
-            collection,
-            doc.id,
-            text[:2000],
-            {
-                "document_id": doc.id,
-                "source_type": doc.source_type,
-                "confidence_level": "strong_inference",
-            },
-        )
+        try:
+            self._indexer.index_document(
+                collection,
+                doc.id,
+                text[:2000],
+                {
+                    "document_id": doc.id,
+                    "source_type": doc.source_type,
+                    "confidence_level": "strong_inference",
+                },
+            )
+        except Exception:
+            logger.exception(
+                "pipeline: ChromaDB indexing failed for doc '%s'; marking status=failed",
+                doc.id,
+            )
+            doc.ingestion_status = "failed"
+            self._session.flush()
+            raise
 
         doc.ingestion_status = "complete"
         self._session.flush()

@@ -1,5 +1,26 @@
 from __future__ import annotations
 
+import pytest
+from unittest.mock import MagicMock, patch
+
+
+@pytest.fixture(autouse=True)
+def mock_ollama_and_chroma():
+    """Mock OllamaClient, RAGRetriever, Reranker, and ChromaManager to prevent hangs when Ollama is offline."""
+    mock_ollama = MagicMock()
+    mock_ollama.is_available.return_value = False
+    mock_retriever = MagicMock()
+    mock_retriever.retrieve.return_value = []
+    mock_reranker = MagicMock()
+    mock_reranker.rerank.return_value = []
+    with (
+        patch("backend.api.v1.routes.questions.OllamaClient", return_value=mock_ollama),
+        patch("backend.api.v1.routes.questions.RAGRetriever", return_value=mock_retriever),
+        patch("backend.api.v1.routes.questions.Reranker", return_value=mock_reranker),
+        patch("backend.api.v1.routes.questions.ChromaManager", return_value=MagicMock()),
+    ):
+        yield
+
 
 def test_generate_questions(client):
     resp = client.post(

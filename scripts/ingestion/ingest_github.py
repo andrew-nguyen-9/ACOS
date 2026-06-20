@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 _GH_API = "https://api.github.com"
 _HEADERS = {"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
+_README_MAX_BYTES = 51_200  # 50 KB cap — prevents OOM on adversarially large READMEs
 
 
 def fetch_repos(username: str) -> list[dict]:
@@ -42,9 +43,19 @@ def fetch_readme(username: str, repo: str, branch: str) -> str:
     try:
         resp = httpx.get(url, headers=_HEADERS, timeout=30)
         resp.raise_for_status()
-        return resp.text
+        # Cap at _README_MAX_BYTES to prevent OOM on adversarially large READMEs
+        return resp.text[:_README_MAX_BYTES]
     except httpx.HTTPStatusError:
         return ""
+
+
+def _build_repo_text(repo: dict, readme: str) -> str:
+    """Assemble the indexable text for a repo. Total capped at 50 KB."""
+    name = repo.get("name", "")
+    description = repo.get("description") or ""
+    language = repo.get("language") or ""
+    text = f"Repository: {name}\nLanguage: {language}\nDescription: {description}\n\n{readme}"
+    return text[:_README_MAX_BYTES]
 
 
 def ingest(username: str) -> None:
@@ -61,19 +72,15 @@ def ingest(username: str) -> None:
     with SessionLocal() as session:
         kg_svc = KnowledgeGraphService(session)
         for repo in repos:
-            name = repo["name"]
-            description = repo.get("description") or ""
-            language = repo.get("language") or ""
             branch = repo.get("default_branch", "main")
-            readme = fetch_readme(username, name, branch)
-
-            text = f"Repository: {name}\nLanguage: {language}\nDescription: {description}\n\n{readme}"
-            doc_id = f"github_{username}_{name}"
+            readme = fetch_readme(username, repo["name"], branch)
+            text = _build_repo_text(repo, readme)
+            doc_id = f"github_{username}_{repo['name']}"
 
             entities = extractor.extract(text, "github")
             metadata = {
                 "repo_url": repo.get("html_url", ""),
-                "language": language,
+                "language": repo.get("language") or "",
                 "project_id": doc_id,
                 "confidence_level": "strong_inference",
             }
@@ -85,7 +92,7 @@ def ingest(username: str) -> None:
                     {"confidence": skill["confidence"], "source": "github"},
                 )
 
-            logger.info("indexed repo: %s", name)
+            logger.info("indexed repo: %s", repo["name"])
         session.commit()
 
 

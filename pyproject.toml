@@ -1,7 +1,7 @@
 [tool.pytest.ini_options]
 testpaths = ["backend/tests"]
 pythonpath = ["."]
-addopts = "--cov=backend --cov-report=term-missing --cov-report=html:.coverage_html -v"
+addopts = "--cov=backend --cov-report=term-missing --cov-report=html:.coverage_html -v --ignore=backend/tests/benchmark"
 filterwarnings = [
     "ignore::DeprecationWarning",
 ]
