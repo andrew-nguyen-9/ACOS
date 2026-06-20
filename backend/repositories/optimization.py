@@ -3,7 +3,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from backend.models.optimization import OptimizationProposal, OptimizationLog
+from backend.models.optimization import OptimizationProposal, OptimizationLog, PromptVersion
 from backend.repositories.base import BaseRepository
 
 
@@ -38,3 +38,35 @@ class OptimizationLogRepository(BaseRepository[OptimizationLog]):
                 .limit(limit)
             ).all()
         )
+
+
+class PromptVersionRepository(BaseRepository[PromptVersion]):
+    def __init__(self, session: Session) -> None:
+        super().__init__(PromptVersion, session)
+
+    def get_active(self, prompt_name: str) -> PromptVersion | None:
+        return self.session.scalars(
+            select(PromptVersion).where(
+                PromptVersion.prompt_name == prompt_name,
+                PromptVersion.is_active.is_(True),
+            )
+        ).first()
+
+    def list_for_prompt(self, prompt_name: str) -> list[PromptVersion]:
+        return list(
+            self.session.scalars(
+                select(PromptVersion)
+                .where(PromptVersion.prompt_name == prompt_name)
+                .order_by(PromptVersion.created_at.asc())
+            ).all()
+        )
+
+    def activate(self, version_id: str) -> PromptVersion:
+        target = self.get(version_id)
+        if target is None:
+            raise ValueError(f"PromptVersion {version_id} not found")
+        # Deactivate all siblings, then activate the target (single-active invariant).
+        for sibling in self.list_for_prompt(target.prompt_name):
+            sibling.is_active = sibling.id == version_id
+        self.session.flush()
+        return target
