@@ -48,6 +48,8 @@ class ResumeGenerator:
         bullet_rewriter: BulletRewriter | None = None,
         layout_engine: LayoutEngine | None = None,
         validator: ResumeValidator | None = None,
+        reasoning_engine: Any = None,
+        self_corrector: Any = None,
     ) -> None:
         self._selector = evidence_selector
         self._kw_extractor = keyword_extractor
@@ -61,6 +63,11 @@ class ResumeGenerator:
         self._bullet_rewriter = bullet_rewriter or BulletRewriter()
         self._layout_engine = layout_engine or LayoutEngine()
         self._validator = validator or ResumeValidator()
+        # Phase 10.3: optional reason-then-write. When absent (or Ollama down),
+        # the engine recommends all evidence, so behavior is unchanged.
+        self._reasoning = reasoning_engine
+        # Phase 10.4: optional self-correction pass over generated content.
+        self._self_corrector = self_corrector
 
     def generate(
         self,
@@ -91,6 +98,9 @@ class ResumeGenerator:
             for b in selected
         ]
 
+        # Step 4b: reason-then-write — filter to reasoning-recommended evidence
+        rewritten = self._apply_reasoning(job_description, rewritten)
+
         # Step 5: count weak inferences from selected set
         weak_count: int = sum(
             1 for e in rewritten if e.get("confidence") == "weak_inference"
@@ -101,6 +111,11 @@ class ResumeGenerator:
             job_description, template_name, keywords, rewritten,
             company=company, job_title=job_title,
         )
+
+        # Step 6b: self-correction pass (compress over-length, dedup, flag hallucinations)
+        correction_approval = self._apply_self_correction(content_json, kw_list)
+        if correction_approval:
+            weak_count = max(weak_count, 1)
 
         # Step 7: layout optimization (shrink to fit page)
         content_json, excluded = self._optimize_layout(content_json, excluded)
@@ -179,6 +194,64 @@ class ResumeGenerator:
                 "warnings": validation.warnings,
             },
         }
+
+    # ── Reasoning layer (Phase 10.3) ─────────────────────────────────────────
+
+    def _apply_reasoning(self, job_description: str, bullets: list[dict]) -> list[dict]:
+        """Filter bullets to the reasoning engine's recommended evidence.
+
+        No-op when no reasoning engine is wired, or when the engine recommends
+        nothing (treated as "no opinion" → keep all bullets).
+        """
+        if self._reasoning is None or not bullets:
+            return bullets
+        try:
+            trace = self._reasoning.reason(job_description, bullets)
+        except Exception as exc:
+            logger.warning("resume_generator: reasoning failed (%s), keeping all bullets", exc)
+            return bullets
+        recommended = set(trace.get("recommended_evidence_ids", []))
+        if not recommended:
+            return bullets
+        filtered = [b for b in bullets if b.get("evidence_id") in recommended]
+        return filtered or bullets
+
+    # ── Self-correction (Phase 10.4) ─────────────────────────────────────────
+
+    def _apply_self_correction(self, content_json: dict, allowed_skills: list[str]) -> bool:
+        """Run the self-corrector over each experience's bullets in place.
+
+        Content bullets use a ``text`` key; the corrector uses ``bullet_text``,
+        so we translate across the boundary. Returns True if any correction
+        flagged the resume for approval.
+        """
+        if self._self_corrector is None:
+            return False
+        requires_approval = False
+        for exp in content_json.get("experiences", []):
+            raw = exp.get("bullets", [])
+            adapted = [
+                {
+                    "bullet_text": b.get("text", "") if isinstance(b, dict) else str(b),
+                    "confidence": b.get("confidence", "verified") if isinstance(b, dict) else "verified",
+                    "evidence_id": b.get("evidence_id", "") if isinstance(b, dict) else "",
+                    "score": b.get("score", 0.0) if isinstance(b, dict) else 0.0,
+                }
+                for b in raw
+            ]
+            try:
+                result = self._self_corrector.correct(adapted, allowed_skills=allowed_skills)
+            except Exception as exc:
+                logger.warning("resume_generator: self-correction failed (%s), skipping", exc)
+                continue
+            exp["bullets"] = [
+                {"text": c["bullet_text"], "evidence_id": c.get("evidence_id", ""),
+                 "confidence": c.get("confidence", "verified")}
+                for c in result.bullets
+            ]
+            if result.requires_approval:
+                requires_approval = True
+        return requires_approval
 
     # ── Layout optimization ──────────────────────────────────────────────────
 

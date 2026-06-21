@@ -15,6 +15,7 @@ from backend.services.cover_letter.docx_exporter import CoverLetterDOCXExporter
 from backend.services.cover_letter.generator import CoverLetterGenerator, LENGTH_TARGETS
 from backend.services.cover_letter.voice_modeler import VoiceModeler
 from backend.services.ollama_client import OllamaClient
+from backend.services.profile.contact_loader import default_contact_path, load_contact
 from backend.services.prompt_loader import PromptLoader
 from backend.services.resume.evidence_selector import EvidenceSelector
 
@@ -111,7 +112,8 @@ def generate_cover_letter_docx(
         body.job_description, body.company, body.job_title, body.length_target,
         resume_context=resume_context,
     )
-    docx_bytes = exporter.export(result["text"], body.job_title, body.company)
+    contact = load_contact(default_contact_path())
+    docx_bytes = exporter.export(result["text"], body.job_title, body.company, contact_info=contact)
     return Response(
         content=docx_bytes,
         media_type=(

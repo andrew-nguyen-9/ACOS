@@ -305,7 +305,38 @@ backend/prompts/ats/analyze.yaml
 
 ---
 
-## Phase 10: Frontend (Tauri + React)
+## Phase 10: Intelligence Layer Upgrade
+
+**Goal:** Upgrade ACOS from retrieval-and-generation to evidence-reasoning. Eliminate weak-confidence outputs via multi-stage RAG, context memory, reasoning traces, and self-correction.
+
+**Duration estimate:** 3–4 sessions
+
+**Plugins required:** `context7` (ChromaDB, FastAPI), `compound-engineering:ce-performance-reviewer`, `ralph-loop`
+
+**Plan:** `docs/superpowers/plans/2026-06-21-phase-10-intelligence-layer-upgrade.md`
+
+**Modules:**
+1. Query Understanding — extract role_type, seniority, skills, 3 query vectors from JD
+2. Multi-Vector Retrieval — parallel ChromaDB queries + recency-weighted SQL; MMR diversity merge
+3. Evidence Ranking — relevance × confidence × dimension-coverage × recency scoring
+4. Context Memory — short-term (session) + long-term (SQLite) + role/company ChromaDB memory
+5. Reasoning Layer — reason-then-write: job match reasoning trace → grounded generation
+6. Model Orchestration — route to fast_retrieval / deep_reasoning / ats_optimization / copilot modes
+7. Embedding Intelligence — semantic chunking, skill normalization, project-to-skill expansion, 5 dimension collections
+8. Self-Correction — auto-rewrite bullets < 3.0/5.0 score; flag hallucinations; deduplicate experiences
+
+**Acceptance Criteria:**
+- Bullets never truncate mid-phrase (≤40 words, ≤175 chars)
+- DOCX output uses correct visual template per template_name (✅ delivered in pre-phase fixes)
+- Reasoning trace cites only evidence IDs passed in context — no hallucinated references
+- Self-corrector catches and rewrites all bullets > 175 chars
+- Memory injection improves ATS score on second generation for same role
+- ≥90% test coverage on all 8 new service modules
+- No external API calls — Ollama only
+
+---
+
+## Phase 11: Frontend (Tauri + React)
 
 **Goal:** Production desktop UI for all engines.
 
@@ -331,7 +362,7 @@ backend/prompts/ats/analyze.yaml
 
 ---
 
-## Phase 11: Packaging & Release
+## Phase 12: Packaging & Release
 
 **Goal:** Ship a distributable macOS application.
 
@@ -353,8 +384,9 @@ backend/prompts/ats/analyze.yaml
 | M1: Knowledge | 2–3 | All static files ingested, ChromaDB populated |
 | M2: Generation | 4–5 | Resume + cover letter generated for 3 JDs |
 | M3: Full Backend | 6–9 | All API endpoints operational |
-| M4: Desktop App | 10 | All UI pages functional |
-| M5: Ship | 11 | DMG builds, installs, runs offline |
+| M3.5: Intelligence | 10 | Reasoning layer, memory, self-correction operational |
+| M4: Desktop App | 11 | All UI pages functional |
+| M5: Ship | 12 | DMG builds, installs, runs offline |
 
 ---
 

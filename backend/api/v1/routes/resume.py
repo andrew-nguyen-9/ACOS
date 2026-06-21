@@ -18,6 +18,7 @@ from backend.services.resume.docx_exporter import ResumeDOCXExporter
 from backend.services.resume.evidence_selector import EvidenceSelector
 from backend.services.resume.generator import ResumeGenerator
 from backend.services.resume.templates import TEMPLATE_NAMES
+from backend.services.profile.contact_loader import default_contact_path, load_contact
 
 router = APIRouter(tags=["resume"])
 
@@ -104,7 +105,8 @@ def generate_resume_docx(
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
-    docx_bytes = exporter.export(result["content_json"], body.template_name)
+    contact = load_contact(default_contact_path())
+    docx_bytes = exporter.export(result["content_json"], body.template_name, contact_info=contact)
     return Response(
         content=docx_bytes,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
