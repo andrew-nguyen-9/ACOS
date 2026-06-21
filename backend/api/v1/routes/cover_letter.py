@@ -10,6 +10,7 @@ from backend.rag.chroma_client import ChromaManager
 from backend.rag.embedder import Embedder
 from backend.rag.retriever import RAGRetriever
 from backend.rag.reranker import Reranker
+from backend.repositories.resume import ResumeRepository
 from backend.services.cover_letter.docx_exporter import CoverLetterDOCXExporter
 from backend.services.cover_letter.generator import CoverLetterGenerator, LENGTH_TARGETS
 from backend.services.cover_letter.voice_modeler import VoiceModeler
@@ -28,6 +29,7 @@ class GenerateCLRequest(BaseModel):
     job_title: str
     length_target: str = "medium"
     application_id: str | None = None
+    resume_id: str | None = None
 
 
 class LearnVoiceRequest(BaseModel):
@@ -66,8 +68,18 @@ def generate_cover_letter(
         )
     settings = get_settings()
     generator, _ = _build_cl_deps(settings, session)
+
+    resume_context: dict | None = None
+    if body.resume_id:
+        resume_repo = ResumeRepository(session)
+        resume = resume_repo.get(body.resume_id)
+        if resume is None:
+            raise HTTPException(status_code=404, detail=f"Resume '{body.resume_id}' not found.")
+        resume_context = resume.content_json.get("_resume_context")
+
     return generator.generate(
-        body.job_description, body.company, body.job_title, body.length_target
+        body.job_description, body.company, body.job_title, body.length_target,
+        resume_context=resume_context,
     )
 
 
@@ -86,8 +98,18 @@ def generate_cover_letter_docx(
         )
     settings = get_settings()
     generator, exporter = _build_cl_deps(settings, session)
+
+    resume_context = None
+    if body.resume_id:
+        resume_repo = ResumeRepository(session)
+        resume = resume_repo.get(body.resume_id)
+        if resume is None:
+            raise HTTPException(status_code=404, detail=f"Resume '{body.resume_id}' not found.")
+        resume_context = resume.content_json.get("_resume_context")
+
     result = generator.generate(
-        body.job_description, body.company, body.job_title, body.length_target
+        body.job_description, body.company, body.job_title, body.length_target,
+        resume_context=resume_context,
     )
     docx_bytes = exporter.export(result["text"], body.job_title, body.company)
     return Response(
