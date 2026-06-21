@@ -14,6 +14,7 @@ from backend.models.optimization import (
 )
 from backend.models.generation import GenerationLog
 from backend.models.system_config import SystemConfig
+from backend.models.memory import Memory
 
 __all__ = [
     "Base",
@@ -46,4 +47,5 @@ __all__ = [
     "ABVariant",
     "GenerationLog",
     "SystemConfig",
+    "Memory",
 ]
