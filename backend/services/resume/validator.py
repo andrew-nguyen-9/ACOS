@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from backend.services.resume.bullet_quality import BulletQualityChecker
 from backend.services.resume.bullet_rewriter import ACTION_VERBS
 from backend.services.resume.layout_engine import MAX_PAGE_LINES, BULLET_WIDTH
 
@@ -33,6 +34,8 @@ class ResumeValidator:
     Errors block export; warnings are logged but do not block.
     """
 
+    _quality_checker = BulletQualityChecker()
+
     def validate(self, resume: dict) -> ValidationResult:
         errors: list[str] = []
         warnings: list[str] = []
@@ -47,6 +50,7 @@ class ResumeValidator:
             self._validate_bullet_lengths(bullet_texts, errors)
             self._validate_quantification(bullet_texts, warnings)
             self._validate_role_density(bullet_texts, role.get("is_current", False), warnings)
+            self._validate_quality(bullet_texts, warnings)
 
         return ValidationResult(valid=len(errors) == 0, errors=errors, warnings=warnings)
 
@@ -87,6 +91,18 @@ class ResumeValidator:
                 f"Only {quantified}/{len(bullets)} bullets are quantified "
                 f"({ratio:.0%} < 30% target)."
             )
+
+    def _validate_quality(self, bullets: list[str], warnings: list[str]) -> None:
+        counts = self._quality_checker.summary(bullets)
+        # Surface error-severity violations as validator warnings (not blocking)
+        for code in ("PASSIVE_OPENER", "HELPING_VERB", "PRONOUN"):
+            n = counts.get(code, 0)
+            if n:
+                warnings.append(f"{n} bullet(s) flagged [{code}] — see BulletQualityChecker")
+        for code in ("PASSIVE_VOICE", "WEAK_ADVERB", "NON_DESCRIPT"):
+            n = counts.get(code, 0)
+            if n:
+                warnings.append(f"{n} bullet(s) flagged [{code}] — style guide violation")
 
     def _validate_role_density(
         self,
