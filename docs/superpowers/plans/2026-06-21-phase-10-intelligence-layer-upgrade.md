@@ -351,12 +351,13 @@ Phase 10.1: Foundation (Week 1) — COMPLETE ✅
   ✅ QueryUnderstander service + understand_query.yaml prompt — 6 tests
   ✅ All 629 tests pass, 91.33% coverage
 
-Phase 10.2: Retrieval Upgrade (Week 1)
-  [ ] MultiVectorRetriever (wraps EvidenceSelector)
-  [ ] Evidence ranking upgrade (BulletScorer.score_with_context)
-  [ ] Embedding intelligence: chunker, normalizer, project-skill mapper
-  [ ] Re-seed ChromaDB with upgraded chunking
-  [ ] Tests: multi_vector_retriever, embedding pipeline
+Phase 10.2: Retrieval Upgrade (Week 1) — CORE COMPLETE ✅
+  ✅ MultiVectorRetriever: 3 query vectors (skills/keywords/role) + dedup + MMR diversity — 6 tests
+     (MMR uses word-overlap similarity; ceiling noted — upgrade to embedding cosine if needed)
+  ✅ Evidence ranking upgrade: BulletScorer.score_with_context + dominant_dimension classifier — 6 tests
+  ⏳ DEFERRED to 10.2b: embedding intelligence (chunker, skill normalizer, project-skill mapper)
+     + ChromaDB reseed — only takes effect at index time; separable, heavy reseed pass
+  ✅ 641 tests pass, 91.43% coverage
 
 Phase 10.3: Reasoning Layer (Week 2)
   [ ] ReasoningEngine service
