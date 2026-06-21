@@ -116,7 +116,21 @@ class ResumeGenerator:
         resume_text: str = self._content_to_text(content_json)
         ats_score: dict = self._ats_scorer.score(resume_text, job_description, keywords)
 
-        # Step 10: persist
+        # Step 10: build context + embed in content_json for DB storage
+        # (avoids a schema migration; CL route reconstructs via content_json["_resume_context"])
+        interim_context = ResumeContext(
+            resume_id="",  # placeholder; replaced after DB insert
+            job_title=job_title,
+            company=company,
+            keywords=kw_list,
+            selected_bullets=selected,
+            excluded_bullets=excluded,
+            selection_scores={
+                b.get("evidence_id", ""): b.get("score", 0.0) for b in selected
+            },
+        )
+        content_json["_resume_context"] = interim_context.to_dict()
+
         try:
             resume = self._resume_repo.create(
                 name=f"Resume — {job_title or keywords.get('industry', 'general')} ({template_name})",
@@ -129,7 +143,7 @@ class ResumeGenerator:
         except IntegrityError as exc:
             raise ValueError(f"Invalid application_id: {application_id}") from exc
 
-        # Step 11: build context for cover letter pipeline
+        # Step 11: build final context with real resume_id
         resume_context = ResumeContext(
             resume_id=resume.id,
             job_title=job_title,

@@ -6,7 +6,7 @@ from backend.services.resume.resume_context import ResumeContext
 
 def _sample_context() -> ResumeContext:
     return ResumeContext(
-        resume_id=42,
+        resume_id="abc123",
         job_title="Software Engineer",
         company="Acme Corp",
         keywords=["Python", "ETL", "AWS"],
@@ -22,7 +22,7 @@ def _sample_context() -> ResumeContext:
 
 def test_resume_context_constructs() -> None:
     ctx = _sample_context()
-    assert ctx.resume_id == 42
+    assert ctx.resume_id == "abc123"
     assert ctx.job_title == "Software Engineer"
     assert ctx.company == "Acme Corp"
     assert len(ctx.keywords) == 3
@@ -34,7 +34,7 @@ def test_resume_context_to_dict() -> None:
     ctx = _sample_context()
     d = ctx.to_dict()
     assert isinstance(d, dict)
-    assert d["resume_id"] == 42
+    assert d["resume_id"] == "abc123"
     assert d["keywords"] == ["Python", "ETL", "AWS"]
     assert "selected_bullets" in d
     assert "excluded_bullets" in d
@@ -56,7 +56,7 @@ def test_resume_context_from_dict_roundtrip() -> None:
 
 
 def test_resume_context_defaults() -> None:
-    ctx = ResumeContext(resume_id=1, job_title="PM", company="Acme")
+    ctx = ResumeContext(resume_id="id1", job_title="PM", company="Acme")
     assert ctx.keywords == []
     assert ctx.selected_bullets == []
     assert ctx.excluded_bullets == []

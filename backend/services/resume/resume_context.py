@@ -10,7 +10,7 @@ class ResumeContext:
     Serializes to/from dict so it can be embedded in Resume.content_json without a migration.
     """
 
-    resume_id: int
+    resume_id: str
     job_title: str
     company: str
     keywords: list[str] = field(default_factory=list)

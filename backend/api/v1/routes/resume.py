@@ -33,6 +33,8 @@ class GenerateRequest(BaseModel):
     job_description: str
     template_name: str = "software"
     application_id: str | None = None
+    company: str = ""
+    job_title: str = ""
 
 
 def _build_deps(settings: Settings, session: Session) -> tuple[ResumeGenerator, ResumeDOCXExporter]:
@@ -75,7 +77,10 @@ def generate_resume(
     settings = get_settings()
     gen, _ = _build_deps(settings, session)
     try:
-        return gen.generate(body.job_description, body.template_name, body.application_id)
+        return gen.generate(
+            body.job_description, body.template_name, body.application_id,
+            company=body.company, job_title=body.job_title,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
 
@@ -93,7 +98,10 @@ def generate_resume_docx(
     settings = get_settings()
     gen, exporter = _build_deps(settings, session)
     try:
-        result = gen.generate(body.job_description, body.template_name, body.application_id)
+        result = gen.generate(
+            body.job_description, body.template_name, body.application_id,
+            company=body.company, job_title=body.job_title,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     docx_bytes = exporter.export(result["content_json"], body.template_name)
