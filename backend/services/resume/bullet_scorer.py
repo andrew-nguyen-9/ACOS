@@ -48,16 +48,19 @@ class BulletScorer:
         relevance_score: float = 0.5,
         already_selected: list[dict] | None = None,
     ) -> float:
-        """Return composite score.
+        """Return composite score. See ``score_dimensions`` for per-dimension breakdown."""
+        return sum(self.score_dimensions(bullet, keywords, relevance_score, already_selected).values())
 
-        Args:
-            bullet: dict with at least ``bullet_text`` key.
-            keywords: JD keywords for keyword-density scoring.
-            relevance_score: 0.0–1.0 from reranker; used to weight impact dimension.
-            already_selected: bullets already chosen; used for uniqueness penalty.
+    def score_dimensions(
+        self,
+        bullet: dict,
+        keywords: list[str],
+        relevance_score: float = 0.5,
+        already_selected: list[dict] | None = None,
+    ) -> dict[str, float]:
+        """Return weighted per-dimension scores (all sum to the composite score).
 
-        Returns:
-            Composite float score. Roughly 0.0–1.0 for typical bullets.
+        Keys: impact, quantification, keyword, leadership, uniqueness
         """
         text = bullet.get("bullet_text", "")
         text_lower = text.lower()
@@ -68,16 +71,15 @@ class BulletScorer:
         leadership = self._leadership_score(text_lower)
         uniqueness = self._uniqueness_score(text, already_selected or [])
 
-        # Blend relevance_score into impact dimension
         blended_impact = (impact + relevance_score) / 2.0
 
-        return (
-            self.WEIGHTS["impact"] * blended_impact
-            + self.WEIGHTS["quantification"] * quant
-            + self.WEIGHTS["keyword"] * kw
-            + self.WEIGHTS["leadership"] * leadership
-            + self.WEIGHTS["uniqueness"] * uniqueness
-        )
+        return {
+            "impact": self.WEIGHTS["impact"] * blended_impact,
+            "quantification": self.WEIGHTS["quantification"] * quant,
+            "keyword": self.WEIGHTS["keyword"] * kw,
+            "leadership": self.WEIGHTS["leadership"] * leadership,
+            "uniqueness": self.WEIGHTS["uniqueness"] * uniqueness,
+        }
 
     def score_many(
         self,
