@@ -132,3 +132,35 @@ def test_generate_saves_resume_to_db(
     result = gen.generate("Python role", "software")
     assert result["resume_id"] is not None
     assert len(result["resume_id"]) == 32
+
+
+def test_generate_emits_resume_context(
+    mock_evidence_selector, mock_kw_extractor, mock_ats_scorer,
+    mock_ollama, mock_loader, test_session
+):
+    gen = ResumeGenerator(
+        mock_evidence_selector, mock_kw_extractor, mock_ats_scorer,
+        mock_ollama, mock_loader, test_session
+    )
+    result = gen.generate("Python role", "software", company="Acme", job_title="Data Engineer")
+    ctx = result["resume_context"]
+    assert "resume_id" in ctx
+    assert "selected_bullets" in ctx
+    assert "excluded_bullets" in ctx
+    assert ctx["company"] == "Acme"
+    assert ctx["job_title"] == "Data Engineer"
+
+
+def test_generate_emits_validation(
+    mock_evidence_selector, mock_kw_extractor, mock_ats_scorer,
+    mock_ollama, mock_loader, test_session
+):
+    gen = ResumeGenerator(
+        mock_evidence_selector, mock_kw_extractor, mock_ats_scorer,
+        mock_ollama, mock_loader, test_session
+    )
+    result = gen.generate("Python role", "software")
+    val = result["validation"]
+    assert "valid" in val
+    assert "errors" in val
+    assert "warnings" in val
