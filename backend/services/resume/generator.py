@@ -49,6 +49,7 @@ class ResumeGenerator:
         layout_engine: LayoutEngine | None = None,
         validator: ResumeValidator | None = None,
         reasoning_engine: Any = None,
+        self_corrector: Any = None,
     ) -> None:
         self._selector = evidence_selector
         self._kw_extractor = keyword_extractor
@@ -65,6 +66,8 @@ class ResumeGenerator:
         # Phase 10.3: optional reason-then-write. When absent (or Ollama down),
         # the engine recommends all evidence, so behavior is unchanged.
         self._reasoning = reasoning_engine
+        # Phase 10.4: optional self-correction pass over generated content.
+        self._self_corrector = self_corrector
 
     def generate(
         self,
@@ -108,6 +111,11 @@ class ResumeGenerator:
             job_description, template_name, keywords, rewritten,
             company=company, job_title=job_title,
         )
+
+        # Step 6b: self-correction pass (compress over-length, dedup, flag hallucinations)
+        correction_approval = self._apply_self_correction(content_json, kw_list)
+        if correction_approval:
+            weak_count = max(weak_count, 1)
 
         # Step 7: layout optimization (shrink to fit page)
         content_json, excluded = self._optimize_layout(content_json, excluded)
@@ -207,6 +215,43 @@ class ResumeGenerator:
             return bullets
         filtered = [b for b in bullets if b.get("evidence_id") in recommended]
         return filtered or bullets
+
+    # ── Self-correction (Phase 10.4) ─────────────────────────────────────────
+
+    def _apply_self_correction(self, content_json: dict, allowed_skills: list[str]) -> bool:
+        """Run the self-corrector over each experience's bullets in place.
+
+        Content bullets use a ``text`` key; the corrector uses ``bullet_text``,
+        so we translate across the boundary. Returns True if any correction
+        flagged the resume for approval.
+        """
+        if self._self_corrector is None:
+            return False
+        requires_approval = False
+        for exp in content_json.get("experiences", []):
+            raw = exp.get("bullets", [])
+            adapted = [
+                {
+                    "bullet_text": b.get("text", "") if isinstance(b, dict) else str(b),
+                    "confidence": b.get("confidence", "verified") if isinstance(b, dict) else "verified",
+                    "evidence_id": b.get("evidence_id", "") if isinstance(b, dict) else "",
+                    "score": b.get("score", 0.0) if isinstance(b, dict) else 0.0,
+                }
+                for b in raw
+            ]
+            try:
+                result = self._self_corrector.correct(adapted, allowed_skills=allowed_skills)
+            except Exception as exc:
+                logger.warning("resume_generator: self-correction failed (%s), skipping", exc)
+                continue
+            exp["bullets"] = [
+                {"text": c["bullet_text"], "evidence_id": c.get("evidence_id", ""),
+                 "confidence": c.get("confidence", "verified")}
+                for c in result.bullets
+            ]
+            if result.requires_approval:
+                requires_approval = True
+        return requires_approval
 
     # ── Layout optimization ──────────────────────────────────────────────────
 
