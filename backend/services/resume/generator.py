@@ -48,6 +48,7 @@ class ResumeGenerator:
         bullet_rewriter: BulletRewriter | None = None,
         layout_engine: LayoutEngine | None = None,
         validator: ResumeValidator | None = None,
+        reasoning_engine: Any = None,
     ) -> None:
         self._selector = evidence_selector
         self._kw_extractor = keyword_extractor
@@ -61,6 +62,9 @@ class ResumeGenerator:
         self._bullet_rewriter = bullet_rewriter or BulletRewriter()
         self._layout_engine = layout_engine or LayoutEngine()
         self._validator = validator or ResumeValidator()
+        # Phase 10.3: optional reason-then-write. When absent (or Ollama down),
+        # the engine recommends all evidence, so behavior is unchanged.
+        self._reasoning = reasoning_engine
 
     def generate(
         self,
@@ -90,6 +94,9 @@ class ResumeGenerator:
             {**b, "bullet_text": self._bullet_rewriter.compress(b["bullet_text"])}
             for b in selected
         ]
+
+        # Step 4b: reason-then-write — filter to reasoning-recommended evidence
+        rewritten = self._apply_reasoning(job_description, rewritten)
 
         # Step 5: count weak inferences from selected set
         weak_count: int = sum(
@@ -179,6 +186,27 @@ class ResumeGenerator:
                 "warnings": validation.warnings,
             },
         }
+
+    # ── Reasoning layer (Phase 10.3) ─────────────────────────────────────────
+
+    def _apply_reasoning(self, job_description: str, bullets: list[dict]) -> list[dict]:
+        """Filter bullets to the reasoning engine's recommended evidence.
+
+        No-op when no reasoning engine is wired, or when the engine recommends
+        nothing (treated as "no opinion" → keep all bullets).
+        """
+        if self._reasoning is None or not bullets:
+            return bullets
+        try:
+            trace = self._reasoning.reason(job_description, bullets)
+        except Exception as exc:
+            logger.warning("resume_generator: reasoning failed (%s), keeping all bullets", exc)
+            return bullets
+        recommended = set(trace.get("recommended_evidence_ids", []))
+        if not recommended:
+            return bullets
+        filtered = [b for b in bullets if b.get("evidence_id") in recommended]
+        return filtered or bullets
 
     # ── Layout optimization ──────────────────────────────────────────────────
 

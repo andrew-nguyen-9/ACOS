@@ -355,9 +355,25 @@ Phase 10.2: Retrieval Upgrade (Week 1) — CORE COMPLETE ✅
   ✅ MultiVectorRetriever: 3 query vectors (skills/keywords/role) + dedup + MMR diversity — 6 tests
      (MMR uses word-overlap similarity; ceiling noted — upgrade to embedding cosine if needed)
   ✅ Evidence ranking upgrade: BulletScorer.score_with_context + dominant_dimension classifier — 6 tests
-  ⏳ DEFERRED to 10.2b: embedding intelligence (chunker, skill normalizer, project-skill mapper)
-     + ChromaDB reseed — only takes effect at index time; separable, heavy reseed pass
   ✅ 641 tests pass, 91.43% coverage
+
+Phase 10.2b: Embedding Intelligence (Week 1) — COMPLETE ✅
+  ✅ SkillNormalizer: alias canonicalization (ML→machine learning), whole-token — 5 tests
+  ✅ SemanticChunker: split compound bullets on ;/sentence boundaries — 6 tests
+  ✅ ProjectSkillMapper: append inferred [skills: ...] to project text — 4 tests
+  ✅ IndexPreprocessor: composed normalize→expand→chunk entry point — 4 tests
+  ⏳ DEFERRED: physical ChromaDB reseed (needs live Ollama embeddings) — wire
+     IndexPreprocessor into load_bullet_seed.py + RAGIndexer on next reseed pass
+
+Phase 10.3: Reasoning Layer (Week 2) — COMPLETE ✅
+  ✅ ModelOrchestrator: mode→(temperature, max_tokens) routing; None when Ollama down — 5 tests
+     (num_ctx not wired; ceiling noted — OllamaClient exposes no context window)
+  ✅ ReasoningEngine: reason-then-write trace; recommended IDs filtered to evidence
+     pool (AC-10-5 no hallucinated refs); deterministic fallback — 6 tests
+  ✅ Prompt: reason_job_match.yaml
+  ✅ Wired into ResumeGenerator (optional reasoning_engine; default None preserves
+     behavior; filters bullets to recommendations) — 3 tests
+  ✅ 674 tests pass, 91.61% coverage
 
 Phase 10.3: Reasoning Layer (Week 2)
   [ ] ReasoningEngine service
