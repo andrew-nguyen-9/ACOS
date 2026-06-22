@@ -1,0 +1,21 @@
+{
+  "metric": "backend_cold_start_ms",
+  "date": "2026-06-21",
+  "n": 5,
+  "median_ms": 706.682,
+  "p95_ms": 1082.703,
+  "min_ms": 697.867,
+  "max_ms": 1082.703,
+  "samples": [
+    1082.703,
+    738.927,
+    697.867,
+    706.682,
+    704.307
+  ],
+  "machine": {
+    "platform": "macOS-26.5.1-arm64-arm-64bit",
+    "python": "3.12.13",
+    "processor": "arm"
+  }
+}

@@ -65,17 +65,20 @@ but within each track segments are sequential.
 
 ## Performance budgets (defined in 11.0, enforced everywhere after)
 
-These are the hard gates. Numbers are baselined in 11.0 on the dev machine and stored in
+These are the hard gates. Numbers were baselined in 11.0 on the dev machine
+(`macOS-26.5.1-arm64`, Apple Silicon, Python 3.12.13) and stored in
 `docs/PERFORMANCE_LOG.md`; the values below are the **ceilings** a segment may not exceed.
+Baselines are machine-relative — re-baseline on a new machine before comparing.
 
-| Metric | Budget | Measured by |
-|--------|--------|-------------|
-| Backend cold start (import → ready) | ≤ baseline + 10% | `scripts/perf/startup_bench.py` |
-| `POST /resume/generate` p95 (mocked LLM) | ≤ baseline + 10% | pytest-benchmark |
-| Copilot first-token latency (mocked LLM) | ≤ baseline + 10% | pytest-benchmark |
-| Frontend idle FPS | ≥ 60 (target 120 on ProMotion) | FPS meter dev overlay |
-| Frontend interaction jank (long tasks > 50ms) | 0 during animations | Chrome DevTools trace / Lighthouse |
-| Initial JS bundle (gzipped) | ≤ baseline + 15% per heavy segment | `vite build` report |
+| Metric | Baseline (2026-06-21) | Budget ceiling | Measured by |
+|--------|----------------------|----------------|-------------|
+| Backend cold start (import → ready), median | 707 ms | ≤ 778 ms (+10%) | `scripts/perf/startup_bench.py` |
+| Backend cold start p95 | 1083 ms | ≤ 1191 ms (+10%) | `scripts/perf/startup_bench.py` |
+| `POST /resume/generate` median (mocked LLM) | 0.32 ms | ≤ 0.35 ms (+10%) | pytest-benchmark |
+| Copilot chat median (mocked LLM) | 0.008 ms | ≤ 0.009 ms (+10%) | pytest-benchmark |
+| Frontend idle FPS | ≥ 60 (target 120 ProMotion) | ≥ 60 | FPS meter dev overlay |
+| Frontend interaction jank (long tasks > 50ms) | 0 during animations | 0 | Chrome DevTools trace / Lighthouse |
+| Initial JS bundle (gzipped) | 70.3 kB | ≤ 80.8 kB (+15% per heavy segment) | `vite build` report |
 
 Any segment that would breach a budget must either (a) optimize until it fits, or
 (b) ship the feature behind a default-off flag and document the cost. No silent regressions.

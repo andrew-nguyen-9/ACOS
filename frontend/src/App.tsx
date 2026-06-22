@@ -5,6 +5,28 @@ import AppShell from "@/layouts/AppShell";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { getOnboardingStatus } from "@/services/settings";
 import FirstRunWizard from "@/pages/FirstRunWizard";
+import FpsOverlay from "@/components/dev/FpsOverlay";
+
+/** Dev-only: show the FPS overlay when `?perf=1` is set or via Cmd+Shift+P. */
+function usePerfOverlay(): boolean {
+  const [on, setOn] = useState(
+    () =>
+      import.meta.env.DEV &&
+      new URLSearchParams(window.location.search).get("perf") === "1",
+  );
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey && e.shiftKey && e.code === "KeyP") {
+        e.preventDefault();
+        setOn((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+  return on;
+}
 
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const ResumePage = lazy(() => import("@/pages/ResumePage"));
@@ -26,6 +48,8 @@ const PageFallback = () => (
 export default function App() {
   const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
   const [backendError, setBackendError] = useState(false);
+  const perfRequested = usePerfOverlay();
+  const showPerf = import.meta.env.DEV && perfRequested;
 
   useEffect(() => {
     const checkWithRetry = async (attemptsLeft: number): Promise<void> => {
@@ -73,6 +97,7 @@ export default function App() {
 
   return (
     <ErrorBoundary>
+      {showPerf && <FpsOverlay />}
       <AppShell>
         <Suspense fallback={<PageFallback />}>
           <Routes>
