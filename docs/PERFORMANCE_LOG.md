@@ -116,6 +116,12 @@ win is reverted. Mocked-LLM medians below confirm they hold within noise.
 | 2026-06-21 | 11.5 | initial JS bundle (gzip, entry chunk) | 70.17 kB / 80.8 kB ceiling | 76.79 kB (+6.6 kB) | ✅ |
 | 2026-06-21 | 11.5 | frontend idle FPS (AppShell) | ≥ 60 | 58.3 → 60.2 | ✅ |
 | 2026-06-21 | 11.5 | frontend nav-churn FPS (sidebar) | ≥ 60 (no regression) | 29.4 → 59.9 | ✅ |
+| 2026-06-21 | 11.6 | initial JS bundle (gzip, entry chunk) | 76.79 kB (11.5) / 80.8 kB ceiling | 77.77 kB (+0.98 kB) | ✅ |
+| 2026-06-21 | 11.6 | async motion feature chunk (gzip, off-entry) | 18.58 kB (domAnimation) | 28.09 kB (domMax) — code-split, not in entry | ✅ |
+| 2026-06-21 | 11.6 | long tasks scrolling 500-row virtualized list | 0 | 0 | ✅ |
+| 2026-06-21 | 11.6 | DOM node count, 500-row list (ceiling <1500) | <1500 | 16 rows mounted | ✅ |
+| 2026-06-21 | 11.6 | scroll FPS (500-row virtualized list) | ≥ 60 | 60 | ✅ |
+| 2026-06-21 | 11.6 | long tasks, modal fling-dismiss | 0 | 0 | ✅ |
 
 **11.4 startup probe cost:** the corruption probe is a single `PRAGMA quick_check`
 run **once in the lifespan** (not on the request path, not in the `import →
@@ -144,3 +150,26 @@ chunk — the initial chunk grew only +6.6 kB gz (the `m`/MotionConfig stub + ro
 registry), staying under the 80.8 kB ceiling. Reduced-motion honored globally via
 `MotionConfig reducedMotion="user"` + the `flattenVariants` guard. Zero console
 errors on load/nav (`e2e/dashboard.spec.ts`).
+
+**11.6 frontend (kinematics + state perception):** net perf-**positive on big
+lists**. Trace captured headless via `e2e/perf-1106.spec.ts` (Playwright +
+`PerformanceObserver('longtask')`, scripted scroll of a 500-row list + a
+mouse-driven modal fling), backend mocked:
+
+| Scenario | long tasks (>50ms) | FPS | DOM rows |
+|---|---|---|---|
+| scroll 500-row virtualized list (down+up, 2s) | 0 | 60 | 16 |
+| modal fling-dismiss (velocity transfer) | 0 | — | — |
+
+Virtualization (`@tanstack/react-virtual` + `content-visibility:auto`) mounts only
+the visible window — **16 rows for a 500-item list** vs ~500 before, collapsing DOM
+node count far under the <1500 ceiling. All scroll-bound motion (collapsing header,
+progress, parallax) and the drag-dismiss are **transform/opacity only** (OMTA), so
+the compositor handles them off the main thread → 0 long tasks. Bundle: the async
+motion feature chunk grew 18.58→28.09 kB gz when upgraded `domAnimation`→`domMax`
+(drag + layout projection needed by KMP-001/003), but it stays **code-split off the
+entry chunk**; the entry chunk grew only +0.98 kB gz (77.77 kB, under the 80.8 ceiling).
+`@tanstack/react-virtual` lands in the lazy `ApplicationsPage` chunk, not entry.
+Predictive `warm()` is idle/deduped/idempotent-GET only, capped at 4 concurrent and
+guarded on `document.visibilityState`. Reduced-motion still honored (scroll `y`
+collapse drops to constant; `MotionConfig` covers the rest).

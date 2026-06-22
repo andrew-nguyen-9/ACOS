@@ -1,9 +1,11 @@
 import { Suspense, useEffect, useState } from "react";
 import { Routes, Route } from "react-router-dom";
-import { LazyMotion, MotionConfig } from "framer-motion";
+import { LazyMotion, LayoutGroup, MotionConfig } from "framer-motion";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import AppShell from "@/layouts/AppShell";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { PageSkeleton } from "@/components/ui/Skeleton";
+import { useDeferredLoading } from "@/hooks/useDeferredLoading";
 import { getOnboardingStatus } from "@/services/settings";
 import FirstRunWizard from "@/pages/FirstRunWizard";
 import FpsOverlay from "@/components/dev/FpsOverlay";
@@ -33,11 +35,13 @@ function usePerfOverlay(): boolean {
 // Async framer-motion features — code-split out of the initial bundle.
 const loadMotionFeatures = () => import("@/motion/features").then((m) => m.default);
 
-const PageFallback = () => (
-  <div className="flex flex-1 items-center justify-center p-16">
-    <LoadingSpinner size="lg" />
-  </div>
-);
+// Perceptual load masking (ASP-002): while a route chunk loads, show nothing for
+// the first 200ms, then a structural skeleton — never a spinner flash. The
+// fallback mounts the instant Suspense triggers, so `loading` is true from mount.
+const PageFallback = () => {
+  const show = useDeferredLoading(true, 200);
+  return show ? <PageSkeleton /> : null;
+};
 
 export default function App() {
   const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
@@ -98,13 +102,18 @@ export default function App() {
         <ErrorBoundary>
           {showPerf && <FpsOverlay />}
           <AppShell>
-            <Suspense fallback={<PageFallback />}>
-              <Routes>
-                {ROUTES.map(({ path, Component }) => (
-                  <Route key={path} path={path} element={<Component />} />
-                ))}
-              </Routes>
-            </Suspense>
+            {/* LayoutGroup scopes shared-element (layoutId) transitions across
+                the routed tree — e.g. a list card expanding into a detail view
+                (KMP-003). Only small elements opt in via layoutId. */}
+            <LayoutGroup>
+              <Suspense fallback={<PageFallback />}>
+                <Routes>
+                  {ROUTES.map(({ path, Component }) => (
+                    <Route key={path} path={path} element={<Component />} />
+                  ))}
+                </Routes>
+              </Suspense>
+            </LayoutGroup>
           </AppShell>
         </ErrorBoundary>
       </MotionConfig>

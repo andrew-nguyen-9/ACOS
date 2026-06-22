@@ -1,7 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, useTransition, type Dispatch, type SetStateAction } from "react";
+import { AnimatePresence, m } from "framer-motion";
 import { Plus, Briefcase, Search, Filter, Clock3, AlertTriangle } from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
-import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { PageSkeleton } from "@/components/ui/Skeleton";
+import { VirtualList } from "@/components/ui/VirtualList";
+import { useDeferredLoading } from "@/hooks/useDeferredLoading";
+import { useScrollKinematics } from "@/hooks/useScrollKinematics";
+import { useVelocityDismiss } from "@/hooks/useVelocityDismiss";
+import { springs } from "@/motion";
 import { applicationsService } from "@/services/applications";
 import type { Application, ApplicationCreate } from "@/types/api";
 
@@ -25,6 +31,16 @@ function AddApplicationModal({
   const [form, setForm] = useState<ApplicationCreate>({ company: "", role: "", status: "applied" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // KMP-001: drag the sheet down; a fast fling carries its release velocity into
+  // the exit spring. Slow short drags snap back via dragConstraints elastic.
+  const { dragProps, exitTransition } = useVelocityDismiss(onClose);
+
+  // Escape closes (keyboard parity with the drag/backdrop dismissals).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
   const submit = async () => {
     if (!form.company || !form.role) return;
@@ -42,8 +58,24 @@ function AddApplicationModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-neutral-900 border border-white/10 rounded-2xl p-6 w-[420px] shadow-2xl" onClick={(e) => e.stopPropagation()}>
+    <m.div
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
+      onClick={onClose}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <m.div
+        className="bg-neutral-900 border border-white/10 rounded-2xl p-6 w-[420px] shadow-2xl cursor-grab active:cursor-grabbing"
+        onClick={(e) => e.stopPropagation()}
+        initial={{ opacity: 0, y: 24, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1, transition: springs.snappy }}
+        exit={{ opacity: 0, y: 320 }}
+        transition={exitTransition()}
+        {...dragProps}
+      >
+        {/* Grab handle — affords the drag-to-dismiss. */}
+        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-white/15" />
         <h2 className="font-semibold text-neutral-50 text-lg mb-5">Add Application</h2>
         <div className="flex flex-col gap-4">
           {(["company", "role"] as const).map((field) => (
@@ -80,8 +112,38 @@ function AddApplicationModal({
             </button>
           </div>
         </div>
+      </m.div>
+    </m.div>
+  );
+}
+
+function ApplicationRow({ app }: { app: Application }) {
+  const cfg = STATUS_CONFIG[app.status] ?? STATUS_CONFIG.saved;
+  return (
+    <GlassCard className="mb-2 p-4 hover:bg-white/[0.03] transition-colors cursor-default">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="size-10 rounded-xl bg-white/[0.06] flex items-center justify-center flex-shrink-0">
+            <Briefcase className="size-4 text-[#a1a1a1]" />
+          </div>
+          <div>
+            <p className="font-semibold text-neutral-100 text-sm">{app.role}</p>
+            <p className="text-[#a1a1a1] text-xs">{app.company}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          {app.date_applied && (
+            <span className="text-[#a1a1a1] text-xs flex items-center gap-1">
+              <Clock3 className="size-3" />
+              {new Date(app.date_applied).toLocaleDateString()}
+            </span>
+          )}
+          <span className={`text-xs px-2.5 py-1 rounded-full border ${cfg.bg} ${cfg.color}`}>
+            {cfg.label}
+          </span>
+        </div>
       </div>
-    </div>
+    </GlassCard>
   );
 }
 
@@ -89,9 +151,7 @@ export default function ApplicationsPage() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState<string>("all");
-  const [showAdd, setShowAdd] = useState(false);
+  const showSkeleton = useDeferredLoading(loading, 200);
 
   useEffect(() => {
     applicationsService
@@ -101,9 +161,52 @@ export default function ApplicationsPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Mount the kinematic view only once data is ready: its scroll container must
+  // exist in the same commit `useScrollKinematics` binds to, otherwise framer's
+  // `useScroll` attaches to a null ref and the header/progress silently no-op.
+  if (loading) return showSkeleton ? <PageSkeleton /> : null;
+
+  return (
+    <ApplicationsView
+      applications={applications}
+      setApplications={setApplications}
+      fetchError={fetchError}
+    />
+  );
+}
+
+function ApplicationsView({
+  applications,
+  setApplications,
+  fetchError,
+}: {
+  applications: Application[];
+  setApplications: Dispatch<SetStateAction<Application[]>>;
+  fetchError: string | null;
+}) {
+  const [search, setSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [showAdd, setShowAdd] = useState(false);
+  // ASP-003: filtering a large list is the heavy update — keep typing/clicks
+  // responsive by marking the derived-list recompute as a transition.
+  const [, startTransition] = useTransition();
+  const [query, setQuery] = useState({ search: "", status: "all" });
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const { headerStyle, progressScaleX } = useScrollKinematics(scrollRef);
+
+  const onSearch = (v: string) => {
+    setSearch(v); // controlled input updates synchronously (responsive)
+    startTransition(() => setQuery((q) => ({ ...q, search: v })));
+  };
+  const onFilter = (status: string) => {
+    setFilterStatus(status);
+    startTransition(() => setQuery((q) => ({ ...q, status })));
+  };
+
   const filtered = applications.filter((a) => {
-    const matchSearch = !search || `${a.company} ${a.role}`.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = filterStatus === "all" || a.status === filterStatus;
+    const matchSearch = !query.search || `${a.company} ${a.role}`.toLowerCase().includes(query.search.toLowerCase());
+    const matchStatus = query.status === "all" || a.status === query.status;
     return matchSearch && matchStatus;
   });
 
@@ -112,76 +215,86 @@ export default function ApplicationsPage() {
     return acc;
   }, {});
 
-  if (loading) {
-    return <div className="flex items-center justify-center h-full"><LoadingSpinner size="lg" label="Loading applications…" /></div>;
-  }
-
   return (
-    <div className="p-8 flex flex-col gap-6 h-full overflow-auto">
-      {showAdd && (
-        <AddApplicationModal
-          onClose={() => setShowAdd(false)}
-          onAdd={(app) => setApplications((prev) => [app, ...prev])}
-        />
-      )}
-
-      {fetchError && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/20">
-          <AlertTriangle className="size-4 text-red-400 flex-shrink-0" />
-          <p className="text-sm text-red-400">{fetchError}</p>
-        </div>
-      )}
-
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-semibold text-neutral-50 text-2xl tracking-tight">Applications</h1>
-          <p className="text-[#a1a1a1] text-sm mt-1">Career CRM — {applications.length} tracked applications</p>
-        </div>
-        <button
-          onClick={() => setShowAdd(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#4c8dff] text-white text-sm font-semibold hover:opacity-90 transition-opacity"
-        >
-          <Plus className="size-4" />
-          Add Application
-        </button>
-      </div>
-
-      <div className="grid grid-cols-5 gap-3">
-        {STATUS_OPTIONS.map((s) => {
-          const cfg = STATUS_CONFIG[s];
-          return (
-            <GlassCard
-              key={s}
-              className={`p-4 cursor-pointer transition-all ${filterStatus === s ? "ring-1 ring-[#4c8dff]/40" : ""}`}
-              onClick={() => setFilterStatus(filterStatus === s ? "all" : s)}
-            >
-              <p className={`text-xs font-medium ${cfg.color}`}>{cfg.label}</p>
-              <p className="font-bold text-neutral-50 text-2xl mt-1">{statusCounts[s] ?? 0}</p>
-            </GlassCard>
-          );
-        })}
-      </div>
-
-      <div className="flex gap-3">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-neutral-600" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by company or role…"
-            className="w-full bg-white/[0.04] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-[#4c8dff]/40 transition-colors"
+    <div className="flex flex-col h-full overflow-hidden">
+      <AnimatePresence>
+        {showAdd && (
+          <AddApplicationModal
+            onClose={() => setShowAdd(false)}
+            onAdd={(app) => setApplications((prev) => [app, ...prev])}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Scroll progress (KMP-002) — scaleX only, compositor-driven. */}
+      <m.div
+        className="h-0.5 origin-left bg-accent/70"
+        style={{ scaleX: progressScaleX, transformOrigin: "left" }}
+        aria-hidden
+      />
+
+      <div className="flex flex-col gap-6 p-8 pb-0 flex-shrink-0">
+        {fetchError && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/20">
+            <AlertTriangle className="size-4 text-red-400 flex-shrink-0" />
+            <p className="text-sm text-red-400">{fetchError}</p>
+          </div>
+        )}
+
+        {/* Collapsing header (KMP-002) — opacity + y, bound to list scroll. */}
+        <m.div style={headerStyle} className="flex items-center justify-between">
+          <div>
+            <h1 className="font-semibold text-neutral-50 text-2xl tracking-tight">Applications</h1>
+            <p className="text-[#a1a1a1] text-sm mt-1">Career CRM — {applications.length} tracked applications</p>
+          </div>
+          <button
+            onClick={() => setShowAdd(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#4c8dff] text-white text-sm font-semibold hover:opacity-90 transition-opacity"
+          >
+            <Plus className="size-4" />
+            Add Application
+          </button>
+        </m.div>
+
+        <div className="grid grid-cols-5 gap-3">
+          {STATUS_OPTIONS.map((s) => {
+            const cfg = STATUS_CONFIG[s];
+            return (
+              <GlassCard
+                key={s}
+                className={`p-4 cursor-pointer transition-all ${filterStatus === s ? "ring-1 ring-[#4c8dff]/40" : ""}`}
+                onClick={() => onFilter(filterStatus === s ? "all" : s)}
+              >
+                <p className={`text-xs font-medium ${cfg.color}`}>{cfg.label}</p>
+                <p className="font-bold text-neutral-50 text-2xl mt-1">{statusCounts[s] ?? 0}</p>
+              </GlassCard>
+            );
+          })}
         </div>
-        <button
-          onClick={() => setFilterStatus("all")}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.06] text-[#a1a1a1] text-sm hover:bg-white/[0.1] transition-colors"
-        >
-          <Filter className="size-4" />
-          {filterStatus === "all" ? "All" : STATUS_CONFIG[filterStatus]?.label}
-        </button>
+
+        <div className="flex gap-3">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-neutral-600" />
+            <input
+              value={search}
+              onChange={(e) => onSearch(e.target.value)}
+              placeholder="Search by company or role…"
+              className="w-full bg-white/[0.04] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-[#4c8dff]/40 transition-colors"
+            />
+          </div>
+          <button
+            onClick={() => onFilter("all")}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.06] text-[#a1a1a1] text-sm hover:bg-white/[0.1] transition-colors"
+          >
+            <Filter className="size-4" />
+            {filterStatus === "all" ? "All" : STATUS_CONFIG[filterStatus]?.label}
+          </button>
+        </div>
       </div>
 
-      <div className="flex flex-col gap-2">
+      {/* Virtualized list (PERF-RP-003) — its own scroll container, also drives
+          the collapsing header above. contain-paint isolates its repaints. */}
+      <div ref={scrollRef} className="contain-paint flex-1 overflow-auto px-8 pt-2 pb-8">
         {filtered.length === 0 ? (
           <GlassCard className="p-8 flex items-center justify-center">
             <div className="text-center">
@@ -190,35 +303,13 @@ export default function ApplicationsPage() {
             </div>
           </GlassCard>
         ) : (
-          filtered.map((app) => {
-            const cfg = STATUS_CONFIG[app.status] ?? STATUS_CONFIG.saved;
-            return (
-              <GlassCard key={app.id} className="p-4 hover:bg-white/[0.03] transition-colors cursor-default">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="size-10 rounded-xl bg-white/[0.06] flex items-center justify-center flex-shrink-0">
-                      <Briefcase className="size-4 text-[#a1a1a1]" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-neutral-100 text-sm">{app.role}</p>
-                      <p className="text-[#a1a1a1] text-xs">{app.company}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {app.date_applied && (
-                      <span className="text-[#a1a1a1] text-xs flex items-center gap-1">
-                        <Clock3 className="size-3" />
-                        {new Date(app.date_applied).toLocaleDateString()}
-                      </span>
-                    )}
-                    <span className={`text-xs px-2.5 py-1 rounded-full border ${cfg.bg} ${cfg.color}`}>
-                      {cfg.label}
-                    </span>
-                  </div>
-                </div>
-              </GlassCard>
-            );
-          })
+          <VirtualList
+            items={filtered}
+            scrollRef={scrollRef}
+            estimateSize={80}
+            getKey={(app) => app.id}
+            renderItem={(app) => <ApplicationRow app={app} />}
+          />
         )}
       </div>
     </div>

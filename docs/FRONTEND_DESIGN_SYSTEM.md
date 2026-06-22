@@ -63,9 +63,11 @@ and reduced-motion is uniform.
 
 ### framer-motion bundle discipline
 Use the **`m` component** (not `motion.*`) under `<LazyMotion strict>`. Features
-load **async** (`src/motion/features.ts` → `domAnimation`), so the ~18.6 kB-gz
-feature set is code-split out of the entry chunk. `domAnimation` = animations +
-variants + exit; no drag/layout (add `domMax` only when a segment needs it).
+load **async** (`src/motion/features.ts`), so the feature set is code-split out of
+the entry chunk. As of 11.6 the export is **`domMax`** (= `domAnimation` + drag +
+layout projection), needed for velocity-dismiss (KMP-001) and `LayoutGroup`/
+`layoutId` (KMP-003). It's ~28 kB gz but lives in the off-entry `features-*.js`
+chunk; the entry chunk is unaffected. Don't import `motion.*` — strict mode throws.
 
 ## 3. Performance architecture
 
@@ -86,7 +88,30 @@ height/top/left — use transform/opacity.
   `tabular-nums` stats, `font-display` heading. **Copy this page's patterns** when
   adopting the system elsewhere; remaining pages migrate incrementally.
 
-## 5. Verification
-`npm run test` (vitest: motion + transient logic) · `npm run build` (tsc gate +
-bundle report) · `npx playwright test` (e2e). Capture FPS via the 11.0 overlay
-(`?perf=1` or ⌘⇧P in dev). Record bundle/FPS deltas in `docs/PERFORMANCE_LOG.md`.
+## 5. Kinematics + state perception (Phase 11.6)
+
+Physics motion + perceived-latency masking, all **OMTA (transform/opacity only)**.
+Build on these; don't re-derive them.
+
+| Primitive | File | Guideline | Notes |
+|---|---|---|---|
+| Velocity-dismiss | `src/hooks/useVelocityDismiss.ts` | KMP-001 | Drag a surface; `info.velocity` on `onDragEnd` feeds the exit spring (clamped). Pure `shouldDismiss`/`dismissTransition` are unit-tested. Applied to the Applications add-modal. |
+| Scroll kinematics | `src/hooks/useScrollKinematics.ts` | KMP-002 | Thin `useScroll`+`useTransform` wrapper bound to a scroll container ref → collapsing header + scroll progress (`scaleX`). Positional collapse drops to constant under reduced-motion. |
+| Layout projection | `<LayoutGroup>` in `App.tsx` + `layoutId` | KMP-003 | Shared-element list→detail. **Only on small, non-virtualized elements** (LearningPage ranking → detail). **Never put `layoutId` on virtualized rows** — transform-scroll re-renders make framer re-measure every frame → jank. |
+| Predictive prefetch | `src/services/prefetch.ts` | ASP-001 | `warmRoute(path)` = chunk prefetch + `warm(endpoint)` fire-and-forget GET. Deduped, idempotent GET only, capped at 4 concurrent, skipped when `document.visibilityState==="hidden"`. Wired to nav hover/focus. |
+| Perceptual load masking | `src/hooks/useDeferredLoading.ts` + `src/components/ui/Skeleton.tsx` | ASP-002 | 200ms gate: <200ms → nothing; >200ms → a skeleton that mirrors the real DOM dims (CLS=0). Replaces the spinner `PageFallback`. |
+| Concurrent filtering | React `useTransition` | ASP-003 | List search/filter recompute wrapped in `startTransition`; the controlled input stays responsive. |
+| Virtualization | `src/components/ui/VirtualList.tsx` | PERF-RP-003 | `@tanstack/react-virtual` + `content-visibility:auto`. Rows absolutely positioned via `translateY`. Parent owns the scroll ref so it also drives `useScrollKinematics`. **Adopt for lists >50 items** (ApplicationsPage). Small lists (LearningPage rankings) stay plain — virtualizing them is pure overhead. |
+
+Measured: 500-row scroll = **0 long tasks, 60fps, 16 DOM rows**; modal fling = 0 long
+tasks (`e2e/perf-1106.spec.ts`). Reference page: `src/pages/ApplicationsPage.tsx`
+composes virtualization + scroll kinematics + `startTransition` + velocity-dismiss.
+
+## 6. Verification
+`npm run test` (vitest: motion + transient logic, 200ms gate, prefetch dedup,
+velocity clamp) · `npm run build` (tsc gate + bundle report) · `npx playwright test`
+(e2e + `perf-1106` trace). Capture FPS via the 11.0 overlay (`?perf=1` or ⌘⇧P in
+dev). Record bundle/FPS deltas in `docs/PERFORMANCE_LOG.md`.
+
+> ⚠️ RTK can serve a stale cached "No tests found" for filtered Playwright runs.
+> For a truthful run use the binary directly: `./node_modules/.bin/playwright test <spec>`.

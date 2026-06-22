@@ -5,6 +5,7 @@ import { BriefcaseBusiness, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { springs } from "@/motion";
 import { ROUTES } from "@/routes";
+import { warmRoute } from "@/services/prefetch";
 
 // Material proxy (PERF-AC-002): a STATIC, pre-blurred aurora instead of a live
 // `backdrop-filter: blur(60px)`. Soft radial gradients are inherently "blurred",
@@ -67,13 +68,15 @@ export default function AppShell({ children }: { children: ReactNode }) {
               </div>
             </div>
             <nav className="flex flex-1 flex-col gap-2">
-              {ROUTES.map(({ path, label, icon: Icon, prefetch, end }) => (
+              {ROUTES.map(({ path, label, icon: Icon, end }) => (
                 <NavLink
                   key={path}
                   to={path}
                   end={end}
-                  onPointerEnter={prefetch}
-                  onFocus={prefetch}
+                  // Predictive prefetch (ASP-001): warm the route chunk AND its
+                  // backend data on hover/focus, before the click lands.
+                  onPointerEnter={() => warmRoute(path)}
+                  onFocus={() => warmRoute(path)}
                   className={({ isActive }) =>
                     cn(
                       "flex h-11 items-center gap-3 rounded-xl px-3.5 text-[13px] font-medium transition-colors duration-fast",
