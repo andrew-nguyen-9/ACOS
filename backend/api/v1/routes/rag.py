@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from backend.config import get_settings
 from backend.database import get_async_session
-from backend.rag.chroma_client import ChromaManager
+from backend.rag.chroma_client import get_chroma_manager
 from backend.rag.embedder import Embedder
 from backend.rag.fallback import KeywordFallback
 from backend.rag.retriever import RAGRetriever
@@ -29,7 +29,7 @@ async def rag_query(body: QueryRequest, session: AsyncSession = Depends(get_asyn
     settings = get_settings()
     ollama = OllamaClient(base_url=settings.ollama_base_url)
     embedder = Embedder(ollama, model=settings.embedding_model)
-    chroma = ChromaManager(path=settings.chroma_db_path)
+    chroma = get_chroma_manager(settings.chroma_db_path)
     retriever = RAGRetriever(chroma, embedder)
     reranker = Reranker()
 

@@ -30,6 +30,16 @@ class _SyncSessionBridge:
         return fn(self._session, *args, **kwargs)
 
 
+@pytest.fixture(autouse=True)
+def _reset_chroma_manager():
+    """Isolate the 12.3 module-level Chroma memo between tests (global state)."""
+    from backend.rag.chroma_client import reset_chroma_manager
+
+    reset_chroma_manager()
+    yield
+    reset_chroma_manager()
+
+
 def _enable_fk(dbapi_connection: object, _: object) -> None:
     cursor = dbapi_connection.cursor()  # type: ignore[union-attr]
     cursor.execute("PRAGMA foreign_keys=ON")

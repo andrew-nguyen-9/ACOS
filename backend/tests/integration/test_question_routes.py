@@ -17,7 +17,7 @@ def mock_ollama_and_chroma():
         patch("backend.api.v1.routes.questions.OllamaClient", return_value=mock_ollama),
         patch("backend.api.v1.routes.questions.RAGRetriever", return_value=mock_retriever),
         patch("backend.api.v1.routes.questions.Reranker", return_value=mock_reranker),
-        patch("backend.api.v1.routes.questions.ChromaManager", return_value=MagicMock()),
+        patch("backend.api.v1.routes.questions.get_chroma_manager", return_value=MagicMock()),
     ):
         yield
 

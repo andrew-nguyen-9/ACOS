@@ -75,9 +75,9 @@ async def health_integrity(session: AsyncSession = Depends(get_async_session)) -
     def _impl(s: Session) -> dict:
         chroma_result: dict
         try:
-            from backend.rag.chroma_client import ChromaManager
+            from backend.rag.chroma_client import get_chroma_manager
 
-            chroma = ChromaManager(path=settings.chroma_db_path)
+            chroma = get_chroma_manager(settings.chroma_db_path)
             chroma_result = integrity.chroma_reconcile(s, chroma)
         except Exception as exc:
             chroma_result = {"reconciled": False, "reason": f"chroma unavailable: {exc}"}
@@ -100,10 +100,10 @@ def health_warmup() -> JSONResponse:
     probe materializes them by creating all collections.
     """
     settings = get_settings()
-    from backend.rag.chroma_client import ChromaManager
+    from backend.rag.chroma_client import get_chroma_manager
 
     try:
-        ChromaManager(path=settings.chroma_db_path).init_all_collections()
+        get_chroma_manager(settings.chroma_db_path).init_all_collections()
         return JSONResponse(status_code=200, content={"warmed": True, "chroma": "ok"})
     except Exception as exc:
         logging.getLogger(__name__).exception("Chroma warmup failed")

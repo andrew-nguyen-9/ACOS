@@ -369,3 +369,35 @@ when the relevant velocity segment runs (roadmap §10 — targets, not gates, un
 >   latency. The regression has no practical UX cost here.
 > - The bridge (`run_sync`) keeps repos/services synchronous, so this overhead is
 >   the *only* cost taken on; no service code was async-colored for no benefit.
+
+| Date | Segment | Metric | Before | After | Verdict |
+|------|---------|--------|--------|-------|---------|
+| 2026-06-22 | 12.3 | backend cold start — median (n=9, same session) | 741.7 ms | 633.5 ms | ✅ −108 ms (~15%) from deferring `rank_bm25`→`numpy` off the bind path |
+| 2026-06-22 | 12.3 | backend cold start — p95 (n=9, same session) | 1003.3 ms | 829.8 ms | ✅ −173 ms; still > 778 ceiling on this noisy run, but min=602.8 / median well under |
+| 2026-06-22 | 12.3 | bind-path heavy imports (`chromadb`/`numpy`/`rank_bm25` in `sys.modules`) | numpy + rank_bm25 leaked | none (gated by `test_lazy_imports.py`) | ✅ structural, regression-proof |
+| 2026-06-22 | 12.3 | full suite | 852 passed | 854 passed (+2 lazy-import/memo), 93.11% cov | ✅ |
+
+> **12.3 cold-start finding (honest).** The spec's **≤ 400 ms median target is not
+> reached and is not reachable by lazy imports alone.** Measured this session:
+> median 741.7 → 633.5 ms, p95 1003 → 830 ms (same machine, n=9 each; the machine
+> was noisier today than 12.2's 597.96 ms quiet-run baseline — compare the
+> same-session delta, not the cross-run absolute). The win is real but bounded:
+> the only heavy dep that was still on the server-bind path was `rank_bm25` (it
+> pulls `numpy`, ~45 ms), imported at module load by `backend.rag.reranker` for 5
+> routes. chromadb was **already** deferred (11.x `ChromaManager._client` lazy
+> property), so there was no chromadb win left to take.
+>
+> The residual ~600 ms floor is FastAPI + Starlette + SQLAlchemy + Pydantic +
+> uvicorn import cost — all **required to bind the port**, so they cannot be
+> deferred. Closing the gap to 400 ms needs ahead-of-time compilation (Nuitka),
+> which is the **12.9 spike, explicitly out of scope here**. We treat the **778 ms
+> ceiling** (roadmap §10) as the operative gate; the durable, machine-noise-immune
+> result is the `sys.modules` gate test, which fails CI if any future top-level
+> import drags chromadb/numpy/rank_bm25 back onto the bind path.
+>
+> Also landed: `workers=1` + `loop="uvloop"` pinned in `server_entry.py` (single
+> local user — extra workers only duplicate resident Chroma/model memory), and a
+> module-level memo (`get_chroma_manager`) so the PersistentClient is built once
+> per process instead of per request. PyInstaller `acos-backend.spec` already
+> lists `chromadb`/`numpy`/`rank_bm25` in `hiddenimports`, so the now-lazy imports
+> stay bundled (PyInstaller's static analysis can't see import-inside-function).

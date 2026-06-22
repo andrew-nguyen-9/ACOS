@@ -33,7 +33,7 @@ def _serialize(s: MaintenanceSuggestion) -> dict:
 def _build_executor(session: Session) -> MaintenanceExecutor:
     # Indexer is only used by reindex/embedding_refresh; building it is cheap
     # (ChromaManager defers the chromadb import until a collection is touched).
-    from backend.rag.chroma_client import ChromaManager
+    from backend.rag.chroma_client import get_chroma_manager
     from backend.rag.embedder import Embedder
     from backend.rag.indexer import RAGIndexer
     from backend.services.ollama_client import OllamaClient
@@ -41,7 +41,7 @@ def _build_executor(session: Session) -> MaintenanceExecutor:
     settings = get_settings()
     ollama = OllamaClient(base_url=settings.ollama_base_url)
     embedder = Embedder(ollama, model=settings.embedding_model)
-    chroma = ChromaManager(path=settings.chroma_db_path)
+    chroma = get_chroma_manager(settings.chroma_db_path)
     return MaintenanceExecutor(session, indexer=RAGIndexer(chroma, embedder))
 
 

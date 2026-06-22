@@ -30,7 +30,14 @@ def main() -> None:
     install_uvloop()
     import uvicorn
     from backend.main import app  # noqa: PLC0415 — deferred to avoid circular imports at bundle time
-    uvicorn.run(app, host="127.0.0.1", port=8000, log_level="warning")
+    # workers=1: single process — the sidecar is one local user, and extra workers
+    # would duplicate the resident memory (Chroma/model state) for no throughput
+    # gain. loop="uvloop": uvicorn runs its loop on uvloop. install_uvloop() above
+    # already set uvloop as the asyncio *policy* (12.2, unit-tested) so any loop
+    # spawned before uvicorn boots is fast too. Both are idempotent and both fail
+    # loudly if uvloop is ever stripped from a build — kept explicit on purpose, not
+    # duplicated work (uvicorn would select uvloop under loop="auto" regardless).
+    uvicorn.run(app, host="127.0.0.1", port=8000, workers=1, loop="uvloop", log_level="warning")
 
 
 if __name__ == "__main__":

@@ -3,8 +3,6 @@ from __future__ import annotations
 import logging
 import math
 
-from rank_bm25 import BM25Okapi
-
 logger = logging.getLogger(__name__)
 
 _CONFIDENCE_MULTIPLIER: dict[str, float] = {
@@ -25,6 +23,10 @@ class Reranker:
     ) -> list[dict]:
         if not results:
             return []
+
+        # ponytail: lazy import — rank_bm25 pulls numpy (~45ms), kept off the
+        # server-bind path so cold-start binds before the RAG deps load.
+        from rank_bm25 import BM25Okapi  # noqa: PLC0415
 
         corpus = [r["text"].lower().split() for r in results]
         bm25 = BM25Okapi(corpus)

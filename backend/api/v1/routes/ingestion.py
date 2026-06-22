@@ -13,7 +13,7 @@ from backend.config import get_settings
 from backend.database import get_async_session
 from backend.ingestion.entity_extractor import EntityExtractor
 from backend.ingestion.pipeline import IngestionPipeline
-from backend.rag.chroma_client import ChromaManager
+from backend.rag.chroma_client import get_chroma_manager
 from backend.rag.embedder import Embedder
 from backend.rag.indexer import RAGIndexer
 from backend.services.knowledge_graph.service import KnowledgeGraphService
@@ -49,7 +49,7 @@ async def ingest_file(
 
         ollama = OllamaClient(base_url=settings.ollama_base_url)
         embedder = Embedder(ollama, model=settings.embedding_model)
-        chroma = ChromaManager(path=settings.chroma_db_path)
+        chroma = get_chroma_manager(settings.chroma_db_path)
         indexer = RAGIndexer(chroma, embedder)
         extractor = EntityExtractor(
             ollama if ollama.is_available() else None
