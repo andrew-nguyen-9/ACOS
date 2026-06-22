@@ -99,6 +99,36 @@ def test_query_degrades_on_retriever_exception():
     assert "chroma down" in result["degraded_reason"]
 
 
+def test_query_degraded_when_chroma_errors_but_lexical_rescues(monkeypatch):
+    # 12.7 fix-1: Chroma throws but the FTS5 lexical leg still returns hits, so
+    # the query succeeds — yet it must report degraded (dense retrieval failed),
+    # not silently claim a healthy result.
+    retriever = MagicMock()
+    retriever.retrieve.side_effect = RuntimeError("chroma down")
+    reranker = MagicMock()
+    reranker.rerank.side_effect = lambda q, results, **kw: results
+    ollama = MagicMock()
+    ollama.is_available.return_value = False
+
+    lex_hit = [
+        {"id": "L1", "text": "Python ETL", "collection": "acos_experiences",
+         "semantic_score": 0.7, "lexical_score": 1.0,
+         "metadata": {"confidence_level": "verified"}},
+    ]
+    monkeypatch.setattr(
+        "backend.services.rag.service.lexical.search", lambda *a, **k: lex_hit
+    )
+    monkeypatch.setattr(
+        "backend.services.rag.service.lexical.fuse", lambda dense, lex: dense + lex
+    )
+
+    svc = RAGService(retriever, reranker, ollama, session=MagicMock())
+    result = svc.query("python")
+
+    assert result["degraded"] is True
+    assert "chroma down" in result["degraded_reason"]
+
+
 def test_query_happy_path_not_degraded():
     retriever = MagicMock()
     retriever.retrieve.return_value = [

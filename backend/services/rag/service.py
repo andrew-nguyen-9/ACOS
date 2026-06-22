@@ -136,12 +136,19 @@ class RAGService:
         conf_summary = self._summarize_confidence(ranked)
         log_operation("rag_retrieve", intent=intent, evidence=len(evidence))
 
+        # 12.7 fix-1: Chroma may have errored while the FTS5 lexical leg still
+        # returned hits — the query succeeds but is degraded (dense retrieval is
+        # down). Report that honestly instead of a hardcoded healthy flag.
+        degraded = degraded_reason is not None
+        degraded_extra = {"degraded_reason": degraded_reason} if degraded else {}
+
         if not self._ollama or not self._ollama.is_available():
             return None, {
                 "response": context[:500] if context else "No relevant context found.",
                 "evidence": evidence,
                 "confidence_summary": conf_summary,
-                "degraded": False,
+                "degraded": degraded,
+                **degraded_extra,
             }
 
         # Fixed instructions first, dynamic context last (prefix-cache stability).
@@ -150,7 +157,8 @@ class RAGService:
             "response": "",
             "evidence": evidence,
             "confidence_summary": conf_summary,
-            "degraded": False,
+            "degraded": degraded,
+            **degraded_extra,
         }
 
     def query(self, query: str, intent: str = "knowledge_lookup") -> dict:
