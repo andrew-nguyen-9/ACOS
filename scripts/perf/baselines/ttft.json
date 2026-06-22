@@ -1,0 +1,23 @@
+{
+  "metric": "ttft_first_chunk_ms",
+  "note": "streaming-path TTFT: first NDJSON chunk off the model (Phase 12.4)",
+  "date": "2026-06-22",
+  "model": "qwen3:8b",
+  "n": 5,
+  "median_ms": 567.686,
+  "p95_ms": 2050.044,
+  "min_ms": 447.98,
+  "max_ms": 2050.044,
+  "samples": [
+    2050.044,
+    470.847,
+    567.686,
+    447.98,
+    651.137
+  ],
+  "machine": {
+    "platform": "macOS-26.5.1-arm64-arm-64bit",
+    "python": "3.12.13",
+    "processor": "arm"
+  }
+}

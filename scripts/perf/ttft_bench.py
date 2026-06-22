@@ -1,13 +1,16 @@
 """Time-to-first-token (TTFT) benchmark against live Ollama.
 
 Fires one warm-up `generate` (loads the model into memory) then N measured
-calls, timing each end-to-end. Reports median / p95 in ms.
+streaming calls, timing the latency to the *first streamed chunk* off the model.
+Reports median / p95 in ms.
 
-NOTE: `OllamaClient.generate` is non-streaming today (`stream: False`), so this
-measures *time-to-full-response*, not true TTFT. Phase 12.4 adds the streaming
-path; once it lands this bench switches to timing the first streamed chunk and
-the number becomes true TTFT. Until then it is a stable upper-bound proxy on the
-same path — good enough to track the 12.5 calibration delta.
+Phase 12.4: measures true streaming-path TTFT — the first NDJSON chunk off
+`/api/generate` `stream:True`, then stops iterating (which closes the socket,
+freeing the Ollama job). Previously this measured time-to-full-response as an
+upper-bound proxy; the streaming path makes the headline metric real. NOTE: this
+is the first *chunk*, not the first visible answer token — for a reasoning model
+(qwen3) the latter is dominated by a multi-second thinking phase that streaming
+cannot shorten; isolating that is 12.5 calibration. See the _PROMPT comment.
 
 This bench needs a running Ollama with the default model pulled. It is opt-in:
 
@@ -36,6 +39,14 @@ from backend.services.ollama_client import OllamaClient  # noqa: E402
 
 _DEFAULT_OUT = Path(__file__).parent / "baselines" / "ttft.json"
 _PROMPT = "List three strong action verbs for a software engineering resume."
+_NUM_PREDICT = 64
+# TTFT = time to the first streamed chunk off the model. We time the first NDJSON
+# line, NOT the first non-empty `.response` delta: qwen3 is a reasoning model and
+# emits a multi-second stream of empty-`response` "thinking" chunks first, so
+# "first visible answer token" is reasoning-bound (~10s+) and measures model
+# cognition, not the streaming path. The first *chunk* isolates the path latency
+# that the 12.4 streaming work targets. (`generate_stream` filters thinking for the
+# UI by design; precise visible-token calibration with think=false is 12.5.)
 
 
 def _p95(samples: list[float]) -> float:
@@ -49,8 +60,41 @@ def _live() -> bool:
     return bool(os.environ.get("OLLAMA_LIVE"))
 
 
-def run(n: int = 5, out_path: Path | None = _DEFAULT_OUT) -> dict | None:
+async def _measure_ttft(client: OllamaClient, model: str, n: int) -> list[float]:
+    """Time to the first streamed NDJSON chunk off the model, per run (ms).
+
+    Uses the same async streaming path as `generate_stream` (httpx
+    `AsyncClient.stream` over `/api/generate` `stream:True`) but breaks on the
+    first line of any kind, so the number is the streaming-path TTFT rather than
+    qwen3's reasoning latency. Exiting the `async with` closes the socket, freeing
+    the Ollama job — the same cancellation the disconnect path relies on.
+    """
     import time
+
+    import httpx
+
+    url = client._base_url + "/api/generate"  # noqa: SLF001 — bench, same-package
+    payload = {
+        "model": model,
+        "prompt": _PROMPT,
+        "stream": True,
+        "options": {"temperature": 0.3, "num_predict": _NUM_PREDICT},
+    }
+    samples: list[float] = []
+    for _ in range(n):
+        t0 = time.perf_counter()
+        async with httpx.AsyncClient(timeout=120) as http:
+            async with http.stream("POST", url, json=payload) as resp:
+                resp.raise_for_status()
+                async for _line in resp.aiter_lines():
+                    if _line.strip():
+                        break  # first chunk off the model
+        samples.append((time.perf_counter() - t0) * 1000)
+    return samples
+
+
+def run(n: int = 5, out_path: Path | None = _DEFAULT_OUT) -> dict | None:
+    import asyncio
 
     settings = get_settings()
     client = OllamaClient(base_url=settings.ollama_base_url)
@@ -62,15 +106,11 @@ def run(n: int = 5, out_path: Path | None = _DEFAULT_OUT) -> dict | None:
     # Warm-up: load the model into memory so the measured runs are warm TTFT.
     client.generate(model=model, prompt=_PROMPT, max_tokens=32)
 
-    samples = []
-    for _ in range(n):
-        t0 = time.perf_counter()
-        client.generate(model=model, prompt=_PROMPT, max_tokens=32)
-        samples.append((time.perf_counter() - t0) * 1000)
+    samples = asyncio.run(_measure_ttft(client, model, n))
 
     result = {
-        "metric": "ttft_full_response_ms",
-        "note": "non-streaming proxy until Phase 12.4 streaming lands",
+        "metric": "ttft_first_chunk_ms",
+        "note": "streaming-path TTFT: first NDJSON chunk off the model (Phase 12.4)",
         "date": date.today().isoformat(),
         "model": model,
         "n": n,
@@ -104,7 +144,7 @@ def main() -> None:
     if result is None:
         return
     print(
-        f"TTFT proxy (n={result['n']}, model={result['model']}): "
+        f"TTFT first-chunk (n={result['n']}, model={result['model']}): "
         f"median={result['median_ms']}ms  p95={result['p95_ms']}ms  "
         f"min={result['min_ms']}ms  max={result['max_ms']}ms"
     )

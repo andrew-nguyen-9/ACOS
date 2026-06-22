@@ -73,3 +73,50 @@ def test_list_models_returns_empty_on_error(client):
     with respx.mock:
         respx.get(f"{BASE}/api/tags").mock(side_effect=httpx.ConnectError("refused"))
         assert client.list_models() == []
+
+
+_NDJSON_STREAM = (
+    b'{"model":"qwen3:8b","response":"Hello","done":false}\n'
+    b'{"model":"qwen3:8b","response":" world","done":false}\n'
+    b'{"model":"qwen3:8b","response":"!","done":false}\n'
+    b'{"model":"qwen3:8b","response":"","done":true}\n'
+)
+
+
+async def test_generate_stream_yields_token_deltas_in_order(client):
+    with respx.mock:
+        respx.post(f"{BASE}/api/generate").mock(
+            return_value=httpx.Response(200, content=_NDJSON_STREAM)
+        )
+        deltas = [d async for d in client.generate_stream(model="qwen3:8b", prompt="Hi")]
+        assert deltas == ["Hello", " world", "!"]
+        assert "".join(deltas) == "Hello world!"
+
+
+async def test_generate_stream_requests_stream_true(client):
+    import json
+
+    with respx.mock:
+        route = respx.post(f"{BASE}/api/generate").mock(
+            return_value=httpx.Response(200, content=_NDJSON_STREAM)
+        )
+        async for _ in client.generate_stream(model="qwen3:8b", prompt="Hi", temperature=0.1):
+            pass
+        body = json.loads(route.calls[0].request.content)
+        assert body["stream"] is True
+        assert body["options"]["temperature"] == 0.1
+
+
+async def test_generate_stream_skips_blank_and_malformed_lines(client):
+    noisy = (
+        b'{"response":"a","done":false}\n'
+        b"\n"  # blank keep-alive line
+        b"not json\n"  # malformed — must not crash
+        b'{"response":"b","done":true}\n'
+    )
+    with respx.mock:
+        respx.post(f"{BASE}/api/generate").mock(
+            return_value=httpx.Response(200, content=noisy)
+        )
+        deltas = [d async for d in client.generate_stream(model="qwen3:8b", prompt="Hi")]
+        assert deltas == ["a", "b"]

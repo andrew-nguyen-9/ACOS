@@ -21,6 +21,12 @@ _INTENT_COLLECTIONS: dict[str, list[str]] = {
 
 _CONFIDENCE_PRIORITY: dict[str, int] = {"verified": 3, "strong_inference": 2, "weak_inference": 1}
 
+# Shared by query() and the 12.4 streaming route so both produce the same answer.
+RAG_MODEL = "qwen3:8b"
+RAG_SYSTEM = (
+    "You are a career assistant. Answer only from the provided evidence. Never invent facts."
+)
+
 
 class RAGService:
     def __init__(self, retriever, reranker, ollama_client, fallback=None) -> None:
@@ -30,7 +36,15 @@ class RAGService:
         # Optional KeywordFallback (SQLite) used when the vector store is down.
         self._fallback = fallback
 
-    def query(self, query: str, intent: str = "knowledge_lookup") -> dict:
+    def build_prompt(self, query: str, intent: str = "knowledge_lookup") -> tuple[str | None, dict]:
+        """Run retrieval and assemble the LLM prompt without generating.
+
+        Returns ``(prompt, base)``. ``prompt`` is ``None`` when generation should
+        be skipped (keyword fallback or Ollama unavailable) — then ``base``
+        already carries a usable ``response``. When ``prompt`` is set, ``base``
+        has an empty ``response`` for the caller to fill (sync ``generate`` or the
+        12.4 streaming path), so streamed and non-streamed answers share one prompt.
+        """
         collections = _INTENT_COLLECTIONS.get(intent, _INTENT_COLLECTIONS["knowledge_lookup"])
 
         degraded_reason: str | None = None
@@ -46,7 +60,7 @@ class RAGService:
             fb_evidence = self._fallback.search(query)
             if fb_evidence:
                 reason = degraded_reason or "vector store unavailable or empty; keyword fallback"
-                return self._fallback_response(fb_evidence, reason)
+                return None, self._fallback_response(fb_evidence, reason)
 
         ranked = self._reranker.rerank(query, raw_results)
 
@@ -71,7 +85,7 @@ class RAGService:
         log_operation("rag_retrieve", intent=intent, evidence=len(evidence))
 
         if not self._ollama or not self._ollama.is_available():
-            return {
+            return None, {
                 "response": context[:500] if context else "No relevant context found.",
                 "evidence": evidence,
                 "confidence_summary": conf_summary,
@@ -81,18 +95,24 @@ class RAGService:
         prompt = (
             f"Using the following evidence, answer the question: {query}\n\nEvidence:\n{context}"
         )
-        response = self._ollama.generate(
-            model="qwen3:8b",
-            prompt=prompt,
-            temperature=0.3,
-            system="You are a career assistant. Answer only from the provided evidence. Never invent facts.",
-        )
-        return {
-            "response": response,
+        return prompt, {
+            "response": "",
             "evidence": evidence,
             "confidence_summary": conf_summary,
             "degraded": False,
         }
+
+    def query(self, query: str, intent: str = "knowledge_lookup") -> dict:
+        prompt, base = self.build_prompt(query, intent)
+        if prompt is None:
+            return base
+        base["response"] = self._ollama.generate(  # type: ignore[union-attr]
+            model=RAG_MODEL,
+            prompt=prompt,
+            temperature=0.3,
+            system=RAG_SYSTEM,
+        )
+        return base
 
     def _fallback_response(self, evidence: list[dict], reason: str) -> dict:
         """Assemble a degraded result from SQLite keyword-fallback evidence."""

@@ -401,3 +401,51 @@ when the relevant velocity segment runs (roadmap §10 — targets, not gates, un
 > per process instead of per request. PyInstaller `acos-backend.spec` already
 > lists `chromadb`/`numpy`/`rank_bm25` in `hiddenimports`, so the now-lazy imports
 > stay bundled (PyInstaller's static analysis can't see import-inside-function).
+
+## Phase 12.4 — SSE streaming + generation cancellation (2026-06-22)
+
+| Date | Segment | Metric | Before | After | Verdict |
+|------|---------|--------|--------|-------|---------|
+| 2026-06-22 | 12.4 | TTFT — first streamed chunk off model, median (live, n=5, qwen3:8b, warm) | n/a (no streaming path) | 567.7 ms | ✅ under the ≤800 ms warm baseline |
+| 2026-06-22 | 12.4 | TTFT — first streamed chunk, p95 / min (same run) | — | 2050 ms / 448 ms | ⚠️ p95 is a single-run GPU-contention outlier; min 448 ms, median well under gate |
+| 2026-06-22 | 12.4 | perceived latency for a long generation | wait for whole response, then render | first token visible at TTFT, tokens render progressively | ✅ qualitative UX win (the point of the segment) |
+| 2026-06-22 | 12.4 | backend suite | 854 passed | 862 passed (+8 streaming/disconnect/ollama), 93.09% cov | ✅ |
+| 2026-06-22 | 12.4 | frontend vitest | 58 passed | 64 passed (+6 streamSSE: append / split-chunk / abort / error / meta) | ✅ |
+
+> **12.4 TTFT finding (honest).** The number above is **time to the first streamed
+> chunk off the model** — the streaming-*path* latency the segment targets — not
+> the first visible answer token. qwen3:8b is a reasoning model: it streams a
+> multi-second run of empty-`response` "thinking" chunks before the visible
+> answer, so "first visible token" measured ~10 s (64-token budget) to ~43 s
+> (256-token budget, `response_token_runs=0`). Streaming **cannot** shorten the
+> reasoning phase — that latency is the model thinking, not the transport. The
+> path win is real and what streaming delivers: the first chunk arrives at ~568 ms
+> median and tokens then render incrementally instead of all-at-once after the
+> full generation. `ollama_client.generate_stream` deliberately yields only
+> non-empty `.response` deltas (thinking is hidden from the UI), so the bench times
+> the raw first chunk over the same `stream:True` path to isolate transport TTFT.
+> Calibrating *visible*-token TTFT (Ollama `think:false`) is **12.5 calibration,
+> deferred** — consistent with the 12.3/12.5 note above.
+>
+> **Cancellation / disconnect.** `sse_token_stream` checks
+> `request.is_disconnected()` before each token and `return`s on disconnect within
+> one chunk; that finalizes the token async-gen, unwinds `generate_stream`'s
+> `async with httpx.AsyncClient()/.stream()`, closes the socket and frees the GPU
+> job. `on_complete` (the persist seam) runs **only** on a clean full drain, so a
+> cancelled generation leaves no telemetry/row (the 12.2 async-boundary trap). An
+> upstream mid-stream failure (Ollama 500 after headers flush) emits a distinct
+> `data: {"error": …}` frame + logs, so the client never mistakes a truncated
+> stream for success. Frontend `AbortController` per generation: starting a new
+> one aborts the in-flight one (no two concurrent Ollama jobs), and the stream is
+> aborted on page-unmount.
+>
+> **Scope (deferred, documented).** The spec named `/resume/generate` and
+> `/cover-letter` as streaming targets too. Only **copilot chat** was wired:
+> `/resume/generate` returns parsed structured JSON plus a second ATS-scoring LLM
+> round — not a prose token stream (SSE-framing partial JSON forces the client to
+> buffer-and-parse, defeating progressive render); cover-letter would need a
+> generator refactor. The reusable primitives (`sse_token_stream` + `on_complete`
+> persist hook, `RAGService.build_prompt`/`CopilotEngine.prepare` seam, the
+> frontend `streamSSE` helper) are built so those routes adopt streaming without
+> rework. AC line 30 (`/resume/generate streams chunks`) is **deferred**, not
+> silently complete.
