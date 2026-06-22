@@ -336,3 +336,9 @@ when the relevant velocity segment runs (roadmap §10 — targets, not gates, un
 | 2026-06-22 | 12.0 | resume/generate median (mocked) | ~0.35 ms | ~0.36 ms (µs-noise, no code change) | ✅ |
 | 2026-06-22 | 12.0 | copilot chat median (mocked) | 0.0079 ms | 0.0078 ms | ✅ |
 | 2026-06-22 | 12.0 | full suite after dep bumps | 842 passed | 842 passed (92.99% cov) | ✅ |
+| 2026-06-22 | 12.1 | write-commit latency (WAL, 200 commits/round) — median | 28.07 ms (`synchronous=FULL`) | 23.60 ms (`synchronous=NORMAL`) | ✅ 16% faster |
+| 2026-06-22 | 12.1 | write-commit latency (WAL, 200 commits/round) — p95 | 40.37 ms (FULL) | 25.78 ms (NORMAL) | ✅ tighter tail |
+| 2026-06-22 | 12.1 | backend cold start — median | 643.8 ms (12.0) / 778 ceiling | 673.4 ms | ✅ machine noise (2 extra pragma execs at startup) |
+| 2026-06-22 | 12.1 | backend cold start — p95 | 785.2 ms (12.0) / 1191 ceiling | 793.6 ms | ✅ |
+| 2026-06-22 | 12.1 | resume/generate + copilot benches (mocked) | ~332 µs / ~8 µs | ~332 µs / ~8 µs | ✅ unaffected (in-memory, no write path) |
+| 2026-06-22 | 12.1 | full suite | 842 passed | 844 passed (+2 pragma tests), 92.99% cov | ✅ |

@@ -9,9 +9,21 @@ from backend.models.base import Base
 from backend.config import get_settings
 
 
-def _enable_wal_and_fk(dbapi_connection: object, _: object) -> None:
+def _apply_pragmas(dbapi_connection: object, _: object) -> None:
+    """Apply the SQLite hot-path pragmas on every new connection.
+
+    ``journal_mode=WAL`` is persistent (recorded in the DB file header), so a
+    re-assert is a cheap no-op. ``synchronous``, ``mmap_size``, and
+    ``foreign_keys`` are per-connection and reset to their defaults on each new
+    connection, so they must be re-applied here. Registered on the SQLAlchemy
+    ``connect`` event; reused by the async engine in 12.2.
+
+    ponytail: these three are the known wins; add cache_size only if a bench shows need.
+    """
     cursor = dbapi_connection.cursor()  # type: ignore[union-attr]
     cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.execute("PRAGMA synchronous=NORMAL")  # safe under WAL (see database/README.md)
+    cursor.execute("PRAGMA mmap_size=268435456")  # 256 MiB memory-mapped I/O
     cursor.execute("PRAGMA foreign_keys=ON")
     cursor.close()
 
@@ -23,7 +35,7 @@ def build_engine(db_url: str | None = None) -> Engine:
         connect_args={"check_same_thread": False},
         echo=get_settings().debug,
     )
-    event.listen(engine, "connect", _enable_wal_and_fk)
+    event.listen(engine, "connect", _apply_pragmas)
     return engine
 
 
