@@ -342,3 +342,30 @@ when the relevant velocity segment runs (roadmap §10 — targets, not gates, un
 | 2026-06-22 | 12.1 | backend cold start — p95 | 785.2 ms (12.0) / 1191 ceiling | 793.6 ms | ✅ |
 | 2026-06-22 | 12.1 | resume/generate + copilot benches (mocked) | ~332 µs / ~8 µs | ~332 µs / ~8 µs | ✅ unaffected (in-memory, no write path) |
 | 2026-06-22 | 12.1 | full suite | 842 passed | 844 passed (+2 pragma tests), 92.99% cov | ✅ |
+| 2026-06-22 | 12.2 | backend cold start — median | 673.4 ms (12.1) / 778 ceiling | 597.96 ms (n=9) | ✅ no regression from uvloop import (uvicorn[standard] already loads it; async engine built lazily) |
+| 2026-06-22 | 12.2 | backend cold start — p95 | 793.6 ms (12.1) / 1191 ceiling | 794.97 ms (n=9) | ✅ |
+| 2026-06-22 | 12.2 | concurrent read latency, 8 workers — p50 | 15.5 ms (sync threads) | 31.3 ms (async/aiosqlite) | ⚠️ regression, justified below |
+| 2026-06-22 | 12.2 | concurrent read latency, 8 workers — p95 | 18.3 ms (sync threads) | 37.8 ms (async/aiosqlite) | ⚠️ regression, justified below |
+| 2026-06-22 | 12.2 | single read latency, 1 worker, 30 scans/req — p50 | 2.9 ms (sync) | 8.0 ms (async) | ⚠️ ~0.17 ms/query aiosqlite hop overhead |
+| 2026-06-22 | 12.2 | full suite | 844 passed | 848 passed (+4 async/uvloop/gate tests), 93.10% cov | ✅ |
+
+> **12.2 concurrency finding (honest).** The async swap (`uvloop` + `aiosqlite` +
+> `AsyncSession`, exposed to routes via `await session.run_sync(...)`) **does not
+> speed up SQLite and measurably regresses raw read latency** — see
+> `scripts/perf/async_latency_bench.py` (sync threads + `Session` vs `gather` +
+> `AsyncSession`, same temp WAL DB, same query). This is expected and inherent:
+> aiosqlite is a *thread-pool wrapper* around pysqlite, so it adds a cross-thread
+> hop (~0.15–0.2 ms) per `execute` and cannot give real parallelism for SQLite
+> under the GIL. AC#5's "p95 improvement *or* no-regression with justification"
+> resolves to the **justification** branch:
+>
+> - 12.2's stated purpose (roadmap §1) is **event-loop responsiveness** — keeping
+>   the loop free so SSE streaming (12.4) does not stutter when a DB op runs
+>   mid-stream — **not** SQLite throughput. The async engine yields at every I/O
+>   point; the sync engine blocks the loop for the whole call. That qualitative win
+>   is realized in 12.4 and is not visible in a raw-latency micro-bench.
+> - ACOS is single-user/local (ADR-001): effective concurrency ≈ 1, and a handful
+>   of per-request queries add a few ms — imperceptible against multi-second LLM
+>   latency. The regression has no practical UX cost here.
+> - The bridge (`run_sync`) keeps repos/services synchronous, so this overhead is
+>   the *only* cost taken on; no service code was async-colored for no benefit.
