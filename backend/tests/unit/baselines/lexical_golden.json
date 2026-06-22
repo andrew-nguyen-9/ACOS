@@ -1,0 +1,12 @@
+{
+  "source": "rank_bm25==0.2.2 (BM25Okapi), frozen Phase 12.7",
+  "corpus_size": 12,
+  "ranks": {
+    "py_async": 0,
+    "react_ui": 0,
+    "sql_tune": 0,
+    "ml_train": 0,
+    "k8s": 0,
+    "pipeline": 0
+  }
+}
