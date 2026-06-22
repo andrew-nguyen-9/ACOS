@@ -50,6 +50,40 @@ def _emit_ats_metric(session: Session, result: dict, template: str) -> None:
         pass
 
 
+def _emit_skill_signals(session: Session, result: dict, application_id: str | None) -> None:
+    """Best-effort 12.11 emit: link the resume's skills + ATS score to an application.
+
+    Only fires when an application_id is present — that id is the skill->outcome
+    join key the ROI engine reads back (skill_used.source['ids'][0] == the outcome
+    signal's entity_id). Telemetry must never fail a generation, so swallow errors.
+    """
+    if not application_id:
+        return
+    try:
+        resume_id = result.get("resume_id", "")
+        for skill in result.get("content_json", {}).get("skills", []) or []:
+            name = str(skill).strip()[:64]
+            if not name:
+                continue
+            record_signal(
+                session,
+                entity_type="skill", entity_id=name, signal_type="skill_used",
+                value=1.0, source={"table": "resumes", "ids": [application_id, resume_id]},
+            )
+        score = result.get("ats_score", {}).get("overall_score")
+        if score is not None:
+            # application-scoped ATS (distinct from the template-scoped drift metric)
+            # so skill -> ATS delta is joinable per application.
+            record_signal(
+                session,
+                entity_type="application", entity_id=application_id,
+                signal_type="ats_score", value=float(score),
+                source={"table": "resumes", "ids": [resume_id]},
+            )
+    except Exception:
+        pass
+
+
 class ATSRequest(BaseModel):
     resume_text: str
     job_description: str
@@ -109,6 +143,7 @@ async def generate_resume(
             company=body.company, job_title=body.job_title,
         )
         _emit_ats_metric(s, result, body.template_name)
+        _emit_skill_signals(s, result, body.application_id)
         return result
 
     try:
@@ -135,6 +170,7 @@ async def generate_resume_docx(
             body.job_description, body.template_name, body.application_id,
             company=body.company, job_title=body.job_title,
         )
+        _emit_skill_signals(s, result, body.application_id)
         return {"content_json": result["content_json"], "exporter": exporter}
 
     try:
