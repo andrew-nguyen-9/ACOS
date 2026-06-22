@@ -23,6 +23,28 @@ _INTENT_COLLECTIONS: dict[str, list[str]] = {
 
 _CONFIDENCE_PRIORITY: dict[str, int] = {"verified": 3, "strong_inference": 2, "weak_inference": 1}
 
+# Hard token cap on retrieved context before prompt assembly. Prompt-eval over
+# this dominates TTFT (12.5), so the budget — not a fixed item count — is the lever.
+CONTEXT_TOKEN_BUDGET = 1500
+
+
+def _prune_context_parts(parts: list[str], budget: int = CONTEXT_TOKEN_BUDGET) -> list[str]:
+    """Keep highest-ranked parts whose cumulative token cost stays within budget.
+
+    ``parts`` is rerank order (best first). The first part is always kept so a
+    single oversized top hit never yields empty context; once adding a part would
+    exceed the budget, that part and the entire tail are dropped.
+    """
+    kept: list[str] = []
+    used = 0
+    for i, part in enumerate(parts):
+        cost = count_tokens(part)
+        if i > 0 and used + cost > budget:
+            break
+        kept.append(part)
+        used += cost
+    return kept
+
 # Shared by query() and the 12.4 streaming route so both produce the same answer.
 RAG_MODEL = "qwen3:8b"
 RAG_EMBED_MODEL = "nomic-embed-text"
@@ -81,7 +103,7 @@ class RAGService:
         for r in ranked:
             conf = r["metadata"].get("confidence_level", "strong_inference")
             context_parts.append(f"[{conf}] {r['text']}")
-        context = "\n\n".join(context_parts[:15])
+        context = "\n\n".join(_prune_context_parts(context_parts))
 
         evidence = [
             {
