@@ -44,4 +44,25 @@ describe("animation clock", () => {
     expect(isRunning()).toBe(true);
     off();
   });
+
+  it("stays parked while any pause source is still active", () => {
+    const off = subscribe(() => {});
+    // Document hidden parks the clock (one pause source).
+    Object.defineProperty(document, "hidden", { value: true, configurable: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(isRunning()).toBe(false);
+
+    // A resume from a *different* source (e.g. Tauri focus regained) must NOT
+    // override the still-active visibility pause — otherwise the rAF runs in the
+    // background, defeating App-Nap (DMI-003).
+    resume();
+    expect(isRunning()).toBe(false);
+
+    // Clearing the last active source resumes.
+    Object.defineProperty(document, "hidden", { value: false, configurable: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(isRunning()).toBe(true);
+
+    off();
+  });
 });
