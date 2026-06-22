@@ -4,6 +4,7 @@ from sqlalchemy import String, Text, Integer, Float, Boolean, CheckConstraint, F
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.models.base import Base, TimestampMixin, generate_uuid, utcnow
+from backend.models.tenant import TenantScopedMixin
 
 
 class ResumeTemplate(Base):
@@ -24,7 +25,7 @@ class ResumeTemplate(Base):
     created_at: Mapped[str] = mapped_column(String(32), default=utcnow)
 
 
-class WritingProfile(TimestampMixin, Base):
+class WritingProfile(TenantScopedMixin, TimestampMixin, Base):
     __tablename__ = "writing_profiles"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=generate_uuid)
@@ -35,7 +36,7 @@ class WritingProfile(TimestampMixin, Base):
     source_doc_ids: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
 
 
-class Resume(TimestampMixin, Base):
+class Resume(TenantScopedMixin, TimestampMixin, Base):
     __tablename__ = "resumes"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=generate_uuid)

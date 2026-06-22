@@ -4,9 +4,10 @@ from sqlalchemy import String, Text, CheckConstraint, ForeignKey, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.models.base import Base, generate_uuid, utcnow
+from backend.models.tenant import TenantScopedMixin
 
 
-class Question(Base):
+class Question(TenantScopedMixin, Base):
     __tablename__ = "questions"
     __table_args__ = (
         CheckConstraint(
@@ -39,7 +40,7 @@ class Question(Base):
     )
 
 
-class Answer(Base):
+class Answer(TenantScopedMixin, Base):
     __tablename__ = "answers"
     __table_args__ = (
         CheckConstraint(

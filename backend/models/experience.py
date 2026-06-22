@@ -4,9 +4,10 @@ from sqlalchemy import String, Text, Boolean, CheckConstraint, ForeignKey, Integ
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.models.base import Base, TimestampMixin, generate_uuid, utcnow
+from backend.models.tenant import TenantScopedMixin
 
 
-class Experience(TimestampMixin, Base):
+class Experience(TenantScopedMixin, TimestampMixin, Base):
     __tablename__ = "experiences"
     __table_args__ = (
         CheckConstraint(

@@ -4,9 +4,10 @@ from sqlalchemy import String, Text, Integer, CheckConstraint, ForeignKey, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.models.base import Base, generate_uuid, utcnow
+from backend.models.tenant import TenantScopedMixin
 
 
-class Document(Base):
+class Document(TenantScopedMixin, Base):
     __tablename__ = "documents"
     __table_args__ = (
         CheckConstraint(

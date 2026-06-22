@@ -48,7 +48,7 @@ def _build_copilot(session: Session) -> CopilotEngine:
     )
     embedder = Embedder(ollama, model=settings.embedding_model)
     chroma = get_chroma_manager(settings.chroma_db_path)
-    retriever = RAGRetriever(chroma, embedder)
+    retriever = RAGRetriever(chroma, embedder, session=session)
     reranker = Reranker()
     rag_svc = RAGService(
         retriever,

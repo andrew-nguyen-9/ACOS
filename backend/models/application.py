@@ -4,9 +4,10 @@ from sqlalchemy import String, Text, Integer, CheckConstraint, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.models.base import Base, TimestampMixin, generate_uuid, utcnow
+from backend.models.tenant import TenantScopedMixin
 
 
-class Application(TimestampMixin, Base):
+class Application(TenantScopedMixin, TimestampMixin, Base):
     __tablename__ = "applications"
     __table_args__ = (
         CheckConstraint(

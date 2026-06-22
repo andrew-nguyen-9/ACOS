@@ -4,9 +4,10 @@ from sqlalchemy import String, Float, Text, JSON, Index
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.models.base import Base, generate_uuid, utcnow
+from backend.models.tenant import TenantScopedMixin
 
 
-class Signal(Base):
+class Signal(TenantScopedMixin, Base):
     """Phase 12.10 feedback-loop signal — the flywheel's normalized event.
 
     One row per derived outcome signal (ATS score, interview result, skill used)
@@ -21,13 +22,11 @@ class Signal(Base):
 
     __tablename__ = "signals"
     __table_args__ = (
-        Index("idx_signals_tenant", "tenant_id"),
         Index("idx_signals_entity", "entity_type", "entity_id"),
     )
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=generate_uuid)
-    # tenant_id nullable until 12.14 (tenant isolation backfills + constrains it).
-    tenant_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # tenant_id (NOT NULL FK) provided by TenantScopedMixin as of 12.14.
     entity_type: Mapped[str] = mapped_column(String(30), nullable=False)
     entity_id: Mapped[str] = mapped_column(String(64), nullable=False)
     signal_type: Mapped[str] = mapped_column(String(40), nullable=False)

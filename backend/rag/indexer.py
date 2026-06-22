@@ -24,6 +24,14 @@ class RAGIndexer:
         # write chokepoint. None → Chroma-only (callers that don't need lexical).
         self._session = session
 
+    def _tenant(self) -> str | None:
+        """Active tenant for Chroma metadata tagging (12.14), or None (untagged)."""
+        if self._session is None:
+            return None
+        from backend.services.tenancy import get_session_tenant
+
+        return get_session_tenant(self._session)
+
     def index_document(
         self, doc_id: str, text: str, metadata: dict, *, doc_type: str = DEFAULT_DOC_TYPE
     ) -> None:
@@ -39,9 +47,10 @@ class RAGIndexer:
             documents=[text],
             embeddings=[embedding],
             metadatas=[{**metadata, "doc_type": doc_type}],
+            tenant_id=self._tenant(),
         )
         if self._session is not None:
-            lexical.upsert(self._session, doc_id, text, doc_type)
+            lexical.upsert(self._session, doc_id, text, doc_type, tenant_id=self._tenant())
         logger.debug("indexed document %s as doc_type=%s", doc_id, doc_type)
 
     def index_batch(
@@ -57,10 +66,12 @@ class RAGIndexer:
             documents=texts,
             embeddings=embeddings,
             metadatas=[{**item["metadata"], "doc_type": doc_type} for item in items],
+            tenant_id=self._tenant(),
         )
         if self._session is not None:
+            tenant_id = self._tenant()
             for item in items:
-                lexical.upsert(self._session, item["id"], item["text"], doc_type)
+                lexical.upsert(self._session, item["id"], item["text"], doc_type, tenant_id=tenant_id)
         logger.debug("indexed batch of %d as doc_type=%s", len(items), doc_type)
 
     def delete_document(self, doc_id: str) -> None:

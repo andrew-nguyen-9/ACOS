@@ -4,9 +4,10 @@ from sqlalchemy import String, Text, Float, CheckConstraint, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.models.base import Base, generate_uuid, utcnow
+from backend.models.tenant import TenantScopedMixin
 
 
-class OutcomeSignal(Base):
+class OutcomeSignal(TenantScopedMixin, Base):
     __tablename__ = "outcome_signals"
     __table_args__ = (
         CheckConstraint(

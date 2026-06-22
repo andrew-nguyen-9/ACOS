@@ -47,7 +47,7 @@ def _build_cl_deps(
     ollama = OllamaClient(base_url=settings.ollama_base_url)
     embedder = Embedder(ollama, model=settings.embedding_model)
     chroma = get_chroma_manager(settings.chroma_db_path)
-    retriever = RAGRetriever(chroma, embedder)
+    retriever = RAGRetriever(chroma, embedder, session=session)
     reranker = Reranker()
     loader = PromptLoader()
     selector = EvidenceSelector(retriever, reranker)

@@ -36,6 +36,22 @@ def reset_chroma_manager() -> None:
     _manager = None
 
 
+def _compose_tenant_where(
+    where: "dict[str, Any] | None", tenant_id: str | None
+) -> "dict[str, Any] | None":
+    """AND a tenant predicate into an existing metadata `where` (12.14 isolation).
+
+    Composes with the 12.6 doc_type filter rather than replacing it; Chroma needs an
+    explicit ``$and`` to combine two metadata predicates.
+    """
+    if tenant_id is None:
+        return where
+    tenant_clause = {"tenant_id": tenant_id}
+    if not where:
+        return tenant_clause
+    return {"$and": [tenant_clause, where]}
+
+
 class ChromaManager:
     def __init__(self, path: str) -> None:
         self._path = path
@@ -73,7 +89,10 @@ class ChromaManager:
         documents: list[str],
         embeddings: list[list[float]],
         metadatas: list[dict[str, Any]],
+        tenant_id: str | None = None,
     ) -> None:
+        if tenant_id is not None:
+            metadatas = [{**m, "tenant_id": tenant_id} for m in metadatas]
         col = self.get_or_create_collection(collection)
         col.add(ids=ids, documents=documents, embeddings=embeddings, metadatas=metadatas)
 
@@ -84,7 +103,10 @@ class ChromaManager:
         documents: list[str],
         embeddings: list[list[float]],
         metadatas: list[dict[str, Any]],
+        tenant_id: str | None = None,
     ) -> None:
+        if tenant_id is not None:
+            metadatas = [{**m, "tenant_id": tenant_id} for m in metadatas]
         col = self.get_or_create_collection(collection)
         col.upsert(ids=ids, documents=documents, embeddings=embeddings, metadatas=metadatas)
 
@@ -94,12 +116,14 @@ class ChromaManager:
         query_embeddings: list[list[float]],
         n_results: int = 10,
         where: dict[str, Any] | None = None,
+        tenant_id: str | None = None,
     ) -> dict[str, Any]:
         col = self.get_or_create_collection(collection)
         kwargs: dict[str, Any] = {
             "query_embeddings": query_embeddings,
             "n_results": n_results,
         }
+        where = _compose_tenant_where(where, tenant_id)
         if where:
             kwargs["where"] = where
         return col.query(**kwargs)

@@ -18,7 +18,7 @@ def test_record_signal_persists_row_with_source(test_session):
     assert sig.entity_type == "template"
     assert sig.value == 72.0
     assert sig.weight == 1.0  # default
-    assert sig.tenant_id is None  # nullable until 12.14
+    assert sig.tenant_id == "default"  # 12.14: defaults to the session's active tenant
     assert sig.source_json == {"table": "metrics", "ids": ["m1"]}
 
 
@@ -83,13 +83,20 @@ def test_rollup_averages_with_sample_counts(test_session):
 
 
 def test_rollup_is_tenant_scoped(test_session):
+    from backend.services.tenancy import ensure_tenant, set_session_tenant
+
+    ensure_tenant(test_session, "t1")
+    ensure_tenant(test_session, "t2")
     engine = FeedbackEngine(test_session)
     src = {"table": "metrics", "ids": ["m"]}
+    set_session_tenant(test_session, "t1")
     engine.record_signal(entity_type="skill", entity_id="python", signal_type="skill_used",
-                         value=1.0, source=src, tenant_id="t1")
+                         value=1.0, source=src)
+    set_session_tenant(test_session, "t2")
     engine.record_signal(entity_type="skill", entity_id="rust", signal_type="skill_used",
-                         value=1.0, source=src, tenant_id="t2")
+                         value=1.0, source=src)
 
+    set_session_tenant(test_session, "t1")
     t1 = engine.rollup(tenant_id="t1")["aggregates"]
     assert {a["entity_id"] for a in t1} == {"python"}
 

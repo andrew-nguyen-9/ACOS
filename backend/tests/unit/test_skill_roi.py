@@ -31,6 +31,10 @@ _SKILL_USE = {
 
 
 def _seed(session, tenant_id: str | None = None) -> None:
+    if tenant_id is not None:
+        from backend.services.tenancy import ensure_tenant
+
+        ensure_tenant(session, tenant_id)
     eng = FeedbackEngine(session)
     for app_id, stype, weight in _OUTCOMES:
         eng.record_signal(
@@ -112,8 +116,11 @@ def test_offer_probability_metric(test_session):
 
 def test_tenant_scoped_reads(test_session):
     """tenant_id filters the signal set (12.14 forward-compat)."""
+    from backend.services.tenancy import set_session_tenant
+
     _seed(test_session, tenant_id="t1")
     _seed(test_session, tenant_id="t2")
+    set_session_tenant(test_session, "t1")  # query as t1 (matches the loader-criteria scope)
     out = rank_skills(test_session, tenant_id="t1", metric="interview_lift", min_n=5)
     # python n must be 6 (t1 only), not 12 (both tenants)
     python = next(s for s in out["skills"] if s["skill"] == "python")

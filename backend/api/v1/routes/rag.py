@@ -34,10 +34,10 @@ async def rag_query(body: QueryRequest, session: AsyncSession = Depends(get_asyn
     )
     embedder = Embedder(ollama, model=settings.embedding_model)
     chroma = get_chroma_manager(settings.chroma_db_path)
-    retriever = RAGRetriever(chroma, embedder)
     reranker = Reranker()
 
     def _impl(s: Session) -> dict:
+        retriever = RAGRetriever(chroma, embedder, session=s)  # s carries the tenant
         svc = RAGService(
             retriever,
             reranker,

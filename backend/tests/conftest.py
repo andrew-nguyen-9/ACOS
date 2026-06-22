@@ -68,9 +68,18 @@ def test_engine():
 
 @pytest.fixture(scope="function")
 def test_session(test_engine) -> Generator[Session, None, None]:
-    """Database session backed by in-memory SQLite."""
+    """Database session backed by in-memory SQLite.
+
+    12.14: seed the `default` tenant and bind it on the session so tenant-scoped
+    repositories auto-inject/auto-filter to it — existing single-tenant tests stay
+    green without per-test changes. Tests exercising the guard or multiple tenants
+    override `session.info["tenant_id"]` themselves.
+    """
+    from backend.services.tenancy import ensure_default_tenant, set_session_tenant
+
     TestSession = sessionmaker(bind=test_engine, autocommit=False, autoflush=False)
     session = TestSession()
+    set_session_tenant(session, ensure_default_tenant(session))
     yield session
     session.rollback()
     session.close()

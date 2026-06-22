@@ -17,7 +17,7 @@ class _FakeChroma:
         self.store: dict[str, dict] = {}  # id -> metadata
         self.upsert_calls = 0
 
-    def upsert(self, collection, ids, documents, embeddings, metadatas):
+    def upsert(self, collection, ids, documents, embeddings, metadatas, tenant_id=None):
         self.upsert_calls += 1
         for i, _id in enumerate(ids):
             self.store[_id] = metadatas[i]

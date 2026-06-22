@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from backend.database import get_async_session
 from backend.services.flywheel.skill_roi import rank_skills
+from backend.services.tenancy import get_session_tenant
 
 router = APIRouter(tags=["flywheel"])
 
@@ -19,11 +20,11 @@ router = APIRouter(tags=["flywheel"])
 async def get_skill_roi(
     metric: str = "interview_lift",
     min_n: int = 5,
-    tenant_id: str | None = None,  # 12.14 forward-compat; None = single-tenant today
     session: AsyncSession = Depends(get_async_session),
 ) -> dict:
     def _impl(s: Session) -> dict:
-        return rank_skills(s, tenant_id=tenant_id, metric=metric, min_n=min_n)
+        # tenant resolved at the session boundary / X-Tenant-Id dependency (12.14)
+        return rank_skills(s, tenant_id=get_session_tenant(s), metric=metric, min_n=min_n)
 
     try:
         return await session.run_sync(_impl)

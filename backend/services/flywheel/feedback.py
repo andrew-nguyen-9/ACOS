@@ -35,6 +35,12 @@ class FeedbackEngine:
             raise ValueError(
                 "signal requires a traceable source: {'table': ..., 'ids': [...]}"
             )
+        # 12.14: signals are tenant-scoped (NOT NULL). Default to the session's active
+        # tenant when an emit hook didn't pass one — Signal bypasses BaseRepository.
+        if tenant_id is None:
+            from backend.services.tenancy import require_session_tenant
+
+            tenant_id = require_session_tenant(self._session)
         sig = Signal(
             tenant_id=tenant_id,
             entity_type=entity_type,

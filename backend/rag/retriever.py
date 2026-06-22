@@ -10,12 +10,16 @@ MIN_SIMILARITY = 0.35
 
 
 class RAGRetriever:
-    def __init__(self, chroma_manager, embedder) -> None:
+    def __init__(self, chroma_manager, embedder, session=None) -> None:
         self._chroma = chroma_manager
         self._embedder = embedder
+        # 12.14: when set, retrieve() scopes the Chroma query to the session's
+        # active tenant unless an explicit tenant_id overrides. None → unscoped.
+        self._session = session
 
     def retrieve(
-        self, query: str, doc_types: list[str], top_k: int = 10
+        self, query: str, doc_types: list[str], top_k: int = 10,
+        tenant_id: str | None = None,
     ) -> list[dict]:
         """Retrieve from the single consolidated collection, filtered by doc_type.
 
@@ -26,6 +30,10 @@ class RAGRetriever:
         """
         if not doc_types:
             return []
+        if tenant_id is None and self._session is not None:
+            from backend.services.tenancy import get_session_tenant
+
+            tenant_id = get_session_tenant(self._session)
         query_embedding = self._embedder.embed(query)
         n_results = top_k * len(doc_types)
         try:
@@ -34,6 +42,7 @@ class RAGRetriever:
                 query_embeddings=[query_embedding],
                 n_results=n_results,
                 where={"doc_type": {"$in": doc_types}},
+                tenant_id=tenant_id,
             )
         except Exception as exc:
             logger.warning("retrieve: query failed: %s", exc)

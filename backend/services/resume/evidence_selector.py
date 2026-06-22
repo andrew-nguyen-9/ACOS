@@ -27,7 +27,12 @@ class EvidenceSelector:
         # Union the FTS5 lexical leg so keyword-matched experience text the dense
         # leg missed still reaches selection (mirrors RAGService.build_prompt).
         if self._session is not None:
-            lex = lexical.search(self._session, job_description, _EXPERIENCE_COLLECTIONS, k=20)
+            from backend.services.tenancy import get_session_tenant
+
+            lex = lexical.search(
+                self._session, job_description, _EXPERIENCE_COLLECTIONS, k=20,
+                tenant_id=get_session_tenant(self._session),
+            )
             raw = lexical.fuse(raw, lex)
         ranked = self._reranker.rerank(
             query=job_description,

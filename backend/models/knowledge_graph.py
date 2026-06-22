@@ -4,9 +4,10 @@ from sqlalchemy import String, Text, Float, CheckConstraint, ForeignKey, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.models.base import Base, generate_uuid, utcnow
+from backend.models.tenant import TenantScopedMixin
 
 
-class KnowledgeGraphNode(Base):
+class KnowledgeGraphNode(TenantScopedMixin, Base):
     __tablename__ = "knowledge_graph_nodes"
     __table_args__ = (
         CheckConstraint(
@@ -36,7 +37,7 @@ class KnowledgeGraphNode(Base):
     )
 
 
-class KnowledgeGraphEdge(Base):
+class KnowledgeGraphEdge(TenantScopedMixin, Base):
     __tablename__ = "knowledge_graph_edges"
     __table_args__ = (
         CheckConstraint(
