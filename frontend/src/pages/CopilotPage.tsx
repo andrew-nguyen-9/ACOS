@@ -150,38 +150,66 @@ export default function CopilotPage() {
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // One AbortController per in-flight generation (12.4 cancellation).
+  const controllerRef = useRef<AbortController | null>(null);
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
+  // Cancel any in-flight stream when leaving the page — frees the Ollama job.
+  useEffect(() => () => controllerRef.current?.abort(), []);
+
+  // Mutate the most recent message in place — used to append streamed tokens.
+  const updateLast = (fn: (m: ChatMessage) => ChatMessage) =>
+    setMessages((prev) =>
+      prev.length === 0 ? prev : [...prev.slice(0, -1), fn(prev[prev.length - 1])]
+    );
+
   const sendMessage = async (text: string) => {
     const trimmed = text.trim();
-    if (!trimmed || loading) return;
+    if (!trimmed) return;
+
+    // Starting a new generation aborts the in-flight one — never two concurrent
+    // Ollama jobs (spec §4.3). The abort propagates to the backend disconnect.
+    controllerRef.current?.abort();
+    const controller = new AbortController();
+    controllerRef.current = controller;
+
+    // History from prior turns must be read before we append the new messages.
+    const history = messages
+      .filter((m) => m.role === "user" || m.role === "assistant")
+      .slice(-MAX_HISTORY)
+      .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
 
     setInput("");
     setMessages((prev) => [...prev, { role: "user", content: trimmed }]);
     setLoading(true);
 
+    let meta: CopilotChatResponse | undefined;
+    let started = false; // assistant bubble created on the first token
     try {
-      // Build history from last MAX_HISTORY messages (excluding error messages)
-      const history = messages
-        .filter((m) => m.role === "user" || m.role === "assistant")
-        .slice(-MAX_HISTORY)
-        .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
-
-      const res = await copilotService.chat({
-        message: trimmed,
-        conversation_history: history,
-      });
-
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: res.response, meta: res },
-      ]);
+      for await (const delta of copilotService.chatStream(
+        { message: trimmed, conversation_history: history },
+        controller.signal,
+        (m) => {
+          meta = { ...m, response: "" };
+        }
+      )) {
+        if (!started) {
+          started = true;
+          setLoading(false); // first token in — drop the thinking state, stream live
+          setMessages((prev) => [...prev, { role: "assistant", content: delta, meta }]);
+        } else {
+          updateLast((m) => ({ ...m, content: m.content + delta }));
+        }
+      }
+      // Backfill meta.response so downstream consumers see the full answer text.
+      updateLast((m) => (m.meta ? { ...m, meta: { ...m.meta, response: m.content } } : m));
       haptics.success();
     } catch {
+      if (controller.signal.aborted) return; // superseded by a newer send — stay quiet
       setMessages((prev) => [
         ...prev,
         {
@@ -191,8 +219,12 @@ export default function CopilotPage() {
       ]);
       haptics.warn();
     } finally {
-      setLoading(false);
-      inputRef.current?.focus();
+      // Only the latest generation owns the shared loading/focus state.
+      if (controllerRef.current === controller) {
+        controllerRef.current = null;
+        setLoading(false);
+        inputRef.current?.focus();
+      }
     }
   };
 
