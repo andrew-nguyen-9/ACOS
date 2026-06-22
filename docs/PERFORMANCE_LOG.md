@@ -449,3 +449,56 @@ when the relevant velocity segment runs (roadmap §10 — targets, not gates, un
 > frontend `streamSSE` helper) are built so those routes adopt streaming without
 > rework. AC line 30 (`/resume/generate streams chunks`) is **deferred**, not
 > silently complete.
+
+---
+
+## Phase 12.6 — RAG Throughput (collections, batching, background ingest, pruning) — 2026-06-22
+
+Machine: macOS-26.5.1 arm64 (M1, 16GB), Python 3.12.13, live Ollama (qwen3:8b + nomic-embed-text).
+
+**Batched embeddings (AC3).** `scripts/perf/embed_batch_bench.py`, n=300 short texts:
+
+| path | HTTP calls | wall time |
+|------|-----------|-----------|
+| per-chunk (`/api/embeddings`, one POST/text) | 300 | 13.186 s |
+| batched (`/api/embed`, one POST/≤128-chunk) | 3 | 7.076 s |
+
+**1.86× faster, 100× fewer round-trips.** The HTTP-call count is also asserted in
+`test_embed_batch.py` (300 → 3 calls, order preserved).
+
+**Ingestion throughput (AC6).** `scripts/perf/ingest_bench.py`, 5-page resume PDF, n=3:
+
+| mode | median | min | max |
+|------|--------|-----|-----|
+| parse → embed → index (12.6 surface, `--regex-extract`) | **0.169 s** | 0.158 s | 0.878 s |
+| full pipeline (LLM entity extraction) | 120.288 s | 119.146 s | 120.322 s |
+
+The 12.6-affected path (parse + embed + index) is **0.169 s median — well under the
+≤3 s target.** The full-pipeline 120 s is **entirely the qwen3 entity-extraction LLM
+call**, which runs reasoning-mode and hits the 120 s httpx timeout before falling
+back to regex — outside 12.6's surface (consolidation/batching/pruning affect
+retrieval and embedding round-trips, not entity extraction). AC4 background
+ingestion makes that cost **non-blocking**: `POST /ingest` returns `202` + a job id
+immediately and the slow work runs off-request, which is the actual UX fix.
+
+> **Honest finding.** The entity-extraction LLM call is now the ingestion
+> bottleneck. A `think:false` extraction path (cf. 12.5) or a shorter timeout would
+> reclaim it; tracked separately, not a 12.6 deliverable.
+
+**Context pruning (AC5).** Reranked context is capped at a cumulative ≤1500 tokens
+via `tokens.count_tokens` before prompt assembly (was a fixed 15-item count). Prompt
+-eval over context dominates TTFT (12.5), so the token budget — not an item count —
+is the lever. Verified in `test_context_pruning.py` on an oversized corpus
+(highest-ranked kept, tail dropped, output ≤ budget).
+
+**Collection consolidation (AC1/AC2).** 10 physical Chroma collections → 1
+(`acos_documents`) partitioned by `doc_type`; retrieval is one `where`-filtered HNSW
+query instead of a ten-index loop. `n_results` scales with partition count to
+preserve recall. Correctness covered by real-ChromaDB `test_collection_filtering.py`
++ idempotent migration `test_consolidate_migration.py`.
+
+> **Golden-set caveat.** No golden-set retrieval harness exists in-repo, so
+> "retrieval correctness unchanged" is asserted via the filtering tests rather than
+> a scored baseline. Single-index `n_results` scaling is a mild recall *change* vs
+> the old per-partition loop (the reranker re-sorts the pooled candidates); building
+> a scored golden set is tracked separately.

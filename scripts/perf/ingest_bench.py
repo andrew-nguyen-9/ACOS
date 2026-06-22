@@ -52,7 +52,12 @@ def _find_pdf(explicit: Path | None) -> Path | None:
     return None
 
 
-def run(pdf: Path, n: int = 3, out_path: Path | None = _DEFAULT_OUT) -> dict | None:
+def run(
+    pdf: Path, n: int = 3, out_path: Path | None = _DEFAULT_OUT, regex_extract: bool = False
+) -> dict | None:
+    """Time end-to-end ingestion. ``regex_extract`` skips the LLM entity-extraction
+    call (regex fallback) to isolate the parse→embed→index cost that 12.6 affects;
+    the full pipeline's time is otherwise dominated by the qwen3 extraction call."""
     from sqlalchemy import create_engine, event
     from sqlalchemy.orm import sessionmaker
     from sqlalchemy.pool import StaticPool
@@ -91,7 +96,9 @@ def run(pdf: Path, n: int = 3, out_path: Path | None = _DEFAULT_OUT) -> dict | N
         embedder = Embedder(ollama, model=settings.embedding_model)
         chroma = ChromaManager(path=chroma_dir)
         indexer = RAGIndexer(chroma, embedder)
-        extractor = EntityExtractor(ollama)
+        # regex_extract=True passes no Ollama client → regex-only extraction, so the
+        # measured time reflects parse+embed+index (the 12.6 surface), not LLM reasoning.
+        extractor = EntityExtractor(None if regex_extract else ollama)
         for _ in range(n):
             session = Session()
             kg_svc = KnowledgeGraphService(session)
@@ -139,6 +146,10 @@ def main() -> None:
     parser.add_argument("--pdf", type=Path, default=None, help="sample PDF to ingest")
     parser.add_argument("--n", type=int, default=3, help="number of ingest runs")
     parser.add_argument("--out", type=Path, default=_DEFAULT_OUT, help="JSON output path")
+    parser.add_argument(
+        "--regex-extract", action="store_true",
+        help="skip the LLM entity-extraction call (isolate parse+embed+index)",
+    )
     args = parser.parse_args()
 
     pdf = _find_pdf(args.pdf)
@@ -146,7 +157,7 @@ def main() -> None:
         print("skipped: no sample PDF found (pass --pdf path/to.pdf)")
         return
 
-    result = run(pdf, n=args.n, out_path=args.out)
+    result = run(pdf, n=args.n, out_path=args.out, regex_extract=args.regex_extract)
     if result is None:
         return
     print(
