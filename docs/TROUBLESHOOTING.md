@@ -277,6 +277,65 @@ curl http://localhost:8000/api/v1/settings
 
 ---
 
+## Visual Effects / WebGL Material (Phase 11.7)
+
+**Symptom:** background looks flat (no animated material), or the GPU runs hot / the
+fan spins, or you want to turn the effects off.
+
+**Disable the effects:** Settings → **Visual Effects** → **Off** (or **Reduced**).
+The choice persists in `localStorage` (`acos:visual-effects`) and applies live — no
+restart. `Off` falls back to the cheap static aurora; the app is fully functional on
+every tier (the WebGL material is decoration, never a requirement).
+
+**Why the material isn't showing (it's expected, not a bug) when:**
+- The display/GPU has **no WebGL** — `capability.ts` resolves the tier to `Off`. The
+  Settings panel shows a note when WebGL is unavailable.
+- **OS reduced-motion** is on (macOS: System Settings → Accessibility → Display →
+  Reduce motion) — the tier resolves to `Off` by design.
+- The window is **hidden or blurred** — the App-Nap clock parks the render loop
+  (`clock.ts`, DMI-003) so the canvas costs ~0 in the background; it resumes on focus.
+- The GPU **lost the WebGL context** (`webglcontextlost`) — the canvas unmounts to the
+  static aurora automatically. Switch the tier Off→Full in Settings to remount.
+
+**CSP note:** `three` + `@react-three/fiber` need no `eval`, `wasm`, Web Worker, or
+`blob:` URL for this material, so the Tauri CSP (`src-tauri/tauri.conf.json`,
+`script-src 'self'`) is **unchanged** by 11.7. If a *future* shader uses a Web Worker
+or `Blob:` URL, add `worker-src 'self' blob:` to the CSP — and always test the
+**production** Tauri build (`npm run tauri build`), not just `vite dev`, because CSP is
+enforced in the packaged app, not the dev server.
+
+## macOS Integration: Haptics / asset:// / Theme Reveal (Phase 11.8)
+
+**No haptic tick when I generate a resume / accept a suggestion.**
+Haptics are macOS-only and **only fire in the packaged Tauri app**, never in `vite dev`,
+the browser, or e2e (`src/lib/haptics.ts` no-ops when `isTauri()` is false). They are
+additive feedback — the app works identically without them. On a Mac, a tick needs a
+**Force Touch trackpad** (most MacBooks); external mice/keyboards produce nothing. Calls
+are throttled to one per 60ms, so a burst of events feels like a single tap by design.
+
+**Images served over `asset://` return 403 / 404.**
+The `asset:` scheme only serves files inside the **allowlisted app-data dir**, validated
+by `resolve_asset_path` (`src-tauri/src/haptics.rs`). A `403` means the path failed the
+traversal/containment check (anything with `..`, an absolute path, or a symlink that
+escapes the root) — this is correct, default-closed behavior. A `404` means the path is
+valid but the file isn't there. The scheme is registered only in the **packaged app**;
+`vite dev` has no `asset://` handler. The CSP must include `img-src 'self' asset:`
+(`src-tauri/tauri.conf.json`) — test the **production** build, not `vite dev`.
+
+**Theme doesn't follow the OS / no reveal animation.**
+ACOS is **true-dark by default** (the designed identity). It syncs on *live* OS theme
+changes while the app is open (`useThemeReveal.ts`): flip macOS appearance (System
+Settings → Appearance) and watch the circular `clip-path` reveal. Notes:
+- The light theme is a **token-layer** flip (`:root[data-theme="light"]`); many
+  components still carry hardcoded dark classes, so light mode is intentionally partial
+  (a full per-component light audit is deferred — the reveal is the 11.8 deliverable).
+- **Reduced-motion** (macOS → Accessibility → Display → Reduce motion) → the swap is
+  **instant, no clip-path** by design.
+- The initial theme is *not* read from the OS at load (so the app always opens true-dark);
+  only subsequent OS changes trigger a swap.
+- In the browser, `prefers-color-scheme` drives it; Tauri `onThemeChanged` is the
+  packaged-app path (guarded import, no-op outside Tauri).
+
 ## Getting More Debug Information
 
 Enable verbose backend logging by starting the backend with the `--log-level debug` flag:
@@ -291,6 +350,41 @@ Or set the environment variable before launching the packaged app:
 ```bash
 ACOS_LOG_LEVEL=debug open /Applications/ACOS.app
 ```
+
+---
+
+## Visual Effects, Particles & Interview Audio
+
+**The background is static / no animation, no particles.**
+This is expected on the **Off** tier. The tier is forced to Off when:
+- your display/GPU exposes no WebGL context, or
+- macOS **System Settings → Accessibility → Display → Reduce Motion** is on, or
+- you chose Off in **Settings → Visual Effects**.
+
+Celebrations still appear as a calm flourish and the interview panel still works. To enable
+the full effects, turn off Reduce Motion and pick **Full** in Settings.
+
+**The WebGL background disappeared mid-session.**
+A GPU/driver context loss unmounts the canvas and falls back to the static aurora — by
+design, so a lost context never crashes the app. Reload the window to restore it.
+
+**No sound in Interview Prep.**
+- Audio only starts **after you click “Generate Questions”** — browsers block audio until a
+  user gesture (autoplay policy). Click it once to arm the panel.
+- The panel is **positional** (left/center/right). Use **headphones** to hear the spatial
+  placement; laptop speakers collapse the stereo field.
+- If your environment has no Web Audio support, the page degrades to a silent, visual-only
+  panel — this is not an error.
+
+**The cadence waveform is a flat line.**
+With Reduce Motion enabled the meter renders a static baseline instead of animating. It also
+reads near-flat when no one is "speaking" (between questions) — that's normal.
+
+**The cover-letter tone dial doesn't change the wording.**
+Dragging the dial morphs the **typography instantly**; the **wording** is regenerated by the
+model a moment after you stop dragging (debounced) and only when a letter already exists.
+If generation is slow or Ollama is offline, the text won't change — check
+`curl http://localhost:8000/api/v1/health/ollama`.
 
 ---
 

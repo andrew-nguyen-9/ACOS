@@ -37,6 +37,19 @@ def init_db() -> None:
     Base.metadata.create_all(bind=engine)
 
 
+def reset_engine() -> None:
+    """Dispose the pooled connections and rebuild the engine + session factory.
+
+    Required around a restore: the live engine's pool holds open handles to the
+    SQLite file, so swapping the file underneath them would leave callers reading
+    the old (unlinked) inode. Drop the pool, swap, then rebuild against the new file.
+    """
+    global engine, SessionLocal
+    engine.dispose()
+    engine = build_engine()
+    SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+
+
 def get_session() -> Generator[Session, None, None]:
     """FastAPI dependency that yields a database session per request."""
     with SessionLocal() as session:
@@ -55,7 +68,12 @@ def seed_system_config(session: Session) -> None:
     defaults = [
         ("default_model", "qwen3:8b", "Default Ollama model for generation"),
         ("embedding_model", "nomic-embed-text", "Ollama model for embeddings"),
+        ("embedding_schema_version", "1", "Embedding scheme version; bump on re-embed"),
         ("learning_trigger_count", "5", "Applications before learning refresh"),
+        ("retention_floor_fraction", "0.25", "Retention: permanent floor as fraction of success_score"),
+        ("retention_decay_days", "180", "Retention: recency exponential decay time constant (days)"),
+        ("anchor_percentile", "0.75", "Success anchoring: percentile cutoff for anchor strategies"),
+        ("anchor_max_count", "3", "Success anchoring: max anchors merged into candidates"),
         ("ats_keyword_weight", "0.35", "ATS scoring: keyword match weight"),
         ("ats_skill_weight", "0.25", "ATS scoring: skill match weight"),
         ("ats_experience_weight", "0.20", "ATS scoring: experience match weight"),

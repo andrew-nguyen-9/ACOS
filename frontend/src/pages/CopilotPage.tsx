@@ -13,7 +13,10 @@ import {
 } from "lucide-react";
 import { ConfidenceBadge } from "@/components/ui/ConfidenceBadge";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { GhostText } from "@/components/copilot/GhostText";
+import { useGhostCompletion } from "@/components/copilot/useGhostCompletion";
 import { copilotService } from "@/services/copilot";
+import * as haptics from "@/lib/haptics";
 import type { CopilotChatResponse, ConfidenceLevel } from "@/types/api";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -177,6 +180,7 @@ export default function CopilotPage() {
         ...prev,
         { role: "assistant", content: res.response, meta: res },
       ]);
+      haptics.success();
     } catch {
       setMessages((prev) => [
         ...prev,
@@ -185,6 +189,7 @@ export default function CopilotPage() {
           content: "Something went wrong. Please check that the backend is running and try again.",
         },
       ]);
+      haptics.warn();
     } finally {
       setLoading(false);
       inputRef.current?.focus();
@@ -193,7 +198,19 @@ export default function CopilotPage() {
 
   const handleSend = () => sendMessage(input);
 
+  // Inline ghost completion (COP-003). Tab/Esc are consumed by the hook before
+  // the chat keymap; accepting fills the input and gives a light haptic tap.
+  const { ghost, onKeyDown: onGhostKey, onValueChange } = useGhostCompletion(
+    input,
+    (full) => {
+      setInput(full);
+      haptics.tap();
+    },
+    !loading,
+  );
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (onGhostKey(e)) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -318,15 +335,21 @@ export default function CopilotPage() {
               {/* Input bar */}
               <div className="shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-[20px] rounded-[18px] bg-neutral-900/80 border border-white/10 flex px-4 py-3 items-center gap-3">
                 <Search className="size-4 text-[#a1a1a1] flex-shrink-0" />
-                <input
-                  ref={inputRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Ask your Career Copilot anything..."
-                  disabled={loading}
-                  className="flex-1 bg-transparent text-neutral-200 text-sm leading-5 placeholder-[#a1a1a1] focus:outline-none disabled:opacity-60 min-w-0"
-                />
+                <div className="relative min-w-0 flex-1">
+                  <input
+                    ref={inputRef}
+                    value={input}
+                    onChange={(e) => {
+                      setInput(e.target.value);
+                      onValueChange();
+                    }}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Ask your Career Copilot anything..."
+                    disabled={loading}
+                    className="w-full bg-transparent text-neutral-200 text-sm leading-5 placeholder-[#a1a1a1] focus:outline-none disabled:opacity-60"
+                  />
+                  <GhostText value={input} ghost={ghost} />
+                </div>
                 <button
                   onClick={handleSend}
                   disabled={loading || !input.trim()}

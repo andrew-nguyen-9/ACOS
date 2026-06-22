@@ -1,0 +1,93 @@
+/**
+ * ACOS design tokens (Phase 11.5).
+ *
+ * Single source of truth for color, material, motion, and type. Tailwind reads
+ * the channel/var tokens (see tailwind.config.js) so utilities stay in sync.
+ *
+ * Color strategy:
+ *  - `*-rgb` tokens are sRGB channels, consumed by Tailwind as
+ *    `rgb(var(--x-rgb) / <alpha-value>)` so opacity modifiers (e.g. bg-accent/10)
+ *    work everywhere.
+ *  - The full-color tokens (`--accent`, `--verified`, …) are widened to
+ *    Display-P3 on capable macOS screens (HAM-003) and used directly by
+ *    hand-authored signature surfaces (the AppShell aurora, accent glows) where
+ *    the extra gamut is the point. sRGB values are the universal fallback.
+ */
+
+:root {
+  /* ── Base (catalog #5 true-dark luminance) ──────────────────────────── */
+  --bg: #0a0a0a;
+  --fg: #fafafa;
+  --fg-muted: #a1a1a1;
+
+  /* ── Accent + confidence as sRGB channels (Tailwind alpha utilities) ── */
+  --accent-rgb: 76 141 255;
+  --verified-rgb: 48 209 88;
+  --strong-rgb: 90 200 250;
+  --weak-rgb: 255 159 10;
+
+  /* ── Full-color tokens (sRGB now; P3 override below) ─────────────────── */
+  --accent: rgb(76 141 255);
+  --verified: rgb(48 209 88);
+  --strong: rgb(90 200 250);
+  --weak: rgb(255 159 10);
+
+  /* ── Material / elevation ───────────────────────────────────────────── */
+  --glass-bg: rgb(23 23 23 / 0.70);
+  --glass-border: rgb(255 255 255 / 0.10);
+  --elevation-card: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 18px 50px rgb(0 0 0 / 0.28);
+  --elevation-panel: 0 24px 80px rgb(0 0 0 / 0.45);
+
+  /* ── Motion (durations + macOS-flavored easings) ────────────────────── */
+  --ease-standard: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.30, 1);
+  --duration-fast: 120ms;
+  --duration-base: 220ms;
+  --duration-slow: 360ms;
+
+  /* ── Typography (system SF Pro on macOS; Inter fallback elsewhere) ───── */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter",
+    ui-sans-serif, system-ui, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter",
+    ui-sans-serif, system-ui, sans-serif;
+  /* Fluid display size; line-heights stay on the 4px baseline grid (VPT-001/002). */
+  --fs-display: clamp(1.5rem, 1.1rem + 1.6vw, 2.25rem);
+}
+
+/* Light theme (Phase 11.8, DMI-001). Opt-in via `data-theme="light"` on <html>,
+   set by the theme-reveal hook when the OS flips to light; its absence is the
+   designed true-dark default above. Overrides the token layer only — the
+   shell/aurora and other token-driven surfaces adapt.
+   ponytail: many components hardcode dark Tailwind classes (text-neutral-50,
+   bg-white/5); a full per-component light audit is deferred — the reveal + token
+   flip are the 11.8 deliverable, not a finished light skin. */
+:root[data-theme="light"] {
+  --bg: #f5f5f7;
+  --fg: #1c1c1e;
+  --fg-muted: #6b6b70;
+  --glass-bg: rgb(255 255 255 / 0.72);
+  --glass-border: rgb(0 0 0 / 0.08);
+  --elevation-card: inset 0 1px 0 rgb(255 255 255 / 0.60), 0 18px 50px rgb(0 0 0 / 0.10);
+  --elevation-panel: 0 24px 80px rgb(0 0 0 / 0.18);
+}
+
+/* Display-P3 widens accent + confidence on capable displays. The sRGB values
+   above remain the fallback on non-P3 screens. */
+@supports (color: color(display-p3 1 1 1)) {
+  :root {
+    --accent: color(display-p3 0.30 0.55 1.00);
+    --verified: color(display-p3 0.34 0.80 0.42);
+    --strong: color(display-p3 0.42 0.78 0.96);
+    --weak: color(display-p3 0.96 0.64 0.16);
+  }
+}
+
+/* Reduced motion: collapse durations to instant. The motion/ module + framer's
+   MotionConfig handle the JS side; this covers plain CSS transitions. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration-base: 0ms;
+    --duration-slow: 0ms;
+  }
+}

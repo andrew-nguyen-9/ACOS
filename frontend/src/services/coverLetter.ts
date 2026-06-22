@@ -3,6 +3,8 @@ import { apiFetch } from "./api";
 interface CoverLetterRequest {
   job_description: string;
   application_id?: string;
+  /** RCL-003 tone dial: 0 = Traditional, 1 = Bold. */
+  tone?: number;
 }
 
 interface CoverLetterResponse {

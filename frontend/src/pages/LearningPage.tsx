@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { AnimatePresence, m } from "framer-motion";
 import {
   Brain,
   Lightbulb,
@@ -6,6 +7,7 @@ import {
   Sparkles,
   Star,
   TrendingUp,
+  X,
   Zap,
 } from "lucide-react";
 import {
@@ -77,6 +79,16 @@ export default function LearningPage() {
   const [atsVsOutcome, setAtsVsOutcome] = useState<AtsVsOutcome[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
+  // KMP-003: which ranking row is expanded into the shared-element detail card.
+  const [selected, setSelected] = useState<TemplateRanking | null>(null);
+
+  // Escape closes the detail overlay (keyboard parity with backdrop/Close button).
+  useEffect(() => {
+    if (!selected) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setSelected(null);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selected]);
 
   useEffect(() => {
     Promise.all([
@@ -138,6 +150,45 @@ export default function LearningPage() {
 
   return (
     <div className="p-8 flex flex-col gap-6 h-full overflow-auto">
+      {/* Shared-element detail (KMP-003): expands from the clicked ranking row. */}
+      <AnimatePresence>
+        {selected && (
+          <m.div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-8 backdrop-blur-sm"
+            onClick={() => setSelected(null)}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <m.div
+              layoutId={`rank-${selected.template_name}`}
+              onClick={(e) => e.stopPropagation()}
+              className="w-[480px] rounded-3xl border border-white/10 bg-neutral-900 p-6 shadow-2xl"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <h2 className="font-semibold text-neutral-50 text-lg">{selected.template_name}</h2>
+                <button onClick={() => setSelected(null)} aria-label="Close" className="rounded-lg p-1 text-[#a1a1a1] hover:bg-white/[0.06] hover:text-neutral-200 transition-colors">
+                  <X className="size-4" />
+                </button>
+              </div>
+              <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.08 }} className="mt-4 grid grid-cols-2 gap-3">
+                {[
+                  ["Score", `${rankingScore(selected)}`],
+                  ["Win rate", selected.win_rate != null ? `${Math.round(selected.win_rate * 100)}%` : "—"],
+                  ["Avg ATS", selected.avg_ats_score != null ? `${Math.round(selected.avg_ats_score)}` : "—"],
+                  ["Applications", `${selected.application_count}`],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-2xl bg-white/[0.04] border border-white/10 p-4">
+                    <div className="text-[#a1a1a1] text-[11px] uppercase tracking-wider">{label}</div>
+                    <div className="font-bold text-neutral-50 text-xl mt-1">{value}</div>
+                  </div>
+                ))}
+              </m.div>
+            </m.div>
+          </m.div>
+        )}
+      </AnimatePresence>
+
       <PageHeader />
 
       {/* ── Stats row ─────────────────────────────────────────────────────────── */}
@@ -284,8 +335,16 @@ export default function LearningPage() {
                 const rank = i + 1;
                 const score = rankingScore(r);
                 const width = rankingWidth(r);
+                // Shared element: the row and the detail card share `layoutId`, so
+                // clicking expands the row into the overlay (KMP-003). Small,
+                // non-virtualized list — safe for layout projection.
                 return (
-                  <div key={r.template_name} className="flex items-center gap-3">
+                  <m.div
+                    key={r.template_name}
+                    layoutId={`rank-${r.template_name}`}
+                    onClick={() => setSelected(r)}
+                    className="flex items-center gap-3 cursor-pointer rounded-xl p-1 -m-1 hover:bg-white/[0.03] transition-colors"
+                  >
                     <div className={rankBadgeClass(rank)}>{rank}</div>
                     <div className="flex flex-col flex-1 gap-1">
                       <div className="flex justify-between items-center">
@@ -296,7 +355,7 @@ export default function LearningPage() {
                         <div className={rankBarClass(rank)} style={{ width }} />
                       </div>
                     </div>
-                  </div>
+                  </m.div>
                 );
               })}
               {rankings.length === 0 && (

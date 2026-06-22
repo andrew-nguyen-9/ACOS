@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from backend.config import Settings, get_settings
@@ -26,11 +26,13 @@ _VALID_LENGTHS = set(LENGTH_TARGETS)
 
 class GenerateCLRequest(BaseModel):
     job_description: str
-    company: str
-    job_title: str
+    company: str = ""
+    job_title: str = ""
     length_target: str = "medium"
     application_id: str | None = None
     resume_id: str | None = None
+    # RCL-003 tone dial: 0 = Traditional, 1 = Bold. Omitted → learned voice only.
+    tone: float | None = Field(default=None, ge=0.0, le=1.0)
 
 
 class LearnVoiceRequest(BaseModel):
@@ -80,7 +82,7 @@ def generate_cover_letter(
 
     return generator.generate(
         body.job_description, body.company, body.job_title, body.length_target,
-        resume_context=resume_context,
+        resume_context=resume_context, tone=body.tone,
     )
 
 

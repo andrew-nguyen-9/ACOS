@@ -250,6 +250,38 @@ curl http://localhost:8000/api/v1/health
 curl http://localhost:8000/api/v1/health/ollama
 ```
 
+## Visual Effects & Showcase Features
+
+ACOS ships a hardware-accelerated, macOS-native interface. Everything below is a
+*progressive enhancement* — the app is fully usable with effects turned off.
+
+**Visual Effects tiers** (Settings → Visual Effects):
+
+| Tier | What runs |
+|------|-----------|
+| **Full** | Animated WebGL background material, cursor focus-glow, success particle bursts, the interview interlocutor |
+| **Reduced** | Lighter material, no cursor effects; particles fade in place (no fling) |
+| **Off** | Static background, lowest power. Celebrations show a calm flourish; the interview panel still works (audio + cadence meter), just without the WebGL interlocutor |
+
+The effective tier is automatically clamped to **Off** when your display has no WebGL or
+when macOS *Reduce Motion* is enabled — accessibility always wins over spectacle.
+
+**Showcase capstones:**
+
+- **Success celebration** — finalizing/exporting a resume that clears the ATS milestone,
+  or generating a cover letter, fires a brief GPU particle constellation (Full/Reduced) or
+  a tasteful flourish (Off). It's non-blocking and skippable — keep working through it.
+- **Cover-letter tone dial** — drag the **Traditional ↔ Bold** slider on a generated cover
+  letter. The typography morphs instantly; the letter is quietly regenerated in the chosen
+  tone a moment after you stop dragging.
+- **Spatial interview panel** — *Interview Prep* places a three-seat virtual panel across
+  the stereo field (use headphones for the effect) with a live cadence/pace waveform. Audio
+  starts only when you click **Generate Questions** (browsers require a click before playing
+  sound).
+
+**Backup, recovery & maintenance** run only on your explicit request — ACOS never performs
+destructive maintenance on its own (see Troubleshooting for the recovery/backup commands).
+
 ## See Also
 
 - [Architecture Overview](ARCHITECTURE_OVERVIEW.md) — how the system is built

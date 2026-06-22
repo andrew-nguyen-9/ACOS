@@ -1,7 +1,66 @@
 import { useEffect, useState } from "react";
-import { Settings, Save } from "lucide-react";
+import { Settings, Save, Sparkles } from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { getSettings, updateSetting } from "@/services/settings";
+import {
+  getEffectPreference,
+  setEffectPreference,
+  supportsWebGL,
+  type EffectTier,
+} from "@/lib/capability";
+
+const EFFECT_TIERS: { value: EffectTier; label: string; hint: string }[] = [
+  { value: "full", label: "Full", hint: "Animated WebGL material + cursor highlights" },
+  { value: "reduced", label: "Reduced", hint: "Lighter material, no cursor effects" },
+  { value: "off", label: "Off", hint: "Static background — lowest power" },
+];
+
+function VisualEffectsControl() {
+  const [pref, setPref] = useState<EffectTier>(getEffectPreference);
+  const webgl = supportsWebGL();
+
+  function choose(value: EffectTier) {
+    setPref(value);
+    setEffectPreference(value);
+    // Tell the live material to re-resolve its tier without a reload.
+    window.dispatchEvent(new Event("acos:effects-changed"));
+  }
+
+  return (
+    <GlassCard className="p-6 flex flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <Sparkles className="size-4 text-neutral-500" />
+        <span className="text-neutral-400 text-xs font-medium uppercase tracking-wider">
+          Visual Effects
+        </span>
+      </div>
+      <div className="flex gap-2">
+        {EFFECT_TIERS.map(({ value, label }) => (
+          <button
+            key={value}
+            onClick={() => choose(value)}
+            className={
+              "flex-1 rounded-lg px-3 py-2 text-sm font-medium transition " +
+              (pref === value
+                ? "bg-indigo-600 text-white"
+                : "bg-neutral-900 text-neutral-300 hover:bg-neutral-800")
+            }
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <p className="text-neutral-500 text-xs">
+        {EFFECT_TIERS.find((t) => t.value === pref)?.hint}
+      </p>
+      {!webgl && (
+        <p className="text-weak text-xs">
+          WebGL is unavailable on this display — effects run as Off regardless of choice.
+        </p>
+      )}
+    </GlassCard>
+  );
+}
 
 const EDITABLE_LABELS: Record<string, string> = {
   default_model: "Default LLM Model",
@@ -75,6 +134,8 @@ export default function SettingsPage() {
       {saved && !hasDirty && (
         <div className="text-green-400 text-sm px-4 py-2 bg-green-900/20 rounded-lg">Settings saved.</div>
       )}
+
+      <VisualEffectsControl />
 
       <GlassCard className="p-6 flex flex-col gap-5">
         {Object.entries(EDITABLE_LABELS).map(([key, label]) => (

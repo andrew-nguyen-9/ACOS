@@ -1,10 +1,15 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
+import { m } from "framer-motion";
 import { Mail, RefreshCw, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { ConfidenceBadge } from "@/components/ui/ConfidenceBadge";
 import { EvidencePanel, type EvidenceItem } from "@/components/shared/EvidencePanel";
+import { ToneDial } from "@/components/cover_letter/ToneDial";
+import { useToneMorph } from "@/components/cover_letter/useToneMorph";
 import { coverLetterService } from "@/services/coverLetter";
+import { emitCelebrate } from "@/lib/celebrate";
+import * as haptics from "@/lib/haptics";
 
 interface Result {
   cover_letter_id: string;
@@ -19,19 +24,42 @@ export default function CoverLetterPage() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<Result | null>(null);
 
-  const generate = async () => {
-    if (!jd.trim()) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await coverLetterService.generate({ job_description: jd });
-      setResult(res);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Generation failed");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const runGenerate = useCallback(
+    async (tone?: number) => {
+      if (!jd.trim()) return;
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await coverLetterService.generate({ job_description: jd, tone });
+        setResult(res);
+        haptics.success();
+        // Celebrate only on the initial generation — not on the debounced tone-dial
+        // regenerations (tone is set), which would otherwise spam the effect.
+        if (tone === undefined) {
+          emitCelebrate(res.content_text.split(/\s+/).filter(Boolean).slice(0, 48));
+        }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Generation failed");
+        haptics.warn();
+      } finally {
+        setLoading(false);
+      }
+    },
+    [jd],
+  );
+
+  const generate = () => runGenerate();
+
+  // RCL-003: dragging the dial morphs typography instantly; the backend
+  // regeneration with the new tone is debounced inside the hook, and only fires
+  // once a letter already exists (no generating from an empty editor).
+  const regenerate = useCallback(
+    (tone: number) => {
+      if (result) void runGenerate(tone);
+    },
+    [result, runGenerate],
+  );
+  const morph = useToneMorph(regenerate);
 
   return (
     <div className="p-8 flex flex-col gap-6 h-full overflow-auto">
@@ -79,8 +107,8 @@ export default function CoverLetterPage() {
             </GlassCard>
           )}
           {result && (
-            <GlassCard className="p-5 flex-1 overflow-auto">
-              <div className="flex items-center justify-between mb-4">
+            <GlassCard className="p-5 flex-1 overflow-auto flex flex-col gap-4">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="size-4 text-[#30D158]" />
                   <span className="font-medium text-neutral-200 text-sm">Cover Letter</span>
@@ -89,9 +117,13 @@ export default function CoverLetterPage() {
                   <ConfidenceBadge level="weak_inference" />
                 )}
               </div>
-              <div className="text-sm text-neutral-300 leading-relaxed whitespace-pre-wrap">
+              <ToneDial tone={morph.tone} setTone={morph.setTone} />
+              <m.div
+                style={morph.style}
+                className="text-sm text-neutral-300 whitespace-pre-wrap"
+              >
                 {result.content_text}
-              </div>
+              </m.div>
             </GlassCard>
           )}
         </div>

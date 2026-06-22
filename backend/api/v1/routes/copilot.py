@@ -8,6 +8,7 @@ from backend.config import get_settings
 from backend.database import get_session
 from backend.rag.chroma_client import ChromaManager
 from backend.rag.embedder import Embedder
+from backend.rag.fallback import KeywordFallback
 from backend.rag.retriever import RAGRetriever
 from backend.rag.reranker import Reranker
 from backend.services.copilot.engine import CopilotEngine
@@ -38,7 +39,12 @@ def _build_copilot(session: Session) -> CopilotEngine:
     chroma = ChromaManager(path=settings.chroma_db_path)
     retriever = RAGRetriever(chroma, embedder)
     reranker = Reranker()
-    rag_svc = RAGService(retriever, reranker, ollama if ollama.is_available() else None)
+    rag_svc = RAGService(
+        retriever,
+        reranker,
+        ollama if ollama.is_available() else None,
+        fallback=KeywordFallback(session),
+    )
     return CopilotEngine(rag_svc)
 
 

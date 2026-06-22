@@ -1,6 +1,7 @@
 -r requirements.txt
 pytest==8.3.4
 pytest-cov==6.0.0
+pytest-benchmark==5.2.3
 coverage==7.6.9
 requests==2.32.3
 respx==0.21.1

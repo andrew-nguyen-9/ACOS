@@ -1,31 +1,58 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Routes, Route } from "react-router-dom";
+import { LazyMotion, LayoutGroup, MotionConfig } from "framer-motion";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import AppShell from "@/layouts/AppShell";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { PageSkeleton } from "@/components/ui/Skeleton";
+import { useDeferredLoading } from "@/hooks/useDeferredLoading";
+import { useThemeReveal } from "@/hooks/useThemeReveal";
 import { getOnboardingStatus } from "@/services/settings";
 import FirstRunWizard from "@/pages/FirstRunWizard";
+import FpsOverlay from "@/components/dev/FpsOverlay";
+import { ROUTES } from "@/routes";
 
-const Dashboard = lazy(() => import("@/pages/Dashboard"));
-const ResumePage = lazy(() => import("@/pages/ResumePage"));
-const CoverLetterPage = lazy(() => import("@/pages/CoverLetterPage"));
-const AtsPage = lazy(() => import("@/pages/AtsPage"));
-const InterviewPrepPage = lazy(() => import("@/pages/InterviewPrepPage"));
-const ApplicationsPage = lazy(() => import("@/pages/ApplicationsPage"));
-const LearningPage = lazy(() => import("@/pages/LearningPage"));
-const CopilotPage = lazy(() => import("@/pages/CopilotPage"));
-const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
-const OptimizationPage = lazy(() => import("@/pages/OptimizationPage"));
+/** Dev-only: show the FPS overlay when `?perf=1` is set or via Cmd+Shift+P. */
+function usePerfOverlay(): boolean {
+  const [on, setOn] = useState(
+    () =>
+      import.meta.env.DEV &&
+      new URLSearchParams(window.location.search).get("perf") === "1",
+  );
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey && e.shiftKey && e.code === "KeyP") {
+        e.preventDefault();
+        setOn((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+  return on;
+}
 
-const PageFallback = () => (
-  <div className="flex flex-1 items-center justify-center p-16">
-    <LoadingSpinner size="lg" />
-  </div>
-);
+// Async framer-motion features — code-split out of the initial bundle.
+const loadMotionFeatures = () => import("@/motion/features").then((m) => m.default);
+
+// Perceptual load masking (ASP-002): while a route chunk loads, show nothing for
+// the first 200ms, then a structural skeleton — never a spinner flash. The
+// fallback mounts the instant Suspense triggers, so `loading` is true from mount.
+const PageFallback = () => {
+  const show = useDeferredLoading(true, 200);
+  return show ? <PageSkeleton /> : null;
+};
 
 export default function App() {
   const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
   const [backendError, setBackendError] = useState(false);
+  const perfRequested = usePerfOverlay();
+  const showPerf = import.meta.env.DEV && perfRequested;
+
+  // System theme sync with clip-path reveal (DMI-001). Root-level so it runs for
+  // the whole app regardless of route.
+  useThemeReveal();
 
   useEffect(() => {
     const checkWithRetry = async (attemptsLeft: number): Promise<void> => {
@@ -72,23 +99,29 @@ export default function App() {
   }
 
   return (
-    <ErrorBoundary>
-      <AppShell>
-        <Suspense fallback={<PageFallback />}>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/resumes" element={<ResumePage />} />
-            <Route path="/cover-letters" element={<CoverLetterPage />} />
-            <Route path="/ats" element={<AtsPage />} />
-            <Route path="/interview-prep" element={<InterviewPrepPage />} />
-            <Route path="/applications" element={<ApplicationsPage />} />
-            <Route path="/learning" element={<LearningPage />} />
-            <Route path="/optimization" element={<OptimizationPage />} />
-            <Route path="/copilot" element={<CopilotPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-          </Routes>
-        </Suspense>
-      </AppShell>
-    </ErrorBoundary>
+    // `strict` enforces the `m.*` components (lean bundle); reducedMotion="user"
+    // is the global accessibility guard — framer drops transform/layout motion
+    // and keeps opacity when the OS asks for reduced motion.
+    <LazyMotion strict features={loadMotionFeatures}>
+      <MotionConfig reducedMotion="user">
+        <ErrorBoundary>
+          {showPerf && <FpsOverlay />}
+          <AppShell>
+            {/* LayoutGroup scopes shared-element (layoutId) transitions across
+                the routed tree — e.g. a list card expanding into a detail view
+                (KMP-003). Only small elements opt in via layoutId. */}
+            <LayoutGroup>
+              <Suspense fallback={<PageFallback />}>
+                <Routes>
+                  {ROUTES.map(({ path, Component }) => (
+                    <Route key={path} path={path} element={<Component />} />
+                  ))}
+                </Routes>
+              </Suspense>
+            </LayoutGroup>
+          </AppShell>
+        </ErrorBoundary>
+      </MotionConfig>
+    </LazyMotion>
   );
 }

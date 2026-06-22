@@ -1,0 +1,27 @@
+{
+  "metric": "backend_cold_start_ms",
+  "date": "2026-06-21",
+  "segment": "11.3",
+  "note": "Re-baselined after lazy chromadb import (deferred numpy/onnxruntime/opentelemetry/grpc off the startup path). Prior 11.0 baseline: median 706.682ms / p95 1082.703ms.",
+  "n": 9,
+  "median_ms": 634.516,
+  "p95_ms": 904.617,
+  "min_ms": 542.899,
+  "max_ms": 904.617,
+  "samples": [
+    904.617,
+    805.766,
+    634.516,
+    676.262,
+    664.136,
+    556.974,
+    585.192,
+    563.288,
+    542.899
+  ],
+  "machine": {
+    "platform": "macOS-26.5.1-arm64-arm-64bit",
+    "python": "3.12.13",
+    "processor": "arm"
+  }
+}

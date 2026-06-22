@@ -58,7 +58,9 @@ def record_outcome(
 
 
 @router.post("/learning/reindex")
-def trigger_reindex(session: Session = Depends(get_session)) -> dict:
+def trigger_reindex(
+    only_changed: bool = False, session: Session = Depends(get_session)
+) -> dict:
     settings = get_settings()
     repo = SystemConfigRepository(session)
     embedding_model = repo.get_value("embedding_model") or settings.embedding_model
@@ -66,7 +68,7 @@ def trigger_reindex(session: Session = Depends(get_session)) -> dict:
     embedder = Embedder(ollama, model=embedding_model)
     chroma = ChromaManager(path=settings.chroma_db_path)
     indexer = RAGIndexer(chroma, embedder)
-    count = indexer.index_all(session)
+    count = indexer.index_all(session, only_changed=only_changed)
     return {"status": "ok", "indexed": count}
 
 

@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { m } from "framer-motion";
 import {
   FileText, Briefcase, Target, MessageSquareMore,
   Plus, Sparkles, Bot, CheckCircle2, WifiOff, Zap,
 } from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { fadeUp, scaleIn, staggerContainer } from "@/motion";
 import { apiFetch } from "@/services/api";
 import { applicationsService } from "@/services/applications";
 import type { Application } from "@/types/api";
@@ -46,10 +48,10 @@ export default function Dashboard() {
   }
 
   const stats = [
-    { label: "Applications", value: applications.length, icon: Briefcase, color: "text-[#4c8dff]" },
-    { label: "Resumes Generated", value: "—", icon: FileText, color: "text-[#30D158]" },
-    { label: "Avg ATS Score", value: "—", icon: Target, color: "text-[#5AC8FA]" },
-    { label: "Interview Questions", value: "—", icon: MessageSquareMore, color: "text-[#FF9F0A]" },
+    { label: "Applications", value: applications.length, icon: Briefcase, color: "text-accent" },
+    { label: "Resumes Generated", value: "—", icon: FileText, color: "text-verified" },
+    { label: "Avg ATS Score", value: "—", icon: Target, color: "text-strong" },
+    { label: "Interview Questions", value: "—", icon: MessageSquareMore, color: "text-weak" },
   ];
 
   const quickActions = [
@@ -60,55 +62,62 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="p-8 flex flex-col gap-6 h-full overflow-auto">
-      <div className="flex items-center justify-between">
+    <m.div
+      className="flex h-full flex-col gap-6 overflow-auto p-8"
+      variants={staggerContainer}
+      initial="hidden"
+      animate="visible"
+    >
+      <m.div className="flex items-center justify-between" variants={fadeUp}>
         <div>
-          <h1 className="font-semibold text-neutral-50 text-2xl tracking-tight">Dashboard</h1>
-          <p className="text-[#a1a1a1] text-sm mt-1">AI Career Operating System</p>
+          <h1 className="font-display text-2xl font-semibold tracking-tight text-neutral-50">Dashboard</h1>
+          <p className="mt-1 text-sm text-[var(--fg-muted)]">AI Career Operating System</p>
         </div>
         {health && (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#30D158]/10 border border-[#30D158]/20">
-            <CheckCircle2 className="size-3.5 text-[#30D158]" />
-            <span className="text-[#30D158] text-xs font-medium">v{health.version} · online</span>
+          <div className="flex items-center gap-2 rounded-full border border-verified/20 bg-verified/10 px-3 py-1.5">
+            <CheckCircle2 className="size-3.5 text-verified" />
+            <span className="text-xs font-medium text-verified">v{health.version} · online</span>
           </div>
         )}
         {!health && (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-500/10 border border-red-500/20">
+          <div className="flex items-center gap-2 rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1.5">
             <WifiOff className="size-3.5 text-red-400" />
-            <span className="text-red-400 text-xs font-medium">Backend unreachable</span>
+            <span className="text-xs font-medium text-red-400">Backend unreachable</span>
           </div>
         )}
-      </div>
+      </m.div>
 
-      <div className="grid grid-cols-4 gap-4">
+      <m.div className="grid grid-cols-4 gap-4" variants={staggerContainer}>
         {stats.map(({ label, value, icon: Icon, color }) => (
-          <GlassCard key={label} className="p-5">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-[#a1a1a1] text-xs">{label}</p>
-                <p className={`font-bold text-3xl tracking-tight mt-2 ${color}`}>{value}</p>
+          <m.div key={label} variants={scaleIn}>
+            <GlassCard specular className="p-5">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-xs text-[var(--fg-muted)]">{label}</p>
+                  <p className={`mt-2 text-3xl font-bold tabular-nums tracking-tight ${color}`}>{value}</p>
+                </div>
+                <div className="flex size-8 items-center justify-center rounded-xl bg-white/[0.06]">
+                  <Icon className={`size-4 ${color}`} />
+                </div>
               </div>
-              <div className="size-8 rounded-xl bg-white/[0.06] flex items-center justify-center">
-                <Icon className={`size-4 ${color}`} />
-              </div>
-            </div>
-          </GlassCard>
+            </GlassCard>
+          </m.div>
         ))}
-      </div>
+      </m.div>
 
-      <div className="grid grid-cols-[1fr_280px] gap-6 flex-1">
+      <m.div className="grid flex-1 grid-cols-[1fr_280px] gap-6" variants={fadeUp}>
         <GlassCard className="p-6">
-          <h2 className="font-semibold text-neutral-200 text-sm mb-4 flex items-center gap-2">
-            <Briefcase className="size-4 text-[#4c8dff]" />
+          <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-neutral-200">
+            <Briefcase className="size-4 text-accent" />
             Recent Applications
           </h2>
           {applications.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center gap-3">
+            <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
               <Briefcase className="size-8 text-neutral-600" />
-              <p className="text-[#a1a1a1] text-sm">No applications yet</p>
+              <p className="text-sm text-[var(--fg-muted)]">No applications yet</p>
               <button
                 onClick={() => navigate("/applications")}
-                className="text-[#4c8dff] text-xs hover:underline"
+                className="text-xs text-accent hover:underline"
               >
                 Track your first application →
               </button>
@@ -118,14 +127,14 @@ export default function Dashboard() {
               {applications.slice(0, 6).map((app) => (
                 <div
                   key={app.id}
-                  className="flex items-center justify-between px-4 py-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] transition-colors cursor-pointer"
+                  className="flex cursor-pointer items-center justify-between rounded-xl bg-white/[0.03] px-4 py-3 transition-colors duration-fast hover:bg-white/[0.06]"
                   onClick={() => navigate("/applications")}
                 >
                   <div>
-                    <p className="font-medium text-neutral-200 text-sm">{app.role}</p>
-                    <p className="text-[#a1a1a1] text-xs">{app.company}</p>
+                    <p className="text-sm font-medium text-neutral-200">{app.role}</p>
+                    <p className="text-xs text-[var(--fg-muted)]">{app.company}</p>
                   </div>
-                  <span className="text-xs px-2.5 py-1 rounded-full bg-[#4c8dff]/10 text-[#4c8dff] border border-[#4c8dff]/20">
+                  <span className="rounded-full border border-accent/20 bg-accent/10 px-2.5 py-1 text-xs text-accent">
                     {app.status}
                   </span>
                 </div>
@@ -136,8 +145,8 @@ export default function Dashboard() {
 
         <div className="flex flex-col gap-4">
           <GlassCard className="p-5">
-            <h2 className="font-semibold text-neutral-200 text-sm mb-3 flex items-center gap-2">
-              <Zap className="size-4 text-[#4c8dff]" />
+            <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-neutral-200">
+              <Zap className="size-4 text-accent" />
               Quick Actions
             </h2>
             <div className="flex flex-col gap-2">
@@ -145,9 +154,9 @@ export default function Dashboard() {
                 <button
                   key={label}
                   onClick={() => navigate(to)}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[#a1a1a1] hover:text-neutral-200 hover:bg-white/[0.06] transition-colors text-sm font-medium text-left"
+                  className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-[var(--fg-muted)] transition-colors duration-fast hover:bg-white/[0.06] hover:text-neutral-200"
                 >
-                  <Icon className="size-4 text-[#4c8dff]" />
+                  <Icon className="size-4 text-accent" />
                   {label}
                 </button>
               ))}
@@ -155,24 +164,24 @@ export default function Dashboard() {
           </GlassCard>
 
           <GlassCard className="p-5">
-            <h2 className="font-semibold text-neutral-200 text-sm mb-3">System</h2>
+            <h2 className="mb-3 text-sm font-semibold text-neutral-200">System</h2>
             <div className="flex flex-col gap-2 text-xs">
               <div className="flex items-center justify-between">
-                <span className="text-[#a1a1a1]">Backend</span>
-                <span className={health ? "text-[#30D158]" : "text-red-400"}>
+                <span className="text-[var(--fg-muted)]">Backend</span>
+                <span className={health ? "text-verified" : "text-red-400"}>
                   {health ? "online" : "offline"}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[#a1a1a1]">Database</span>
-                <span className={health?.db === "ok" ? "text-[#30D158]" : "text-[#FF9F0A]"}>
+                <span className="text-[var(--fg-muted)]">Database</span>
+                <span className={health?.db === "ok" ? "text-verified" : "text-weak"}>
                   {health?.db ?? "—"}
                 </span>
               </div>
             </div>
           </GlassCard>
         </div>
-      </div>
-    </div>
+      </m.div>
+    </m.div>
   );
 }

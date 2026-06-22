@@ -201,3 +201,33 @@ All prompts resolve these standard variables at runtime:
 - Previous versions must not be deleted — append `_vX_Y_Z` suffix
 - `generation_logs` stores the `prompt_name` + `prompt_version` on every call
 - Breaking changes to `output_schema` require a new prompt file name
+
+## Prompt Registry (Phase 11.2)
+
+On-disk `prompts/<name>.yaml` files are the **seed/default**. Once a prompt is
+*deployed* to the registry it becomes the authoritative, immutable source.
+
+- **Deploy** — `PromptRegistry(session).deploy(name, content_yaml, rationale=...)`
+  inserts version `vN+1` and makes it active. Deployed content is **never
+  mutated**; editing means deploying a new version. Re-deploying an explicit
+  existing version raises `PromptImmutableError`.
+- **Resolve** — `PromptLoader(session).load(name)` returns the active version;
+  `load(name, version="vK")` pins a specific one. With no session (or a prompt
+  never deployed), the loader falls back to the on-disk yaml — so existing
+  callers keep working unchanged.
+- **Rollback** — `PromptRegistry(session).rollback(name, "vK")` atomically
+  switches the active pointer (single-active invariant enforced in the repo).
+- **A/B** — `ABTestingService(session).create_prompt_experiment(...)` tags each
+  variant with `{prompt_name, version}`; `comparison(experiment_id)` reports
+  per-version impressions/conversions/rate. Reuses the Phase 8 A/B machinery.
+
+### Observability & drift
+
+- Metrics (`ats_score`, `retrieval_quality`, `interview_conversion`,
+  `embedding_drift`, `prompt_perf`) are recorded append-only via
+  `MetricsStore(session).record(kind, value, meta)`.
+- `GET /api/v1/observability/drift` reports each kind's baseline (first window
+  mean) vs current rolling mean, delta, and `drifting` (|delta| > per-kind
+  threshold; override via `system_config` key `drift_threshold::<kind>`).
+- `GET /api/v1/observability/metrics?kind=<kind>` returns the raw series.
+- Drift **reports only** — any remediation is an approval-gated suggestion (11.4).

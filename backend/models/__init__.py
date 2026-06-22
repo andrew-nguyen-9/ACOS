@@ -5,6 +5,7 @@ from backend.models.project import Project
 from backend.models.skill import Skill, SkillEvidence, experience_skills_table, project_skills_table
 from backend.models.application import Application, ApplicationTimeline
 from backend.models.document import Document, IngestionLog
+from backend.models.ingestion_failure import IngestionFailure
 from backend.models.resume import Resume, ResumeTemplate, WritingProfile
 from backend.models.question import Question, Answer
 from backend.models.knowledge_graph import KnowledgeGraphNode, KnowledgeGraphEdge
@@ -13,8 +14,10 @@ from backend.models.optimization import (
     OptimizationProposal, OptimizationLog, PromptVersion, ABExperiment, ABVariant,
 )
 from backend.models.generation import GenerationLog
+from backend.models.metric import Metric
 from backend.models.system_config import SystemConfig
 from backend.models.memory import Memory
+from backend.models.maintenance import MaintenanceSuggestion, MaintenanceAudit
 
 __all__ = [
     "Base",
@@ -32,6 +35,7 @@ __all__ = [
     "ApplicationTimeline",
     "Document",
     "IngestionLog",
+    "IngestionFailure",
     "Resume",
     "ResumeTemplate",
     "WritingProfile",
@@ -46,6 +50,9 @@ __all__ = [
     "ABExperiment",
     "ABVariant",
     "GenerationLog",
+    "Metric",
     "SystemConfig",
     "Memory",
+    "MaintenanceSuggestion",
+    "MaintenanceAudit",
 ]

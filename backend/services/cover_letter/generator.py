@@ -19,6 +19,19 @@ LENGTH_TARGETS: dict[str, int] = {
 }
 
 
+def tone_descriptor(tone: float) -> str:
+    """Map a 0..1 tone dial (Phase 11.9, RCL-003) to a prompt tone band.
+
+    0 = Traditional, 1 = Bold. Clamped, so out-of-range slider values are safe.
+    """
+    t = 0.0 if tone < 0 else 1.0 if tone > 1 else tone
+    if t < 1 / 3:
+        return "formal, traditional, measured"
+    if t < 2 / 3:
+        return "balanced, professional, confident"
+    return "bold, dynamic, assertive"
+
+
 class CoverLetterGenerator:
     def __init__(
         self,
@@ -42,6 +55,7 @@ class CoverLetterGenerator:
         job_title: str,
         length_target: str,
         resume_context: dict | None = None,
+        tone: float | None = None,
     ) -> dict:
         """Generate a cover letter for the given job.
 
@@ -80,7 +94,7 @@ class CoverLetterGenerator:
         if self._ollama and self._ollama.is_available():
             text = self._llm_generate(
                 job_description, company, job_title, length_target, target_words,
-                profile, evidence, excluded,
+                profile, evidence, excluded, tone,
             )
         else:
             text = self._template_generate(company, job_title, evidence, target_words)
@@ -108,6 +122,7 @@ class CoverLetterGenerator:
         profile: dict,
         evidence: list[dict],
         excluded: list[dict],
+        tone: float | None = None,
     ) -> str:
         try:
             prompt_data = self._loader.load("cover_letter/generate")
@@ -130,13 +145,17 @@ class CoverLetterGenerator:
                 ],
                 indent=2,
             )
+            descriptors = list(profile.get("tone_descriptors", []))
+            # RCL-003: the tone dial overrides the learned voice's tone band.
+            if tone is not None:
+                descriptors = [tone_descriptor(tone), *descriptors]
             user = prompt_data["user_template"].format(
                 job_description=job_description[:2000],
                 company=company,
                 job_title=job_title,
                 industry="",
                 length_target=target_words,
-                tone_descriptors=", ".join(profile.get("tone_descriptors", [])),
+                tone_descriptors=", ".join(descriptors),
                 vocabulary_patterns=json.dumps(profile.get("vocabulary_patterns", {})),
                 sample_sentences="\n".join(profile.get("sample_sentences", [])),
                 evidence_json=evidence_json,
