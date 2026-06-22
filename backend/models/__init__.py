@@ -18,6 +18,7 @@ from backend.models.metric import Metric
 from backend.models.system_config import SystemConfig
 from backend.models.memory import Memory
 from backend.models.maintenance import MaintenanceSuggestion, MaintenanceAudit
+from backend.models.signal import Signal
 
 # Phase 12.7: the FTS5 lexical table is a virtual table (not a model), so
 # create_all() can't build it. The app bootstraps schema via create_all (not
@@ -65,4 +66,5 @@ __all__ = [
     "Memory",
     "MaintenanceSuggestion",
     "MaintenanceAudit",
+    "Signal",
 ]

@@ -13,6 +13,7 @@ from backend.rag.retriever import RAGRetriever
 from backend.rag.reranker import Reranker
 from backend.services.ats.keyword_extractor import KeywordExtractor
 from backend.services.ats.scorer import ATSScorer
+from backend.services.flywheel.feedback import record_signal
 from backend.services.observability.metrics import MetricsStore
 from backend.services.ollama_client import OllamaClient
 from backend.services.prompt_loader import PromptLoader
@@ -35,7 +36,16 @@ def _emit_ats_metric(session: Session, result: dict, template: str) -> None:
     try:
         score = result.get("ats_score", {}).get("overall_score")
         if score is not None:
-            MetricsStore(session).record("ats_score", float(score), {"template": template})
+            metric = MetricsStore(session).record("ats_score", float(score), {"template": template})
+            # 12.10 flywheel emit: source-link the ATS score to its metric row.
+            record_signal(
+                session,
+                entity_type="template",
+                entity_id=template,
+                signal_type="ats_score",
+                value=float(score),
+                source={"table": "metrics", "ids": [metric.id]},
+            )
     except Exception:
         pass
 

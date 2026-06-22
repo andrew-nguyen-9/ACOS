@@ -29,11 +29,13 @@ normalized **signals** the ROI engine (12.11) and prompt evolution (12.13) consu
 
 ## 4. Acceptance criteria
 
-- [ ] `signals` table + model + migration, tenant-scoped, source-linked.
-- [ ] Outcome events (ATS score recorded, interview result entered) create signals automatically.
-- [ ] `feedback.rollup(tenant_id)` returns per-skill / per-section aggregates with sample counts.
-- [ ] Every signal exposes its source record ids (no orphan/hallucinated signals).
-- [ ] ≥90% coverage on the engine; existing tests green.
+- [x] `signals` table + model + migration, tenant-scoped, source-linked. — `backend/models/signal.py`, migration `c4d5e6f7a8b9` (`tenant_id` nullable until 12.14, no FK to drop). Up/down round-trip verified in isolation (`ACOS_DB_PATH` temp db).
+- [x] Outcome events (ATS score recorded, interview result entered) create signals automatically. — thin best-effort emits in `OutcomeRanker.record_outcome` (source = `outcome_signals` row id) and `_emit_ats_metric` (source = `metrics` row id).
+- [x] `feedback.rollup(tenant_id)` returns per-skill / per-section aggregates with sample counts (`avg_value`, `avg_weight`, `n`). On-demand descriptive stats (`# ponytail` ceiling noted).
+- [x] Every signal exposes its source record ids via `explain(signal_id)`; `record_signal` refuses an empty source (orphans unrepresentable).
+- [x] Engine coverage 100% (`feedback.py` + `signal.py`); full suite 945 passed, 93.55% (≥90%).
+
+**Status: DONE.** Path taken: 12.14 not shipped → `tenant_id` nullable. No ADR: spec §5/§9 settle ingestion-coupling (thin inline emit in existing `run_sync` write paths). No new dependency, no new threadpool (reuses 12.2 runtime).
 
 ## 5. Design
 
