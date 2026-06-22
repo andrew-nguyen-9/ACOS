@@ -112,6 +112,57 @@ def test_delete_removes_from_index(fts_session):
     assert all(r["id"] != "d1" for r in lexical.search(fts_session, "python", ["acos_experiences"], k=5))
 
 
+def _dense(id_, doc_type="acos_experiences", semantic=0.8):
+    return {
+        "id": id_,
+        "text": f"dense text {id_}",
+        "metadata": {"confidence_level": "verified", "doc_type": doc_type},
+        "semantic_score": semantic,
+        "collection": doc_type,
+    }
+
+
+def test_fuse_attaches_lexical_score_to_dense_hit():
+    dense = [_dense("a"), _dense("b")]
+    lex = [{"id": "a", "text": "t", "doc_type": "acos_experiences", "lexical_score": 0.9}]
+    merged = lexical.fuse(dense, lex)
+    by_id = {c["id"]: c for c in merged}
+    assert len(merged) == 2  # no duplicate
+    assert by_id["a"]["lexical_score"] == 0.9
+    assert by_id["b"]["lexical_score"] == 0.0  # dense-only defaults to 0
+
+
+def test_fuse_appends_lexical_only_candidate():
+    dense = [_dense("a")]
+    lex = [{"id": "z", "text": "keyword only hit", "doc_type": "acos_projects", "lexical_score": 0.7}]
+    merged = lexical.fuse(dense, lex)
+    by_id = {c["id"]: c for c in merged}
+    assert set(by_id) == {"a", "z"}
+    z = by_id["z"]
+    assert z["semantic_score"] == 0.0
+    assert z["lexical_score"] == 0.7
+    assert z["text"] == "keyword only hit"
+    assert z["collection"] == "acos_projects"
+    # lexical-only hits carry a confidence level so downstream code never KeyErrors
+    assert "confidence_level" in z["metadata"]
+
+
+def test_fuse_empty_lexical_is_dense_passthrough():
+    dense = [_dense("a"), _dense("b")]
+    merged = lexical.fuse(dense, [])
+    assert [c["id"] for c in merged] == ["a", "b"]
+    assert all(c["lexical_score"] == 0.0 for c in merged)
+
+
+def test_fuse_does_not_mutate_input_dense():
+    """fuse must not stamp lexical_score onto the caller's dense dicts — a future
+    caller that caches/reuses dense results would see surprise keys."""
+    dense = [_dense("a")]
+    lex = [{"id": "a", "text": "t", "doc_type": "acos_experiences", "lexical_score": 0.9}]
+    lexical.fuse(dense, lex)
+    assert "lexical_score" not in dense[0]
+
+
 def test_search_sanitizes_fts5_special_chars(fts_session):
     """Raw user text with FTS5 operators must not raise a syntax error."""
     _seed(fts_session)

@@ -2,6 +2,11 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+
+from backend.services.rag import lexical
 from backend.services.rag.service import RAGService
 from backend.services.resume.evidence_selector import EvidenceSelector
 
@@ -113,6 +118,37 @@ def test_query_career_advice_intent_uses_all_collections(mock_reranker, mock_oll
     assert "acos_claude_exports" in collections
 
 
+def test_query_fuses_fts5_lexical_leg(mock_retriever, mock_reranker, mock_ollama_unavailable):
+    """With a session, the FTS5 lexical leg unions keyword-only recall into the
+    candidates the reranker sees (dense leg is mocked to return only doc1)."""
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    session = sessionmaker(bind=engine)()
+    lexical.ensure_fts5(session)
+    lexical.upsert(session, "lexdoc", "python kubernetes deployment orchestration", "acos_experiences")
+    session.commit()
+    try:
+        svc = RAGService(
+            mock_retriever, mock_reranker, mock_ollama_unavailable, session=session
+        )
+        result = svc.query("python kubernetes", intent="resume_help")
+        ids = {e["entity_id"] for e in result["evidence"]}
+        assert "lexdoc" in ids  # lexical-only hit reached the reranker
+    finally:
+        session.close()
+        engine.dispose()
+
+
+def test_query_without_session_skips_lexical_leg(mock_retriever, mock_reranker, mock_ollama_unavailable):
+    """No session → dense-only, no FTS5 call, no crash (backward compat)."""
+    svc = RAGService(mock_retriever, mock_reranker, mock_ollama_unavailable)
+    result = svc.query("anything", intent="resume_help")
+    assert len(result["evidence"]) == 1
+
+
 # ---------- EvidenceSelector tests ----------
 
 def test_evidence_selector_returns_bullets(mock_retriever, mock_reranker):
@@ -122,6 +158,25 @@ def test_evidence_selector_returns_bullets(mock_retriever, mock_reranker):
     assert bullets[0]["bullet_text"] == "Led Python migration at Acme saving $200K."
     assert bullets[0]["confidence"] == "verified"
     assert bullets[0]["company"] == "Acme"
+
+
+def test_evidence_selector_fuses_fts5_lexical_leg(mock_retriever, mock_reranker):
+    """The resume evidence path also unions the FTS5 lexical leg (equal-or-better
+    than the old in-set BM25), so keyword-only experience hits reach selection."""
+    engine = create_engine(
+        "sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool
+    )
+    session = sessionmaker(bind=engine)()
+    lexical.ensure_fts5(session)
+    lexical.upsert(session, "lexbullet", "led terraform infrastructure automation rollout", "acos_experiences")
+    session.commit()
+    try:
+        selector = EvidenceSelector(mock_retriever, mock_reranker, session=session)
+        bullets = selector.select("terraform infrastructure automation", {}, max_bullets=8)
+        assert any(b["evidence_id"] == "lexbullet" for b in bullets)
+    finally:
+        session.close()
+        engine.dispose()
 
 
 def test_evidence_selector_empty_returns_empty(mock_reranker):

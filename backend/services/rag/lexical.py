@@ -80,6 +80,41 @@ def delete(session: Session, doc_id: str) -> None:
     session.execute(text("DELETE FROM documents_fts WHERE doc_id = :doc_id"), {"doc_id": doc_id})
 
 
+def fuse(dense: list[dict], lexical_results: list[dict]) -> list[dict]:
+    """Union dense (Chroma) + lexical (FTS5) candidates for the reranker.
+
+    Dense candidates gain a ``lexical_score`` (0.0 if they had no lexical match);
+    lexical-only hits are adapted to the dense candidate shape and appended so
+    their keyword recall reaches the reranker. Lexical-only hits have no semantic
+    score and no stored confidence — they get ``semantic_score`` 0.0 and a
+    conservative ``weak_inference`` confidence (we matched keywords but have no
+    confidence signal for them; the no-hallucination rule favors under-claiming).
+
+    Does not mutate the input ``dense`` dicts (shallow-copies each) so callers
+    can safely cache/reuse their retrieval results.
+    """
+    by_id: dict[str, dict] = {}
+    for c in dense:
+        copy = {**c, "lexical_score": c.get("lexical_score", 0.0)}
+        by_id[copy["id"]] = copy
+
+    for lex in lexical_results:
+        existing = by_id.get(lex["id"])
+        if existing is not None:
+            existing["lexical_score"] = lex["lexical_score"]
+            continue
+        doc_type = lex.get("doc_type", "")
+        by_id[lex["id"]] = {
+            "id": lex["id"],
+            "text": lex["text"],
+            "metadata": {"confidence_level": "weak_inference", "doc_type": doc_type},
+            "semantic_score": 0.0,
+            "lexical_score": lex["lexical_score"],
+            "collection": doc_type,
+        }
+    return list(by_id.values())
+
+
 def search(session: Session, query: str, doc_types: list[str], k: int = 10) -> list[dict]:
     """FTS5 MATCH + bm25() rank, filtered to ``doc_types``.
 

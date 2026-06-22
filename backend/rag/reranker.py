@@ -17,35 +17,28 @@ class Reranker:
         self,
         query: str,
         results: list[dict],
-        bm25_weight: float = 0.3,
+        lexical_weight: float = 0.3,
         semantic_weight: float = 0.7,
         final_k: int = 15,
     ) -> list[dict]:
         if not results:
             return []
 
-        # ponytail: lazy import — rank_bm25 pulls numpy (~45ms), kept off the
-        # server-bind path so cold-start binds before the RAG deps load.
-        from rank_bm25 import BM25Okapi  # noqa: PLC0415
-
-        corpus = [r["text"].lower().split() for r in results]
-        bm25 = BM25Okapi(corpus)
-        query_tokens = query.lower().split()
-        bm25_scores = bm25.get_scores(query_tokens)
-
-        max_bm25 = max(bm25_scores) if max(bm25_scores) > 0 else 1.0
-        norm_bm25 = [s / max_bm25 for s in bm25_scores]
-
+        # 12.7: lexical_score is carried on each candidate by the caller (FTS5
+        # bm25, normalized to [0,1]); dense-only candidates default to 0.0. This
+        # replaced the in-set rank_bm25 rescoring — FTS5 retrieves lexically over
+        # the whole corpus, the reranker just fuses the two normalized scores.
         scored: list[dict] = []
-        for i, result in enumerate(results):
+        for result in results:
             confidence = result["metadata"].get("confidence_level", "strong_inference")
             multiplier = _CONFIDENCE_MULTIPLIER.get(confidence, 1.0)
 
             outcome_weight = result["metadata"].get("outcome_signal_weight", 0.0)
             outcome_boost = 1.0 + math.log1p(float(outcome_weight))
 
+            lexical_score = float(result.get("lexical_score", 0.0))
             combined = (
-                (result["semantic_score"] * semantic_weight + norm_bm25[i] * bm25_weight)
+                (result.get("semantic_score", 0.0) * semantic_weight + lexical_score * lexical_weight)
                 * multiplier
                 * outcome_boost
             )

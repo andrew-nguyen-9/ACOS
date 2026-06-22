@@ -62,7 +62,7 @@ def _build_deps(settings: Settings, session: Session) -> tuple[ResumeGenerator, 
     loader = PromptLoader()
     extractor = KeywordExtractor(ollama, loader)
     scorer = ATSScorer(ollama, loader)
-    selector = EvidenceSelector(retriever, reranker)
+    selector = EvidenceSelector(retriever, reranker, session=session)
     gen = ResumeGenerator(selector, extractor, scorer, ollama, loader, session)
     exporter = ResumeDOCXExporter()
     return gen, exporter

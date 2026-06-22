@@ -2,14 +2,18 @@ from __future__ import annotations
 
 from typing import Any
 
+from backend.services.rag import lexical
+
 _EXPERIENCE_COLLECTIONS = ["acos_experiences", "acos_projects", "acos_skills"]
 
 
 class EvidenceSelector:
     # duck-typed: concrete types are RAGRetriever and Reranker from backend/rag/
-    def __init__(self, rag_retriever: Any, reranker: Any) -> None:
+    def __init__(self, rag_retriever: Any, reranker: Any, session: Any = None) -> None:
         self._retriever = rag_retriever
         self._reranker = reranker
+        # Optional sync Session for the FTS5 lexical leg (12.7); None → dense-only.
+        self._session = session
 
     def select(
         self, job_description: str, keywords: dict, max_bullets: int = 8
@@ -20,6 +24,11 @@ class EvidenceSelector:
             doc_types=_EXPERIENCE_COLLECTIONS,
             top_k=20,
         )
+        # Union the FTS5 lexical leg so keyword-matched experience text the dense
+        # leg missed still reaches selection (mirrors RAGService.build_prompt).
+        if self._session is not None:
+            lex = lexical.search(self._session, job_description, _EXPERIENCE_COLLECTIONS, k=20)
+            raw = lexical.fuse(raw, lex)
         ranked = self._reranker.rerank(
             query=job_description,
             results=raw,

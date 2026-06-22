@@ -4,6 +4,7 @@ import logging
 
 from backend.observability import log_operation
 from backend.services.ollama_client import Operation
+from backend.services.rag import lexical
 from backend.services.tokens import count_tokens
 
 logger = logging.getLogger(__name__)
@@ -64,7 +65,8 @@ RAG_INSTRUCTIONS = (
 
 class RAGService:
     def __init__(
-        self, retriever, reranker, ollama_client, fallback=None, embed_model: str = RAG_EMBED_MODEL
+        self, retriever, reranker, ollama_client, fallback=None,
+        embed_model: str = RAG_EMBED_MODEL, session=None,
     ) -> None:
         self._retriever = retriever
         self._reranker = reranker
@@ -72,6 +74,9 @@ class RAGService:
         # Optional KeywordFallback (SQLite) used when the vector store is down.
         self._fallback = fallback
         self._embed_model = embed_model
+        # Optional sync Session for the FTS5 lexical leg (12.7). When set, hybrid
+        # retrieval unions dense (Chroma) + lexical (FTS5); None → dense-only.
+        self._session = session
 
     def build_prompt(self, query: str, intent: str = "knowledge_lookup") -> tuple[str | None, dict]:
         """Run retrieval and assemble the LLM prompt without generating.
@@ -90,6 +95,16 @@ class RAGService:
         except Exception as exc:
             raw_results = []
             degraded_reason = f"vector store error: {exc}"
+
+        # Lexical leg (12.7): union FTS5 BM25 keyword recall with the dense
+        # candidates. Defensive — a lexical failure must not sink dense results;
+        # if Chroma also failed, lexical hits still beat the LIKE-scan fallback.
+        if self._session is not None:
+            try:
+                lex = lexical.search(self._session, query, doc_types, k=10)
+                raw_results = lexical.fuse(raw_results, lex)
+            except Exception as exc:
+                logger.warning("build_prompt: lexical leg failed: %s", exc)
 
         # Degrade to keyword fallback when the vector store errored or returned
         # nothing and a fallback is wired.

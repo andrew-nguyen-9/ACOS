@@ -56,6 +56,7 @@ def _build_copilot(session: Session) -> CopilotEngine:
         ollama if ollama.is_available() else None,
         fallback=KeywordFallback(session),
         embed_model=settings.embedding_model,
+        session=session,  # FTS5 lexical leg (12.7)
     )
     return CopilotEngine(rag_svc)
 
