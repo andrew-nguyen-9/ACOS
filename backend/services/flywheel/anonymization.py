@@ -38,7 +38,25 @@ def gate(patterns: list[dict], k: int = K_ANONYMITY) -> list[dict]:
         if int(p.get("tenant_count", 0)) < k:
             continue  # k-anonymity: small cohort suppressed
         out.append(p)
+    # Field-name allowlist guards keys; this guards VALUES (a tenant id / embedding /
+    # raw text hidden inside an allowlisted field) — run it on the production path,
+    # not only in tests.
+    assert_no_reidentification(out)
     return out
+
+
+def _is_number_like(x: object) -> bool:
+    if isinstance(x, bool):
+        return False
+    if isinstance(x, (int, float)):
+        return True
+    if isinstance(x, str):
+        try:
+            float(x)
+            return True
+        except ValueError:
+            return False
+    return False
 
 
 def _scan(node: object) -> None:
@@ -51,8 +69,9 @@ def _scan(node: object) -> None:
                 raise ReidentificationError(f"re-identifying field present: {key!r}")
             _scan(value)
     elif isinstance(node, (list, tuple)):
-        # a list of numbers is an embedding; a list of strings is abstract structure.
-        if node and all(isinstance(x, (int, float)) and not isinstance(x, bool) for x in node):
+        # a numeric vector is an embedding; a list of labels is abstract structure.
+        # Catch both real numbers and a serialized embedding (stringified floats).
+        if node and all(_is_number_like(x) for x in node):
             raise ReidentificationError("embedding-like numeric vector present in artifact")
         for item in node:
             _scan(item)

@@ -57,6 +57,12 @@ def upgrade() -> None:
             )
             batch.create_index(f"ix_{table}_tenant_id", ["tenant_id"])
 
+    # documents_fts (12.7) already has a tenant_id UNINDEXED column but pre-12.14 rows
+    # carry NULL; the new lexical tenant filter would exclude them, silently dropping the
+    # historical corpus from retrieval. Backfill to default. (Chroma vector metadata is a
+    # separate store the migration can't reach — it is re-tagged by a reindex; see ADR-008.)
+    op.execute(f"UPDATE documents_fts SET tenant_id = '{DEFAULT_TENANT_ID}' WHERE tenant_id IS NULL")
+
     # signals: column exists (nullable). Backfill + constrain + FK. Swap the 12.10
     # index name to the mixin's create_all name so fresh and migrated DBs match.
     op.execute(f"UPDATE signals SET tenant_id = '{DEFAULT_TENANT_ID}' WHERE tenant_id IS NULL")

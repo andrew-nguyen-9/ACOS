@@ -106,11 +106,12 @@ def recommend(
     else:
         confidence = "weak_inference"
         flagged = True
-        notes = (
-            "Generic structure: "
-            + ("unknown industry; " if industry_flagged else "")
-            + ("insufficient outcome data" if not has_roi else "").strip("; ")
-        ).strip()
+        reasons = []
+        if industry_flagged:
+            reasons.append("unknown industry")
+        if not has_roi:
+            reasons.append("insufficient outcome data")
+        notes = "Generic structure: " + "; ".join(reasons)
 
     return StrategyRecommendation(
         industry=industry,

@@ -115,6 +115,28 @@ def test_unknown_job_returns_404(client, _bg_session):
     assert client.get("/api/v1/ingest/nonexistent").status_code == 404
 
 
+def test_background_worker_binds_tenant_on_its_own_session(client, test_session, monkeypatch):
+    """Regression (12.14): the background worker opens a raw SessionLocal() outside the
+    request dependencies, so it is tenant-less in production. run_ingest_job must bind
+    the default tenant itself, or every scoped write raises TenantScopeError and the job
+    silently fails."""
+    @contextmanager
+    def _unbound_factory():
+        test_session.info.pop("tenant_id", None)  # simulate production SessionLocal()
+        yield test_session
+
+    monkeypatch.setattr(ing, "BACKGROUND_SESSION_FACTORY", _unbound_factory)
+    p1, p2, p3, p4 = _ok_patches()
+    with p1, p2, p3, p4, patch("chromadb.PersistentClient"):
+        resp = client.post(
+            "/api/v1/ingest",
+            files={"file": ("r.txt", io.BytesIO(b"Senior engineer led Python work."), "text/plain")},
+        )
+    assert resp.status_code == 202
+    job_id = resp.json()["job_id"]
+    assert ing.JOBS[job_id].status == "done"  # not 'failed' via TenantScopeError
+
+
 def test_progress_stream_emits_terminal_event(client, _bg_session):
     p1, p2, p3, p4 = _ok_patches()
     with p1, p2, p3, p4, patch("chromadb.PersistentClient"):

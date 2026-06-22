@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from backend.models.global_pattern import GlobalPattern
 from backend.services.flywheel import anonymization
 from backend.services.flywheel.skill_roi import rank_skills
-from backend.services.tenancy import set_session_tenant
+from backend.services.tenancy import get_session_tenant, set_session_tenant
 
 
 def aggregate_skill_roi(
@@ -32,13 +32,21 @@ def aggregate_skill_roi(
     rois: dict[tuple[str, str], list[float]] = defaultdict(list)
     tenants: dict[tuple[str, str], set[str]] = defaultdict(set)
 
-    for tenant_id, industry in tenant_industries.items():
-        set_session_tenant(session, tenant_id)  # scope reads to this tenant (12.14)
-        ranked = rank_skills(session, tenant_id=tenant_id, metric=metric)
-        for skill in ranked["skills"]:
-            key = (industry, skill["skill"])
-            rois[key].append(skill["roi"])
-            tenants[key].add(tenant_id)
+    # Snapshot + restore the caller's tenant: this loop rebinds session scope per
+    # tenant, and leaving it pointed at the last-iterated tenant would silently
+    # mis-scope any later work on the same session (cross-tenant bleed).
+    prior_tenant = get_session_tenant(session)
+    try:
+        for tenant_id, industry in tenant_industries.items():
+            set_session_tenant(session, tenant_id)  # scope reads to this tenant (12.14)
+            ranked = rank_skills(session, tenant_id=tenant_id, metric=metric)
+            for skill in ranked["skills"]:
+                key = (industry, skill["skill"])
+                rois[key].append(skill["roi"])
+                tenants[key].add(tenant_id)
+    finally:
+        if prior_tenant is not None:
+            set_session_tenant(session, prior_tenant)
 
     candidates: list[dict] = []
     for (industry, skill), values in rois.items():
