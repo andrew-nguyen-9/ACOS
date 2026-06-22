@@ -18,8 +18,9 @@ from backend.rag.retriever import RAGRetriever
 from backend.rag.reranker import Reranker
 from backend.observability import log_operation
 from backend.services.copilot.engine import CopilotEngine
-from backend.services.ollama_client import OllamaClient
+from backend.services.ollama_client import OllamaClient, Operation
 from backend.services.rag.service import RAG_MODEL, RAG_SYSTEM, RAGService
+from backend.services.tokens import count_tokens
 
 router = APIRouter(tags=["copilot"])
 
@@ -40,7 +41,11 @@ class ChatRequest(BaseModel):
 
 def _build_copilot(session: Session) -> CopilotEngine:
     settings = get_settings()
-    ollama = OllamaClient(base_url=settings.ollama_base_url)
+    ollama = OllamaClient(
+        base_url=settings.ollama_base_url,
+        num_thread=settings.ollama_num_thread,
+        keep_alive=settings.ollama_keep_alive,
+    )
     embedder = Embedder(ollama, model=settings.embedding_model)
     chroma = get_chroma_manager(settings.chroma_db_path)
     retriever = RAGRetriever(chroma, embedder)
@@ -50,6 +55,7 @@ def _build_copilot(session: Session) -> CopilotEngine:
         reranker,
         ollama if ollama.is_available() else None,
         fallback=KeywordFallback(session),
+        embed_model=settings.embedding_model,
     )
     return CopilotEngine(rag_svc)
 
@@ -81,11 +87,20 @@ async def copilot_chat_stream(
     session still open — see sse_token_stream.)
     """
     settings = get_settings()
-    ollama = OllamaClient(base_url=settings.ollama_base_url)
+    ollama = OllamaClient(
+        base_url=settings.ollama_base_url,
+        num_thread=settings.ollama_num_thread,
+        keep_alive=settings.ollama_keep_alive,
+    )
 
     def _prepare(s: Session) -> tuple[str | None, dict]:
         engine = _build_copilot(s)
-        return engine.prepare(body.message, body.conversation_history)
+        prompt, base = engine.prepare(body.message, body.conversation_history)
+        # Retrieval embedded the query; evict the embedder before the generator
+        # streams (runs in this threadpool, off the event loop).
+        if prompt is not None:
+            ollama.unload(settings.embedding_model)
+        return prompt, base
 
     prompt, base = await session.run_sync(_prepare)
 
@@ -96,7 +111,12 @@ async def copilot_chat_stream(
                 yield ready  # don't frame an empty delta → blank bubble
             return
         async for delta in ollama.generate_stream(
-            model=RAG_MODEL, prompt=prompt, temperature=0.3, system=RAG_SYSTEM
+            model=RAG_MODEL,
+            prompt=prompt,
+            temperature=0.3,
+            system=RAG_SYSTEM,
+            operation=Operation.CHAT,
+            prompt_tokens=count_tokens(prompt),
         ):
             yield delta
 

@@ -27,7 +27,11 @@ class QueryRequest(BaseModel):
 @router.post("/rag/query")
 async def rag_query(body: QueryRequest, session: AsyncSession = Depends(get_async_session)):
     settings = get_settings()
-    ollama = OllamaClient(base_url=settings.ollama_base_url)
+    ollama = OllamaClient(
+        base_url=settings.ollama_base_url,
+        num_thread=settings.ollama_num_thread,
+        keep_alive=settings.ollama_keep_alive,
+    )
     embedder = Embedder(ollama, model=settings.embedding_model)
     chroma = get_chroma_manager(settings.chroma_db_path)
     retriever = RAGRetriever(chroma, embedder)
@@ -39,6 +43,7 @@ async def rag_query(body: QueryRequest, session: AsyncSession = Depends(get_asyn
             reranker,
             ollama if ollama.is_available() else None,
             fallback=KeywordFallback(s),
+            embed_model=settings.embedding_model,
         )
         result = svc.query(body.query, intent=body.intent)
         _emit_retrieval_metric(s, result)

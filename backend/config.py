@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     # Ollama
     ollama_base_url: str = "http://localhost:11434"
     ollama_timeout: int = 120
+    # 12.5 calibration — sane defaults for a 16GB M1; override via ACOS_ env.
+    ollama_num_thread: int = 4  # pin to performance-core count
+    ollama_keep_alive: str = "1h"  # hold the generator warm (avoid idle cold starts)
 
     # Models
     default_model: str = "qwen3:8b"

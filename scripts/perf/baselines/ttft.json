@@ -4,17 +4,32 @@
   "date": "2026-06-22",
   "model": "qwen3:8b",
   "n": 5,
-  "median_ms": 567.686,
-  "p95_ms": 2050.044,
-  "min_ms": 447.98,
-  "max_ms": 2050.044,
+  "median_ms": 370.733,
+  "p95_ms": 5268.781,
+  "min_ms": 356.391,
+  "max_ms": 5268.781,
   "samples": [
-    2050.044,
-    470.847,
-    567.686,
-    447.98,
-    651.137
+    5268.781,
+    425.325,
+    369.003,
+    370.733,
+    356.391
   ],
+  "visible_token_think_false": {
+    "metric": "ttft_visible_token_ms",
+    "note": "first non-empty .response delta under think:false (Phase 12.5)",
+    "median_ms": 347.546,
+    "p95_ms": 544.02,
+    "min_ms": 324.354,
+    "max_ms": 544.02,
+    "samples": [
+      544.02,
+      324.354,
+      347.546,
+      436.574,
+      346.432
+    ]
+  },
   "machine": {
     "platform": "macOS-26.5.1-arm64-arm-64bit",
     "python": "3.12.13",

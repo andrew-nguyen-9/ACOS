@@ -3,6 +3,8 @@ from __future__ import annotations
 import logging
 
 from backend.observability import log_operation
+from backend.services.ollama_client import Operation
+from backend.services.tokens import count_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -23,18 +25,29 @@ _CONFIDENCE_PRIORITY: dict[str, int] = {"verified": 3, "strong_inference": 2, "w
 
 # Shared by query() and the 12.4 streaming route so both produce the same answer.
 RAG_MODEL = "qwen3:8b"
+RAG_EMBED_MODEL = "nomic-embed-text"
 RAG_SYSTEM = (
     "You are a career assistant. Answer only from the provided evidence. Never invent facts."
+)
+# [FIXED SYSTEM PREFIX] = RAG_SYSTEM, [FIXED INSTRUCTIONS] = RAG_INSTRUCTIONS,
+# [DYNAMIC RAG CONTEXT] last. Keep RAG_INSTRUCTIONS byte-stable so Ollama reuses
+# the system-prefix KV cache across calls (12.5 prefix-stability).
+RAG_INSTRUCTIONS = (
+    "Answer the question using only the evidence below. Cite the confidence level "
+    "of each claim. If the evidence is insufficient, say so plainly.\n\n"
 )
 
 
 class RAGService:
-    def __init__(self, retriever, reranker, ollama_client, fallback=None) -> None:
+    def __init__(
+        self, retriever, reranker, ollama_client, fallback=None, embed_model: str = RAG_EMBED_MODEL
+    ) -> None:
         self._retriever = retriever
         self._reranker = reranker
         self._ollama = ollama_client
         # Optional KeywordFallback (SQLite) used when the vector store is down.
         self._fallback = fallback
+        self._embed_model = embed_model
 
     def build_prompt(self, query: str, intent: str = "knowledge_lookup") -> tuple[str | None, dict]:
         """Run retrieval and assemble the LLM prompt without generating.
@@ -92,9 +105,8 @@ class RAGService:
                 "degraded": False,
             }
 
-        prompt = (
-            f"Using the following evidence, answer the question: {query}\n\nEvidence:\n{context}"
-        )
+        # Fixed instructions first, dynamic context last (prefix-cache stability).
+        prompt = f"{RAG_INSTRUCTIONS}Question: {query}\n\nEvidence:\n{context}"
         return prompt, {
             "response": "",
             "evidence": evidence,
@@ -106,11 +118,16 @@ class RAGService:
         prompt, base = self.build_prompt(query, intent)
         if prompt is None:
             return base
+        # Retrieval already embedded the query; evict the embedder before the
+        # generator loads so the two models don't co-reside (16GB starvation).
+        self._ollama.unload(self._embed_model)  # type: ignore[union-attr]
         base["response"] = self._ollama.generate(  # type: ignore[union-attr]
             model=RAG_MODEL,
             prompt=prompt,
             temperature=0.3,
             system=RAG_SYSTEM,
+            operation=Operation.CHAT,
+            prompt_tokens=count_tokens(prompt),
         )
         return base
 

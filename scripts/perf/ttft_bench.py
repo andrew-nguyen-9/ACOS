@@ -93,6 +93,46 @@ async def _measure_ttft(client: OllamaClient, model: str, n: int) -> list[float]
     return samples
 
 
+async def _measure_visible_ttft(client: OllamaClient, model: str, n: int) -> list[float]:
+    """Time to the first *visible* answer token under ``think:false``, per run (ms).
+
+    This is the metric 12.5 calibration actually moves: with thinking enabled,
+    qwen3 streams a multi-second run of empty-`response` chunks before the first
+    visible token; `think:false` collapses that gap. We break on the first
+    non-empty `.response` delta (not the first chunk). NOT comparable to the
+    first-chunk baseline — different metric.
+    """
+    import time
+
+    import httpx
+
+    url = client._base_url + "/api/generate"  # noqa: SLF001 — bench, same-package
+    payload = {
+        "model": model,
+        "prompt": _PROMPT,
+        "stream": True,
+        "think": False,
+        "options": {"temperature": 0.3, "num_predict": _NUM_PREDICT},
+    }
+    samples: list[float] = []
+    for _ in range(n):
+        t0 = time.perf_counter()
+        async with httpx.AsyncClient(timeout=120) as http:
+            async with http.stream("POST", url, json=payload) as resp:
+                resp.raise_for_status()
+                async for _line in resp.aiter_lines():
+                    if not _line.strip():
+                        continue
+                    try:
+                        delta = json.loads(_line).get("response", "")
+                    except json.JSONDecodeError:
+                        continue
+                    if delta:
+                        break  # first visible answer token
+        samples.append((time.perf_counter() - t0) * 1000)
+    return samples
+
+
 def run(n: int = 5, out_path: Path | None = _DEFAULT_OUT) -> dict | None:
     import asyncio
 
@@ -107,6 +147,7 @@ def run(n: int = 5, out_path: Path | None = _DEFAULT_OUT) -> dict | None:
     client.generate(model=model, prompt=_PROMPT, max_tokens=32)
 
     samples = asyncio.run(_measure_ttft(client, model, n))
+    visible = asyncio.run(_measure_visible_ttft(client, model, n))
 
     result = {
         "metric": "ttft_first_chunk_ms",
@@ -119,6 +160,16 @@ def run(n: int = 5, out_path: Path | None = _DEFAULT_OUT) -> dict | None:
         "min_ms": round(min(samples), 3),
         "max_ms": round(max(samples), 3),
         "samples": [round(s, 3) for s in samples],
+        # 12.5: the user-facing latency — first *visible* token with think:false.
+        "visible_token_think_false": {
+            "metric": "ttft_visible_token_ms",
+            "note": "first non-empty .response delta under think:false (Phase 12.5)",
+            "median_ms": round(statistics.median(visible), 3),
+            "p95_ms": round(_p95(visible), 3),
+            "min_ms": round(min(visible), 3),
+            "max_ms": round(max(visible), 3),
+            "samples": [round(s, 3) for s in visible],
+        },
         "machine": {
             "platform": platform.platform(),
             "python": platform.python_version(),
@@ -147,6 +198,12 @@ def main() -> None:
         f"TTFT first-chunk (n={result['n']}, model={result['model']}): "
         f"median={result['median_ms']}ms  p95={result['p95_ms']}ms  "
         f"min={result['min_ms']}ms  max={result['max_ms']}ms"
+    )
+    vis = result["visible_token_think_false"]
+    print(
+        f"TTFT visible-token think:false (n={result['n']}): "
+        f"median={vis['median_ms']}ms  p95={vis['p95_ms']}ms  "
+        f"min={vis['min_ms']}ms  max={vis['max_ms']}ms"
     )
     print(f"wrote {args.out}")
 
