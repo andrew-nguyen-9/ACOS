@@ -101,14 +101,13 @@ class IngestionPipeline:
         entities = self._extractor.extract(text, suffix.lstrip("."))
         self._store_entities(doc, entities)
 
-        collection = (
+        doc_type = (
             "acos_resumes"
             if "resume" in validated.name.lower()
             else "acos_experiences"
         )
         try:
             self._indexer.index_document(
-                collection,
                 doc.id,
                 text[:2000],
                 {
@@ -116,6 +115,7 @@ class IngestionPipeline:
                     "source_type": doc.source_type,
                     "confidence_level": "strong_inference",
                 },
+                doc_type=doc_type,
             )
         except Exception:
             logger.exception(

@@ -65,7 +65,7 @@ class MultiVectorRetriever:
         by_id: dict[str, dict] = {}
         for query in queries:
             for res in self._retriever.retrieve(
-                query=query, collections=_EXPERIENCE_COLLECTIONS, top_k=self._top_k
+                query=query, doc_types=_EXPERIENCE_COLLECTIONS, top_k=self._top_k
             ):
                 rid = res["id"]
                 if rid not in by_id or res["semantic_score"] > by_id[rid]["semantic_score"]:

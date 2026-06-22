@@ -13,7 +13,7 @@ class _FakeRetriever:
         self._results_by_call = results_by_call or []
         self._call = 0
 
-    def retrieve(self, query: str, collections: list[str], top_k: int = 10) -> list[dict]:
+    def retrieve(self, query: str, doc_types: list[str], top_k: int = 10) -> list[dict]:
         self.queries.append(query)
         if self._call < len(self._results_by_call):
             out = self._results_by_call[self._call]

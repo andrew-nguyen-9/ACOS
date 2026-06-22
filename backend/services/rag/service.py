@@ -8,7 +8,9 @@ from backend.services.tokens import count_tokens
 
 logger = logging.getLogger(__name__)
 
-_INTENT_COLLECTIONS: dict[str, list[str]] = {
+# intent → doc_type partitions queried (values are doc_type metadata, == legacy
+# collection names; the consolidated retriever filters acos_documents by where-$in).
+_INTENT_DOCTYPES: dict[str, list[str]] = {
     "resume_help": ["acos_experiences", "acos_projects", "acos_skills", "acos_resumes"],
     "cover_letter_help": ["acos_cover_letters", "acos_experiences", "acos_projects"],
     "interview_prep": ["acos_answers", "acos_questions", "acos_experiences", "acos_projects"],
@@ -80,11 +82,11 @@ class RAGService:
         has an empty ``response`` for the caller to fill (sync ``generate`` or the
         12.4 streaming path), so streamed and non-streamed answers share one prompt.
         """
-        collections = _INTENT_COLLECTIONS.get(intent, _INTENT_COLLECTIONS["knowledge_lookup"])
+        doc_types = _INTENT_DOCTYPES.get(intent, _INTENT_DOCTYPES["knowledge_lookup"])
 
         degraded_reason: str | None = None
         try:
-            raw_results = self._retriever.retrieve(query, collections)
+            raw_results = self._retriever.retrieve(query, doc_types)
         except Exception as exc:
             raw_results = []
             degraded_reason = f"vector store error: {exc}"

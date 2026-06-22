@@ -17,7 +17,7 @@ class EvidenceSelector:
         # keywords reserved for future JD-keyword-boosted filtering; currently unused
         raw = self._retriever.retrieve(
             query=job_description,
-            collections=_EXPERIENCE_COLLECTIONS,
+            doc_types=_EXPERIENCE_COLLECTIONS,
             top_k=20,
         )
         ranked = self._reranker.rerank(
