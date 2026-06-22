@@ -1,23 +1,19 @@
 import { type ReactNode, useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
-import {
-  LayoutDashboard, FileText, Mail, BarChart3, MessageSquareMore,
-  Briefcase, Sparkles, Bot, Settings, BriefcaseBusiness, AlertTriangle, Wand2,
-} from "lucide-react";
+import { m } from "framer-motion";
+import { BriefcaseBusiness, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { springs } from "@/motion";
+import { ROUTES } from "@/routes";
 
-const NAV_ITEMS = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/resumes", label: "Resumes", icon: FileText },
-  { to: "/cover-letters", label: "Cover Letters", icon: Mail },
-  { to: "/ats", label: "ATS Analysis", icon: BarChart3 },
-  { to: "/interview-prep", label: "Interview Prep", icon: MessageSquareMore },
-  { to: "/applications", label: "Applications CRM", icon: Briefcase },
-  { to: "/learning", label: "Learning Engine", icon: Sparkles },
-  { to: "/optimization", label: "Optimization", icon: Wand2 },
-  { to: "/copilot", label: "Copilot", icon: Bot },
-  { to: "/settings", label: "Settings", icon: Settings },
-];
+// Material proxy (PERF-AC-002): a STATIC, pre-blurred aurora instead of a live
+// `backdrop-filter: blur(60px)`. Soft radial gradients are inherently "blurred",
+// cost a single composited paint, and the translucent glass panel above lets
+// them read as frosted depth — no per-frame filter recompute on scroll/nav.
+const AURORA =
+  "radial-gradient(55rem 45rem at 12% -8%, rgb(var(--accent-rgb) / 0.22), transparent 60%)," +
+  "radial-gradient(45rem 40rem at 108% 6%, rgb(var(--strong-rgb) / 0.12), transparent 55%)," +
+  "radial-gradient(40rem 38rem at 50% 116%, rgb(var(--accent-rgb) / 0.10), transparent 60%)";
 
 export default function AppShell({ children }: { children: ReactNode }) {
   const [degraded, setDegraded] = useState<{ degraded: boolean; message: string } | null>(null);
@@ -47,39 +43,43 @@ export default function AppShell({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <div className="bg-neutral-950 text-neutral-50 min-h-screen w-screen overflow-hidden">
-      <div className="bg-[#4c8dff]/[0.18] flex p-8 h-screen overflow-hidden">
-        <div
-          className="shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-[60px] rounded-3xl
-                     bg-neutral-900/70 border border-white/10 flex w-full overflow-hidden"
-        >
-          <aside
-            className="bg-white/[0.04] border-r border-white/10 flex px-4 py-6 flex-col w-60 flex-shrink-0"
-          >
-            <div className="flex mb-8 px-2 items-center gap-3">
-              <div
-                className="size-10 shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_10px_30px_rgba(76,141,255,0.18)]
-                           rounded-xl bg-neutral-200/[0.15] flex justify-center items-center"
-              >
+    <div className="relative min-h-screen w-screen overflow-hidden bg-[var(--bg)] text-neutral-50">
+      {/* Static aurora layer — opacity animates in, never the blur. */}
+      <m.div
+        aria-hidden
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={springs.gentle}
+        className="contain-strict pointer-events-none absolute inset-0"
+        style={{ background: AURORA }}
+      />
+
+      <div className="relative flex h-screen overflow-hidden p-8">
+        <div className="flex w-full overflow-hidden rounded-3xl border border-[var(--glass-border)] bg-[var(--glass-bg)] shadow-panel">
+          <aside className="flex w-60 flex-shrink-0 flex-col border-r border-[var(--glass-border)] bg-white/[0.04] px-4 py-6">
+            <div className="mb-8 flex items-center gap-3 px-2">
+              <div className="flex size-10 items-center justify-center rounded-xl bg-neutral-200/[0.15] shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_10px_30px_rgb(var(--accent-rgb)/0.20)]">
                 <BriefcaseBusiness className="size-5 text-neutral-200" />
               </div>
               <div className="leading-tight">
-                <div className="font-semibold text-neutral-50 text-[15px] tracking-[-0.64px]">ACOS</div>
-                <div className="text-[#a1a1a1] text-[11px]">Career OS</div>
+                <div className="font-display text-[15px] font-semibold tracking-[-0.64px] text-neutral-50">ACOS</div>
+                <div className="text-[11px] text-[var(--fg-muted)]">Career OS</div>
               </div>
             </div>
-            <nav className="flex flex-col flex-1 gap-2">
-              {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
+            <nav className="flex flex-1 flex-col gap-2">
+              {ROUTES.map(({ path, label, icon: Icon, prefetch, end }) => (
                 <NavLink
-                  key={to}
-                  to={to}
-                  end={to === "/"}
+                  key={path}
+                  to={path}
+                  end={end}
+                  onPointerEnter={prefetch}
+                  onFocus={prefetch}
                   className={({ isActive }) =>
                     cn(
-                      "rounded-xl flex px-3.5 items-center gap-3 h-11 font-medium text-[13px] transition-colors",
+                      "flex h-11 items-center gap-3 rounded-xl px-3.5 text-[13px] font-medium transition-colors duration-fast",
                       isActive
-                        ? "shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] bg-neutral-200/[0.15] text-neutral-50"
-                        : "text-[#a1a1a1] hover:text-neutral-300 hover:bg-white/[0.04]"
+                        ? "bg-neutral-200/[0.15] text-neutral-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+                        : "text-[var(--fg-muted)] hover:bg-white/[0.04] hover:text-neutral-300",
                     )
                   }
                 >
@@ -89,9 +89,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
               ))}
             </nav>
           </aside>
-          <main className="flex-1 overflow-auto flex flex-col">
+          <main className="flex flex-1 flex-col overflow-auto">
             {degraded?.degraded && (
-              <div className="flex items-center gap-2 px-6 py-2 bg-[#FF9F0A]/10 border-b border-[#FF9F0A]/20 text-[#FF9F0A] text-xs flex-shrink-0">
+              <div className="flex flex-shrink-0 items-center gap-2 border-b border-weak/20 bg-weak/10 px-6 py-2 text-xs text-weak">
                 <AlertTriangle className="size-3.5 flex-shrink-0" />
                 {degraded.message}
               </div>

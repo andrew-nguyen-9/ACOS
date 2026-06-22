@@ -113,6 +113,9 @@ win is reverted. Mocked-LLM medians below confirm they hold within noise.
 | 2026-06-21 | 11.3 | embedding refresh (unchanged corpus) | N embed calls | 0 embed calls | ✅ |
 | 2026-06-21 | 11.4 | backend cold start — median | 634.5 ms (11.3) / 778 ms ceiling | 577.7 ms | ✅ |
 | 2026-06-21 | 11.4 | backend cold start — p95 | 904.6 ms (11.3) / 1191 ms ceiling | 769.4 ms | ✅ |
+| 2026-06-21 | 11.5 | initial JS bundle (gzip, entry chunk) | 70.17 kB / 80.8 kB ceiling | 76.79 kB (+6.6 kB) | ✅ |
+| 2026-06-21 | 11.5 | frontend idle FPS (AppShell) | ≥ 60 | 58.3 → 60.2 | ✅ |
+| 2026-06-21 | 11.5 | frontend nav-churn FPS (sidebar) | ≥ 60 (no regression) | 29.4 → 59.9 | ✅ |
 
 **11.4 startup probe cost:** the corruption probe is a single `PRAGMA quick_check`
 run **once in the lifespan** (not on the request path, not in the `import →
@@ -120,3 +123,24 @@ create_app` bench), so it adds nothing to the measured cold-start metric. The sm
 delta vs the pre-11.4 in-session run (555 ms) is the extra module imports
 (`backend/recovery.py` + the two new routers) and machine noise — comfortably under
 the +10% ceiling. Snapshots/restore are user-triggered and entirely off the request path.
+
+**11.5 frontend (material proxy + design system):** net perf-**positive**. The
+AppShell's live `backdrop-filter: blur(60px)` was replaced with a static,
+pre-blurred aurora layer (PERF-AC-002) — soft radial gradients composited once,
+animated by opacity, not blur. Measured headless (Playwright + software GL, capped
+at 60 Hz so absolutes understate ProMotion; **read the delta**) against the same
+harness with the backend mocked:
+
+| | idle FPS | nav-churn FPS (20 sidebar nav clicks) |
+|---|---|---|
+| before (live blur) | 58.3 | 29.4 |
+| after (static proxy) | 60.2 | 59.9 |
+
+Nav-churn FPS doubled because the live filter had to recompute every frame as
+content repainted inside the glass panel; the static gradient does not. Bundle:
+`framer-motion` is loaded via `LazyMotion` with **async** `domAnimation` features,
+so its ~18.6 kB-gz feature bundle is code-split (`features-*.js`) out of the entry
+chunk — the initial chunk grew only +6.6 kB gz (the `m`/MotionConfig stub + route
+registry), staying under the 80.8 kB ceiling. Reduced-motion honored globally via
+`MotionConfig reducedMotion="user"` + the `flattenVariants` guard. Zero console
+errors on load/nav (`e2e/dashboard.spec.ts`).
