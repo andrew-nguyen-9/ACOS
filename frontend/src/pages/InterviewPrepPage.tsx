@@ -1,11 +1,31 @@
-import { useState, useEffect } from "react";
-import { MessageSquareMore, RefreshCw, CheckCircle2, XCircle, SkipForward } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { MessageSquareMore, RefreshCw, CheckCircle2, XCircle, SkipForward, Users } from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { CadenceMeter } from "@/components/interview/CadenceMeter";
 import { learningService } from "@/services/learning";
 import { applicationsService } from "@/services/applications";
+import {
+  buildSpatialGraph,
+  amplitudeOf,
+  speak,
+  teardown,
+  type SpatialGraph,
+} from "@/audio/spatialPanel";
+import { subscribe } from "@/webgl/clock";
+import {
+  setInterlocutorActive,
+  setInterlocutorAmplitude,
+} from "@/stores/useInterlocutor";
 import type { GeneratedQuestion, Application } from "@/types/api";
+
+// IIS-001: a three-seat virtual panel, positioned across the stereo field.
+const PANEL = [
+  { name: "Lead", pan: -0.6 },
+  { name: "Peer", pan: 0 },
+  { name: "Recruiter", pan: 0.6 },
+];
 
 export default function InterviewPrepPage() {
   const [applications, setApplications] = useState<Application[]>([]);
@@ -15,13 +35,53 @@ export default function InterviewPrepPage() {
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [showAnswer, setShowAnswer] = useState(false);
+  const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
+
+  const graphRef = useRef<SpatialGraph | null>(null);
+  const clockUnsubRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     applicationsService.list().then(setApplications).catch(console.error);
   }, []);
 
+  /** Build the Web Audio panel on a user gesture (autoplay policy). Idempotent. */
+  const startPanel = () => {
+    if (graphRef.current || typeof AudioContext === "undefined") return;
+    try {
+      const ctx = new AudioContext();
+      if (ctx.state === "suspended") void ctx.resume();
+      const graph = buildSpatialGraph(ctx, PANEL);
+      graphRef.current = graph;
+      setAnalyser(graph.analyser);
+      setInterlocutorActive(true);
+      clockUnsubRef.current = subscribe(() =>
+        setInterlocutorAmplitude(amplitudeOf(graph)),
+      );
+    } catch {
+      // Web Audio unavailable — the panel degrades to a silent, visual-only page.
+    }
+  };
+
+  // Tear the audio graph down on unmount; never leak nodes/context across visits.
+  useEffect(() => {
+    return () => {
+      clockUnsubRef.current?.();
+      setInterlocutorActive(false);
+      if (graphRef.current) teardown(graphRef.current);
+      graphRef.current = null;
+    };
+  }, []);
+
+  // Give each newly shown question a positioned "voice" from a panel seat.
+  useEffect(() => {
+    if (graphRef.current && questions.length > 0 && currentIdx < questions.length) {
+      speak(graphRef.current, currentIdx % PANEL.length);
+    }
+  }, [currentIdx, questions.length]);
+
   const generateQuestions = async () => {
     if (!selectedAppId) return;
+    startPanel(); // user gesture → safe to create/resume the AudioContext
     setGenerating(true);
     const selectedApplication = applications.find((a) => a.id === selectedAppId);
     try {
@@ -92,6 +152,28 @@ export default function InterviewPrepPage() {
           </button>
         </div>
       </GlassCard>
+
+      {analyser && (
+        <GlassCard className="p-5 flex flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <Users className="size-4 text-[var(--accent)]" />
+            <span className="text-neutral-400 text-xs font-medium uppercase tracking-wider">
+              Virtual Panel
+            </span>
+          </div>
+          <div className="flex justify-between gap-3">
+            {PANEL.map((p) => (
+              <div
+                key={p.name}
+                className="flex-1 text-center text-xs text-[#a1a1a1] rounded-xl bg-white/[0.03] border border-white/10 py-2"
+              >
+                {p.name}
+              </div>
+            ))}
+          </div>
+          <CadenceMeter analyser={analyser} />
+        </GlassCard>
+      )}
 
       {questions.length === 0 && !generating && (
         <GlassCard className="flex-1">

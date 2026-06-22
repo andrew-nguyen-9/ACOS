@@ -8,7 +8,11 @@ import { ConfidenceBadge } from "@/components/ui/ConfidenceBadge";
 import { EvidencePanel, type EvidenceItem } from "@/components/shared/EvidencePanel";
 import { BulletXRay } from "@/components/resume/BulletXRay";
 import { resumeService } from "@/services/resume";
+import { emitCelebrate } from "@/lib/celebrate";
 import * as haptics from "@/lib/haptics";
+
+// HVP-001/002: a strong resume is a milestone worth celebrating.
+const MILESTONE_ATS = 80;
 import type { ResumeGenerateResponse } from "@/types/api";
 
 const TEMPLATES = [
@@ -35,6 +39,11 @@ export default function ResumePage() {
       const res = await resumeService.generate({ job_description: jd, template_name: template });
       setResult(res);
       haptics.success();
+      // Celebrate when the result clears the ATS milestone (HVP-001). The words
+      // dispersed are the matched keywords + skills — the doc's actual words.
+      if (res.ats_score.overall_score >= MILESTONE_ATS) {
+        emitCelebrate([...res.ats_score.matched_keywords, ...res.content_json.skills]);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Generation failed");
       haptics.warn();
@@ -53,6 +62,8 @@ export default function ResumePage() {
       a.download = "resume.docx";
       a.click();
       URL.revokeObjectURL(url);
+      haptics.success();
+      emitCelebrate(result.content_json.skills); // finalize/export payoff
     } catch {
       setError("Export failed");
     }

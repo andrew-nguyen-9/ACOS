@@ -4,6 +4,8 @@ import { Vector2, Vector3, type ShaderMaterial } from "three";
 import { subscribe } from "./clock";
 import { getPointer } from "@/stores/useTransientInput";
 import { FRAG, VERT } from "./shaders";
+import SuccessParticles from "./SuccessParticles";
+import Interlocutor from "@/components/interview/Interlocutor";
 
 /**
  * The single WebGL background material (Phase 11.7, HAM-001 / PERF-AC-002).
@@ -118,6 +120,9 @@ export default function MaterialCanvas({ reduced }: { reduced: boolean }) {
       }}
     >
       <Material reduced={reduced} />
+      {/* 11.9 capstone layers share this one context/clock — never a 2nd canvas. */}
+      <SuccessParticles reduced={reduced} />
+      <Interlocutor />
     </Canvas>
   );
 }

@@ -236,3 +236,55 @@ backend up):
   `script-src 'self'`/`connect-src` unchanged. Native haptics + asset:// exist only in the
   packaged Tauri app (browser can't exercise them) — covered by `cargo test` (haptic no-op
   contract + asset path validator, 3 pass) and the honest manual-hardware tick check.
+
+**11.9 frontend (showcase capstones — particles / tone dial / spatial interview):**
+**within budget, BLOCKING gates PASSED.** Heaviest visual tier. Everything renders into
+the **single 11.7 canvas + App-Nap clock** (no second GL context) and is capability-gated.
+Measured live (chrome-devtools, real app, backend + Ollama up, effects **Full**, rAF
+frame sampler):
+
+| Scenario | frames | avg / max frame | long tasks >50ms | result |
+|---|---|---|---|---|
+| **Particle burst** (HVP-001), 5 repeat triggers, 700-particle pool | 168 | 16.67 / 17.6 ms | **0** | **60 FPS**, CLS **0.00** |
+| **Interview** (IIS-001): live AudioContext analyser polled per frame + GL interlocutor pulsing + material, single canvas | 177 | 16.66 / 17.5 ms | **0** | **60 FPS** |
+
+- **No GC leak on repeat:** one geometry + one material allocated once; each trigger only
+  rewrites the `position`/`aTarget` attributes and the per-frame cost is a single
+  `uProgress` float — 5 back-to-back bursts held a flat 16.67 ms/frame (no creep).
+- **Off tier fully usable:** `e2e/showcase-1109.spec.ts` runs with effects **Off** (no
+  WebGL in the browser run) and all three features still work — celebration degrades to the
+  `CelebrationFallback` flourish, the tone dial morphs typography client-side, and the
+  interview page builds its Web Audio panel + cadence meter. 3/3 pass, **zero console
+  errors**. Reduced-motion resolves to the same Off tier (calm, opacity-only flourish).
+- **Audio lifecycle:** the `AudioContext` is created/resumed only on the
+  "Generate questions" gesture (autoplay policy) and fully torn down on unmount (panners +
+  analyser disconnected, context closed) — no node/context leak across visits.
+- **Bundle:** entry chunk **79.30 → 79.60 kB gz (+0.30)**, under the **80.8 ceiling**.
+  three/R3F particles + interlocutor ride the **existing lazy `MaterialCanvas` chunk**
+  (already off-entry); Web Audio glue + tone dial ride their already-lazy route chunks.
+  **CSP unchanged** (Web Audio is pure JS; no `eval`/`wasm`/worker/blob).
+
+---
+
+## Phase 11 close-out — final audit vs phase-start baseline
+
+Re-ran `scripts/perf/startup_bench.py` + the pytest-benchmarks + all FE traces on the dev
+machine after the full phase. **No metric regressed beyond budget.**
+
+| Metric | Phase-11 baseline | Budget ceiling | Final (post-11.9) | Verdict |
+|---|---|---|---|---|
+| Backend cold start, median | 707 ms | ≤ 778 ms | **597 ms** | ✅ under (improved) |
+| Backend cold start, p95 | 1083 ms | ≤ 1191 ms | **800 ms** | ✅ under |
+| `POST /resume/generate` median (mocked) | 0.32 ms | ≤ 0.35 ms | **~0.35 ms** (min 0.344) | ✅ at ceiling — sub-ms microbench noise; 11.9 makes **no** change to this path |
+| Copilot chat median (mocked) | 0.008 ms | ≤ 0.009 ms | **0.0079 ms** | ✅ under |
+| Frontend idle / animation FPS | ≥ 60 | ≥ 60 | **60** (particle burst + interview) | ✅ |
+| Long tasks during animation | 0 | 0 | **0** | ✅ |
+| Initial JS bundle (gzip) | 70.3 kB | ≤ 80.8 kB | **79.60 kB** | ✅ under |
+
+**Accessibility / Off-tier sweep:** every animation honors `prefers-reduced-motion`
+(MotionConfig `reducedMotion="user"` app-wide; the WebGL/audio motion paths resolve to the
+Off tier under reduced-motion, giving a calm, opacity-only app). Native focus rings on the
+tone dial (`focus-visible:ring`) and all controls; the cadence meter / interlocutor are
+`aria-hidden` decorative; the celebration fallback is `role="status" aria-live="polite"`.
+The effects-**Off** tier is a fully usable, calm app (proven by `showcase-1109` running
+entirely with effects off).

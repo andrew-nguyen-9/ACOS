@@ -80,3 +80,34 @@ export const FRAG = /* glsl */ `
     gl_FragColor = vec4(col, 1.0);
   }
 `;
+
+// ── Success particle choreography (Phase 11.9, HVP-001) ──────────────────────
+// Each particle morphs from its scatter `position` to `aTarget` (a constellation
+// node) as `uProgress` goes 0→1, all on the GPU. The CPU only writes uProgress
+// per frame. Soft round points, additive-blended, fade in fast / out at the end.
+export const PARTICLE_VERT = /* glsl */ `
+  attribute vec3 aTarget;
+  uniform float uProgress;
+  uniform float uSize;
+  varying float vAlpha;
+  void main() {
+    float e = smoothstep(0.0, 1.0, uProgress);
+    vec3 p = mix(position, aTarget, e);
+    vec4 mv = modelViewMatrix * vec4(p, 1.0);
+    gl_Position = projectionMatrix * mv;
+    gl_PointSize = uSize / max(-mv.z, 0.1);
+    // Fade in over the first 12%, hold, fade out over the last 30%.
+    vAlpha = smoothstep(0.0, 0.12, uProgress) * (1.0 - smoothstep(0.7, 1.0, uProgress));
+  }
+`;
+
+export const PARTICLE_FRAG = /* glsl */ `
+  precision highp float;
+  uniform vec3 uColor;
+  varying float vAlpha;
+  void main() {
+    float d = length(gl_PointCoord - vec2(0.5));
+    float mask = smoothstep(0.5, 0.0, d);
+    gl_FragColor = vec4(uColor, mask * vAlpha);
+  }
+`;

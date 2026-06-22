@@ -24,6 +24,7 @@ works without any cloud AI service or API key.
 | **Q&A engine** | Generate and answer application/interview questions from evidence. |
 | **Outcome learning** | Rank and learn from application outcomes to improve future generations. |
 | **Controlled optimization** | A guarded, autonomous loop that A/B-tests prompt variants against measurable gates (see [`docs/OPTIMIZATION_SYSTEM.md`](docs/OPTIMIZATION_SYSTEM.md)). |
+| **Showcase-grade UI** | Hardware-accelerated, macOS-native interface — one WebGL material, success-particle celebrations, a quantum cover-letter tone dial, and a spatial-audio interview panel. All performance-gated (60 FPS) and fully degradable to a calm static app (see [`docs/FRONTEND_DESIGN_SYSTEM.md`](docs/FRONTEND_DESIGN_SYSTEM.md)). |
 
 A core rule of the system: **no hallucinated facts.** Every generated statement traces
 back to a source record with a confidence level (`verified` / `strong_inference` /

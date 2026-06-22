@@ -148,13 +148,30 @@ empty before 11.8. Any new command goes through `security-review` (real native a
 surface). Native haptics + asset:// **only exist in the packaged Tauri app** — browser
 e2e can't exercise them; they're covered by `cargo test` + the honest manual-hardware check.
 
+## 7b. Showcase capstones (Phase 11.9)
+
+The heaviest visual tier — all of it renders into the **one** 11.7 `<Canvas>` + App-Nap
+clock (never a second GL context) and is gated by the capability tier. Each feature has a
+first-class degraded form so the **Off** tier is a fully usable, calm app.
+
+| Capstone | Files | ID | Notes |
+|---|---|---|---|
+| Celebrate bus | `src/lib/celebrate.ts` | HVP-001 | Dependency-free pub/sub (`emitCelebrate`/`onCelebrate`). Dev-only `window.__acosCelebrate` hook for manual/perf triggering (stripped in prod). |
+| Success particles | `src/webgl/SuccessParticles.tsx` + `constellation.ts` + `shaders.ts` | HVP-001/002 | 700-particle `<points>` pool in the shared canvas. **One** geometry + material allocated once, reused every trigger (no GC leak on repeat); morph (scatter→constellation) runs GPU-side via a single `uProgress` float. Word count → constellation node count (golden-spiral, pure + unit-tested). Haptic tick on fire. **Reduced** → fade in place; **Off** → `CelebrationFallback` CSS flourish (`role=status`). |
+| Tone dial | `src/components/cover_letter/{ToneDial,useToneMorph}.tsx` | RCL-003 | Slider 0..1 → (a) instant typography morph via `useTransform` over a springed `MotionValue`, (b) debounced backend regen with a `tone` param. **Variable-font note:** Inter loads at static weights, so we morph weight/tracking/leading (axes a static family honors), not `font-variation-settings`. `toneToType` pure + unit-tested. |
+| Spatial interview | `src/audio/spatialPanel.ts` | IIS-001 | Web Audio graph: one `StereoPannerNode` per panelist → master → `AnalyserNode` → destination. AudioContext created/**resumed on the user gesture** (autoplay policy), fully torn down on unmount. Graph build + amplitude + teardown unit-tested with a mock `AudioContext`. |
+| Interlocutor | `src/components/interview/Interlocutor.tsx` + `stores/useInterlocutor.ts` | IIS-001 | Wireframe icosahedron in the shared canvas, pulses with smoothed analyser amplitude (fed via a transient module store, not React state). Invisible off the interview route. |
+| Cadence meter | `src/components/interview/CadenceMeter.tsx` | IIS-002 | Cheap 2D-canvas waveform from the analyser time-domain (volume/timing only, **no transcription**), drawn from the shared clock. Reduced-motion → static baseline. |
+
 ## 8. Verification
 `npm run test` (vitest: motion + transient logic, 200ms gate, prefetch dedup,
-velocity clamp, capability tier + clock pause/resume, **batchedInvoke coalescing + ghost
-Tab/Esc state**) · `npm run build` (tsc gate + bundle report) · `cargo test` in
+velocity clamp, capability tier + clock pause/resume, batchedInvoke coalescing + ghost
+Tab/Esc state, **celebrate bus, constellation math, tone mapping, debounce, spatial-audio
+graph**) · `npm run build` (tsc gate + bundle report) · `cargo test` in
 `src-tauri` (**haptic no-op contract + asset path validator**) · `npx playwright test`
-(e2e + `perf-1106`/`materials-1107`/`macos-1108` traces). Capture FPS via the 11.0
-overlay (`?perf=1` or ⌘⇧P in dev). Record bundle/FPS deltas in `docs/PERFORMANCE_LOG.md`.
+(e2e + `perf-1106`/`materials-1107`/`macos-1108`/**`showcase-1109`** traces). Capture FPS
+via the 11.0 overlay (`?perf=1` or ⌘⇧P in dev). Record bundle/FPS deltas in
+`docs/PERFORMANCE_LOG.md`.
 
 > ⚠️ RTK can serve a stale cached "No tests found" for filtered Playwright runs.
 > For a truthful run use the binary directly: `./node_modules/.bin/playwright test <spec>`.

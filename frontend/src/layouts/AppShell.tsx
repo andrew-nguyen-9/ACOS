@@ -7,6 +7,7 @@ import { springs } from "@/motion";
 import { ROUTES } from "@/routes";
 import { warmRoute } from "@/services/prefetch";
 import MaterialBackground from "@/webgl/MaterialBackground";
+import CelebrationFallback from "@/components/CelebrationFallback";
 
 // Material proxy (PERF-AC-002): a STATIC, pre-blurred aurora instead of a live
 // `backdrop-filter: blur(60px)`. Soft radial gradients are inherently "blurred",
@@ -60,6 +61,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
       {/* WebGL material (HAM-001) behind the glass shell. Lazy + capability-gated;
           renders nothing on the Off tier, leaving the static aurora above. */}
       <MaterialBackground />
+
+      {/* Off-tier celebration payoff (particles cover Full/Reduced). */}
+      <CelebrationFallback />
 
       <div className="relative flex h-screen overflow-hidden p-8">
         <div className="flex w-full overflow-hidden rounded-3xl border border-[var(--glass-border)] bg-[var(--glass-bg)] shadow-panel">

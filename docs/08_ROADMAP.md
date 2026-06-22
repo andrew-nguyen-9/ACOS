@@ -336,7 +336,12 @@ backend/prompts/ats/analyze.yaml
 
 ---
 
-## Phase 11: Frontend (Tauri + React)
+## Phase 11: Frontend (Tauri + React) — ✅ COMPLETE
+
+**Status:** ✅ **DONE** (2026-06-22). Delivered as an expanded two-track phase —
+**backend production hardening (11.0–11.4)** + **showcase-grade frontend revamp
+(11.5–11.9)** — under one shared, performance-gated constraint. Segment specs live in
+`docs/superpowers/plans/2026-06-21-phase-11-*`; the index is `…-phase-11-roadmap.md`.
 
 **Goal:** Production desktop UI for all engines.
 
@@ -355,10 +360,20 @@ backend/prompts/ats/analyze.yaml
 8. Settings — model config, paths, API keys (none needed)
 
 **Acceptance Criteria:**
-- All pages functional with real backend
-- Playwright E2E tests pass for all golden paths
-- Tauri app builds to DMG on macOS
-- No layout shifts or loading flashes
+- All pages functional with real backend ✅
+- Playwright E2E tests pass for all golden paths ✅
+- Tauri app builds to DMG on macOS — deferred to Phase 12 (packaging)
+- No layout shifts or loading flashes ✅ (CLS 0.00 across traces)
+
+**Phase 11 expanded criteria (all met):**
+- Perf budget harness (11.0) + every later segment proven within budget
+  (`docs/PERFORMANCE_LOG.md` close-out table) ✅
+- Fault tolerance, data integrity, prompt-version locking, observability,
+  controlled maintenance + backup/recovery (11.1–11.4) ✅
+- Design system + motion + kinematics + WebGL materials + deep macOS integration +
+  showcase capstones (11.5–11.9), all capability-gated + reduced-motion-degradable ✅
+- BLOCKING 60 FPS gates passed; entry bundle 79.60 kB gz ≤ 80.8 ceiling ✅
+- a11y / Off-tier sweep; phase-wide release-safety review ✅
 
 ---
 
