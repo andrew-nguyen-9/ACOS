@@ -36,11 +36,17 @@ pay for five detailed specs when most candidates are expected to defer/reject fo
 
 | Candidate | Spike | Sub-seg | Adopt gate (see §C) | Status | Default lean | ADR (if adopt) |
 |-----------|-------|---------|---------------------|--------|--------------|----------------|
-| msgpack IPC | 12.9-S1 | **12.9.1** | IPC payload + end-to-end win past threshold | `pending` | defer | ADR-010 |
-| FAISS / numpy + binary-quant vector store | 12.9-S2 | **12.9.2** | recall parity + material latency/memory win | `pending` | defer | ADR-011 |
-| Nuitka packaging | 12.9-S3 | **12.9.3** | cold-start win beyond 12.3 + reliable signed build | `pending` | defer | ADR-012 |
-| PyO3 singularity (merge Python into Rust) | 12.9-S4 | **12.9.4** | feasibility + worth a full rewrite | `pending` | **reject (→ Phase 13)** | ADR-013 |
-| ADV micro-opts: pinned memory; JIT rerank | 12.9-ADV | **12.9.5** | each: measured hot spot + measured win | `pending` | defer/reject | none unless adopt |
+| msgpack IPC | 12.9-S1 | ~~12.9.1~~ VOID | IPC payload + end-to-end win past threshold | **`defer`** (2.98× codec but 0.53 ms/req, end-to-end invisible) | defer | none |
+| FAISS / numpy + binary-quant vector store | 12.9-S2 | ~~12.9.2~~ VOID | recall parity + material latency/memory win | **`defer`** float (recall 0.991, sub-ms win immaterial) / **`reject`** binary (recall 0.765 < 0.98) | defer | none |
+| Nuitka packaging | 12.9-S3 | ~~12.9.3~~ VOID | cold-start win beyond 12.3 + reliable signed build | **`defer`** (floor import-bound 598 ms; Nuitka can't recompile C-ext init) | defer | none |
+| PyO3 singularity (merge Python into Rust) | 12.9-S4 | ~~12.9.4~~ VOID | feasibility + worth a full rewrite | **`reject (→ Phase 13)`** (deletes HTTP debuggability; 12.2–12.6 capture the win) | **reject (→ Phase 13)** | none |
+| ADV micro-opts: pinned memory; JIT rerank | 12.9-ADV | ~~12.9.5~~ VOID | each: measured hot spot + measured win | **`defer`** pinned (Ollama owns model RAM) / **`reject`** JIT (rerank 20–97 µs scalar, no matrix) | defer/reject | none |
+
+**Resolved 2026-06-22** — all five rows void; verdicts + numbers in
+`docs/optimization/architecture-spike-findings.md`. Zero adopts → no ADRs → production stack unchanged.
+Reopen conditions: S1 if JSON parse becomes a measured stream-stall (12.4); S2 if post-12.6 Chroma
+footprint/latency is a measured problem; S3 if ≤400 ms cold-start budget still missed after 12.3; ADV-a
+if 12.5 leaves a measured swap cliff on 16 GB. S4 and ADV-b are closed (escalate-to-Phase-13 / rejected).
 
 **Status values:** `pending` → `adopt` / `defer` / `reject`. On `adopt`, add the graduated spec filename
 and the ADR. On `defer`, note the condition that would reopen it. On `reject`, note why in one line.
