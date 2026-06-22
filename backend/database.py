@@ -1,7 +1,13 @@
-from collections.abc import Generator
+from collections.abc import AsyncGenerator, Generator
 
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlalchemy.orm import Session, sessionmaker
 
 import backend.models  # noqa: F401 — registers all models with Base.metadata
@@ -39,9 +45,38 @@ def build_engine(db_url: str | None = None) -> Engine:
     return engine
 
 
+def _to_async_url(url: str) -> str:
+    """Map a sync SQLite URL to its aiosqlite (async) equivalent."""
+    if url.startswith("sqlite+aiosqlite:"):
+        return url
+    if url.startswith("sqlite:"):
+        return url.replace("sqlite:", "sqlite+aiosqlite:", 1)
+    return url
+
+
+def build_async_engine(db_url: str | None = None) -> AsyncEngine:
+    """Async engine over aiosqlite. Reuses 12.1 ``_apply_pragmas`` via the
+    underlying ``sync_engine`` connect event (sync DBAPI handler is adapted)."""
+    url = _to_async_url(db_url or get_settings().db_url)
+    engine = create_async_engine(
+        url,
+        connect_args={"check_same_thread": False},
+        echo=get_settings().debug,
+    )
+    event.listen(engine.sync_engine, "connect", _apply_pragmas)
+    return engine
+
+
 # Module-level engine and session factory (replaced in tests via conftest)
 engine = build_engine()
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+
+# Async engine + session factory (12.2). expire_on_commit=False keeps attributes
+# usable after commit without an awaitable refresh — required in async request paths.
+async_engine = build_async_engine()
+AsyncSessionLocal = async_sessionmaker(
+    bind=async_engine, expire_on_commit=False, autoflush=False
+)
 
 
 def init_db() -> None:
@@ -56,10 +91,14 @@ def reset_engine() -> None:
     SQLite file, so swapping the file underneath them would leave callers reading
     the old (unlinked) inode. Drop the pool, swap, then rebuild against the new file.
     """
-    global engine, SessionLocal
+    global engine, SessionLocal, async_engine, AsyncSessionLocal
     engine.dispose()
     engine = build_engine()
     SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+    async_engine = build_async_engine()
+    AsyncSessionLocal = async_sessionmaker(
+        bind=async_engine, expire_on_commit=False, autoflush=False
+    )
 
 
 def get_session() -> Generator[Session, None, None]:
@@ -70,6 +109,17 @@ def get_session() -> Generator[Session, None, None]:
             session.commit()
         except Exception:
             session.rollback()
+            raise
+
+
+async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
+    """FastAPI dependency that yields an async session per request (12.2)."""
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
             raise
 
 

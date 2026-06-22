@@ -13,8 +13,21 @@ def _configure_paths() -> None:
         os.environ.setdefault("ACOS_CHROMA_PATH", os.path.join(data_dir, "chroma"))
 
 
+def install_uvloop() -> None:
+    """Install uvloop as the asyncio event-loop policy (12.2).
+
+    uvicorn[standard] already prefers uvloop, but installing it at the entry
+    point makes the fast loop the policy for any loop spawned before uvicorn
+    boots and lets us assert it in tests.
+    """
+    import uvloop  # noqa: PLC0415 — kept off module import for cold-start budget
+
+    uvloop.install()
+
+
 def main() -> None:
     _configure_paths()
+    install_uvloop()
     import uvicorn
     from backend.main import app  # noqa: PLC0415 — deferred to avoid circular imports at bundle time
     uvicorn.run(app, host="127.0.0.1", port=8000, log_level="warning")
