@@ -1,12 +1,31 @@
 from unittest.mock import MagicMock
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+
 from backend.rag.collections import DOCUMENTS, DEFAULT_DOC_TYPE
 from backend.rag.indexer import RAGIndexer
+from backend.services.rag import lexical
 
 
 @pytest.fixture
 def mock_chroma():
     return MagicMock()
+
+
+@pytest.fixture
+def fts_session():
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    session = sessionmaker(bind=engine, autocommit=False, autoflush=False)()
+    lexical.ensure_fts5(session)
+    yield session
+    session.close()
+    engine.dispose()
 
 
 @pytest.fixture
@@ -52,3 +71,44 @@ def test_delete_document(mock_chroma, mock_embedder):
     indexer = RAGIndexer(mock_chroma, mock_embedder)
     indexer.delete_document("id1")
     mock_chroma.delete.assert_called_once_with(collection=DOCUMENTS, ids=["id1"])
+
+
+# --- FTS5 lexical sync (Phase 12.7): indexer mirrors every Chroma write ---
+
+
+def test_index_document_mirrors_to_fts5(mock_chroma, mock_embedder, fts_session):
+    indexer = RAGIndexer(mock_chroma, mock_embedder, session=fts_session)
+    indexer.index_document("id1", "python async performance", {}, doc_type="acos_experiences")
+    fts_session.commit()
+    hits = lexical.search(fts_session, "python performance", ["acos_experiences"], k=5)
+    assert [h["id"] for h in hits] == ["id1"]
+
+
+def test_index_batch_mirrors_to_fts5(mock_chroma, mock_embedder, fts_session):
+    indexer = RAGIndexer(mock_chroma, mock_embedder, session=fts_session)
+    indexer.index_batch(
+        [
+            {"id": "a", "text": "python data pipeline", "metadata": {}},
+            {"id": "b", "text": "react design system", "metadata": {}},
+        ],
+        doc_type="acos_projects",
+    )
+    fts_session.commit()
+    assert [h["id"] for h in lexical.search(fts_session, "python pipeline", ["acos_projects"], k=5)] == ["a"]
+    assert [h["id"] for h in lexical.search(fts_session, "react design", ["acos_projects"], k=5)] == ["b"]
+
+
+def test_delete_document_removes_from_fts5(mock_chroma, mock_embedder, fts_session):
+    indexer = RAGIndexer(mock_chroma, mock_embedder, session=fts_session)
+    indexer.index_document("id1", "python async performance", {}, doc_type="acos_experiences")
+    fts_session.commit()
+    indexer.delete_document("id1")
+    fts_session.commit()
+    assert lexical.search(fts_session, "python performance", ["acos_experiences"], k=5) == []
+
+
+def test_no_session_skips_fts5_sync(mock_chroma, mock_embedder):
+    """Backward-compat: callers without a DB session stay Chroma-only, no error."""
+    indexer = RAGIndexer(mock_chroma, mock_embedder)
+    indexer.index_document("id1", "python", {}, doc_type="acos_experiences")  # must not raise
+    mock_chroma.upsert.assert_called_once()

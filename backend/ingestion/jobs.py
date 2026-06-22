@@ -61,10 +61,11 @@ def run_ingest_job(job_id: str, path: str, tmpdir: str) -> None:
     ollama = OllamaClient(base_url=settings.ollama_base_url)
     embedder = Embedder(ollama, model=settings.embedding_model)
     chroma = get_chroma_manager(settings.chroma_db_path)
-    indexer = RAGIndexer(chroma, embedder)
     extractor = EntityExtractor(ollama if ollama.is_available() else None)
     try:
         with BACKGROUND_SESSION_FACTORY() as session:  # type: ignore[operator]
+            # session passed so the indexer mirrors document text into FTS5 (12.7).
+            indexer = RAGIndexer(chroma, embedder, session=session)
             pipeline = IngestionPipeline(
                 session=session,
                 kg_service=KnowledgeGraphService(session),

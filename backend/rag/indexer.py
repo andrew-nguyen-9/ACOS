@@ -6,6 +6,7 @@ import logging
 from sqlalchemy.orm import Session
 
 from backend.rag.collections import DEFAULT_DOC_TYPE, DOCUMENTS
+from backend.services.rag import lexical
 
 logger = logging.getLogger(__name__)
 
@@ -15,9 +16,13 @@ def _content_hash(text: str) -> str:
 
 
 class RAGIndexer:
-    def __init__(self, chroma_manager, embedder) -> None:
+    def __init__(self, chroma_manager, embedder, session: Session | None = None) -> None:
         self._chroma = chroma_manager
         self._embedder = embedder
+        # When set, the indexer mirrors every corpus write into the FTS5 lexical
+        # table (12.7). Chroma + FTS5 stay in sync because this is the single
+        # write chokepoint. None → Chroma-only (callers that don't need lexical).
+        self._session = session
 
     def index_document(
         self, doc_id: str, text: str, metadata: dict, *, doc_type: str = DEFAULT_DOC_TYPE
@@ -35,6 +40,8 @@ class RAGIndexer:
             embeddings=[embedding],
             metadatas=[{**metadata, "doc_type": doc_type}],
         )
+        if self._session is not None:
+            lexical.upsert(self._session, doc_id, text, doc_type)
         logger.debug("indexed document %s as doc_type=%s", doc_id, doc_type)
 
     def index_batch(
@@ -51,10 +58,15 @@ class RAGIndexer:
             embeddings=embeddings,
             metadatas=[{**item["metadata"], "doc_type": doc_type} for item in items],
         )
+        if self._session is not None:
+            for item in items:
+                lexical.upsert(self._session, item["id"], item["text"], doc_type)
         logger.debug("indexed batch of %d as doc_type=%s", len(items), doc_type)
 
     def delete_document(self, doc_id: str) -> None:
         self._chroma.delete(collection=DOCUMENTS, ids=[doc_id])
+        if self._session is not None:
+            lexical.delete(self._session, doc_id)
 
     def index_all(self, session: Session, only_changed: bool = False) -> int:
         """Re-embed ingested documents stored in the database.
@@ -67,6 +79,10 @@ class RAGIndexer:
         documents (re)embedded.
         """
         from backend.models.document import Document
+
+        # index_document mirrors to FTS5 via self._session; bind it to the working
+        # sync session so a reseed rebuilds the lexical index alongside Chroma.
+        self._session = session
 
         rows = session.query(Document).filter(Document.ingestion_status == "complete").all()
         candidates = [
