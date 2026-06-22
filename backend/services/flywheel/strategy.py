@@ -38,6 +38,9 @@ class StrategyRecommendation:
     confidence: str                 # ADR-006 level
     flagged: bool                   # True when degraded (sparse data / unknown industry)
     evidence: list[str] = field(default_factory=list)  # contributing signal ids
+    # 12.15: global cross-tenant suggestions, re-personalized — never override local
+    # evidence; only skills the tenant doesn't already surface, always weak (suggestion).
+    global_suggestions: list[str] = field(default_factory=list)
     notes: str = ""
 
 
@@ -55,6 +58,7 @@ def recommend(
     keywords: dict,
     tenant_id: str | None = None,
     metric: str = "interview_lift",
+    global_skill_roi: list[dict] | None = None,
 ) -> StrategyRecommendation:
     """Per-tenant resume structure + ATS strategy for a JD (already keyword-extracted).
 
@@ -81,6 +85,17 @@ def recommend(
     for skill in recommended_skills:
         evidence.extend(by_skill[skill]["contributing_signal_ids"])
 
+    # 12.15: global cross-tenant suggestions for this industry — re-personalized
+    # (only skills the tenant doesn't already surface locally; global never overrides).
+    global_suggestions: list[str] = []
+    if global_skill_roi:
+        local = set(recommended_skills)
+        for g in global_skill_roi:
+            if g.get("industry") == industry and g.get("roi", 0) > 0:
+                skill = g.get("skill")
+                if skill and skill not in local and skill not in global_suggestions:
+                    global_suggestions.append(skill)
+
     # Confidence: a real ROI signal AND a known industry → strong; otherwise weak +
     # flagged (sparse local data or an industry we don't have a structure for).
     has_roi = bool(recommended_skills)
@@ -105,5 +120,6 @@ def recommend(
         confidence=confidence,
         flagged=flagged,
         evidence=evidence,
+        global_suggestions=global_suggestions,
         notes=notes,
     )

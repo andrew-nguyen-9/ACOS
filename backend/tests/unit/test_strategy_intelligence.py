@@ -10,6 +10,24 @@ from backend.services.flywheel.feedback import FeedbackEngine
 from backend.services.flywheel.strategy import recommend, INDUSTRY_STRUCTURES
 
 
+def test_global_suggestions_repersonalized_never_override_local(test_session):
+    """12.15: global patterns surface as suggestions only — skills the tenant doesn't
+    already recommend locally; local evidence is never overridden."""
+    _seed_rich(test_session)  # python is the local winner
+    keywords = {"required_skills": ["python"], "keywords": [], "industry": "technology"}
+    global_roi = [
+        {"industry": "technology", "skill": "kubernetes", "roi": 0.3, "tenant_count": 6,
+         "confidence": "strong_inference"},
+        {"industry": "technology", "skill": "python", "roi": 0.25, "tenant_count": 7,
+         "confidence": "strong_inference"},          # already local — must not duplicate
+        {"industry": "finance", "skill": "excel", "roi": 0.4, "tenant_count": 9,
+         "confidence": "strong_inference"},           # wrong industry — excluded
+    ]
+    rec = recommend(test_session, keywords=keywords, global_skill_roi=global_roi)
+    assert rec.global_suggestions == ["kubernetes"]   # new skill only, industry-matched
+    assert "python" in rec.recommended_skills          # local still primary
+
+
 def _seed_rich(session) -> None:
     """python with a strong, positive ROI (6 apps, n>=5)."""
     eng = FeedbackEngine(session)

@@ -40,6 +40,20 @@ def _reset_chroma_manager():
     reset_chroma_manager()
 
 
+@pytest.fixture(autouse=True)
+def _reset_recovery_state():
+    """Clear the module-global READONLY_RECOVERY flag between tests.
+
+    Some recovery/restore tests set it via a manual enter/clear; if an assertion in
+    that window fails, the flag leaks and 503s every later mutating route. Reset here
+    so test ordering can't pollute unrelated tests."""
+    from backend.recovery import RECOVERY
+
+    RECOVERY.clear()
+    yield
+    RECOVERY.clear()
+
+
 def _enable_fk(dbapi_connection: object, _: object) -> None:
     cursor = dbapi_connection.cursor()  # type: ignore[union-attr]
     cursor.execute("PRAGMA foreign_keys=ON")

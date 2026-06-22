@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from backend.config import get_settings
 from backend.database import get_async_session
 from backend.services.ats.keyword_extractor import KeywordExtractor
+from backend.services.flywheel.global_patterns import global_skill_roi
 from backend.services.flywheel.prompt_evolution import PromptEvolutionService
 from backend.services.flywheel.skill_roi import rank_skills
 from backend.services.flywheel.strategy import recommend
@@ -84,6 +85,21 @@ async def get_strategy(
         return asdict(rec)
 
     return await session.run_sync(_impl)
+
+
+@router.get("/flywheel/global/roi")
+async def get_global_roi(
+    metric: str = "interview_lift",
+    session: AsyncSession = Depends(get_async_session),
+) -> dict:
+    """Cross-tenant skill ROI rankings — aggregate-only, k-anonymized (ADR-009).
+
+    No per-tenant attribution: each row carries a contributing-tenant COUNT, not ids.
+    """
+    rankings = await session.run_sync(
+        lambda s: global_skill_roi(s, metric=metric)
+    )
+    return {"metric": metric, "rankings": rankings}
 
 
 def _version_dict(v) -> dict:
