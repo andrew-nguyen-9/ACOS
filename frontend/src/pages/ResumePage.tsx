@@ -6,7 +6,9 @@ import { GlassCard } from "@/components/ui/GlassCard";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { ConfidenceBadge } from "@/components/ui/ConfidenceBadge";
 import { EvidencePanel, type EvidenceItem } from "@/components/shared/EvidencePanel";
+import { BulletXRay } from "@/components/resume/BulletXRay";
 import { resumeService } from "@/services/resume";
+import * as haptics from "@/lib/haptics";
 import type { ResumeGenerateResponse } from "@/types/api";
 
 const TEMPLATES = [
@@ -32,8 +34,10 @@ export default function ResumePage() {
     try {
       const res = await resumeService.generate({ job_description: jd, template_name: template });
       setResult(res);
+      haptics.success();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Generation failed");
+      haptics.warn();
     } finally {
       setLoading(false);
     }
@@ -177,7 +181,15 @@ export default function ResumePage() {
                         {exp.bullets.map((b, j) => (
                           <li key={j} className="flex items-start gap-2 text-sm text-neutral-300">
                             <span className="mt-1.5 size-1.5 rounded-full bg-[#4c8dff] flex-shrink-0" />
-                            <span>{b.text}</span>
+                            <BulletXRay
+                              text={b.text}
+                              confidence={b.confidence}
+                              matchedKeywords={result.ats_score.matched_keywords}
+                            >
+                              <span className="cursor-help underline decoration-dotted decoration-white/20 underline-offset-4">
+                                {b.text}
+                              </span>
+                            </BulletXRay>
                             <ConfidenceBadge level={b.confidence} />
                           </li>
                         ))}

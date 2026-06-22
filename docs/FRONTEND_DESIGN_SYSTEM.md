@@ -128,12 +128,33 @@ Degradation is first-class: the app renders fully on `Off` via the cheap aurora,
 0 long-tasks on client nav** with the canvas active; entry chunk +0.91 kB gz (three is
 off-entry). **CSP unchanged** — this material needs no `eval`/`wasm`/worker/blob.
 
-## 7. Verification
+## 7. macOS integration + signature features (Phase 11.8)
+
+The first segment to cross the **Rust/Tauri boundary**. Native feel (theme sync, haptics,
+local assets) + two signature product features. Build later segments on these primitives;
+**never spam the IPC bridge** — high-frequency invokes must batch.
+
+| Primitive | File | Guideline | Notes |
+|---|---|---|---|
+| Native haptics | `src-tauri/src/haptics.rs` + `src/lib/haptics.ts` | DMI-002 | Rust `#[command] haptic(pattern)` → macOS `NSHapticFeedbackManager` (`objc2-app-kit`, `#[cfg(target_os="macos")]`, no-op + `Ok` elsewhere). FE wrappers `tap()/success()/warn()` are **throttled (60ms) and guarded** (`isTauri()` — silent no-op in vite dev / e2e). Wired to resume/copilot success+error and ghost-accept. Haptics are **additive — never required for function**, so every call is best-effort. |
+| asset:// scheme | `src-tauri/src/lib.rs` (`register_uri_scheme_protocol`) + `resolve_asset_path` | PERF-IPC-002 | Serves local files (images / exported docs) from the **allowlisted app-data dir** via memory read instead of HTTP. **Security chokepoint:** `resolve_asset_path` rejects `..` syntactically *and* `canonicalize`+`starts_with`-contains (symlink-safe); default-closed (403/404). CSP adds **only** `img-src 'self' asset:`. Unit-tested (`cargo test`). |
+| IPC batching | `src/lib/ipc.ts` (`batchedInvoke` / `createBatchedInvoke`) | PERF-IPC-001 | rAF-coalesced invoker: N calls/frame per command collapse to **one** (last payload wins). Route any high-freq invoke (resize/drag) through it. Pure core (injected invoke + scheduler) is unit-tested. |
+| Theme reveal | `src/hooks/useThemeReveal.ts` + `:root[data-theme="light"]` tokens | DMI-001 | OS theme change (`matchMedia` web / Tauri `onThemeChanged` prod) → circular **`clip-path` reveal** from the last cursor pos (transient store), swapping the `data-theme` class once the incoming-bg overlay covers. **Reduced-motion → instant swap, no overlay.** Default = absence of the attribute = the §1 true-dark; light is a **token-layer** flip (component-level light polish deferred). |
+| X-Ray Impact Mapping | `src/components/resume/BulletXRay.tsx` | RCL-002 | Intent-delayed (260ms) hover on a resume bullet → glass popover (token glass) showing **action verb / quantified-metric / ATS-keyword coverage / confidence** — all derived from data the resume+ATS endpoints already return (**no new backend scoring**; a missing datum hides its chip). Portaled to `<body>`; position tracks the cursor **imperatively from the transient store** (no re-render storm). |
+| Ghost-Writing Ink Trail | `src/components/copilot/{GhostText,useGhostCompletion}.tsx` | COP-003 | Copilot suggestion renders as faint accent **ghost text in an overlay layer** (never the input value — avoids IME/controlled-input fights). `Tab` accepts (ink-bleed: clip-path L→R reveal), `Esc` dismisses + suppresses until the next keystroke. State machine (`ghostReducer`) unit-tested; reduced-motion shows the ghost instantly. |
+
+The **Rust invoke surface now exists** (`generate_handler![haptics::haptic]`) — it was
+empty before 11.8. Any new command goes through `security-review` (real native attack
+surface). Native haptics + asset:// **only exist in the packaged Tauri app** — browser
+e2e can't exercise them; they're covered by `cargo test` + the honest manual-hardware check.
+
+## 8. Verification
 `npm run test` (vitest: motion + transient logic, 200ms gate, prefetch dedup,
-velocity clamp, **capability tier + clock pause/resume**) · `npm run build` (tsc gate +
-bundle report) · `npx playwright test` (e2e + `perf-1106`/`materials-1107` traces).
-Capture FPS via the 11.0 overlay (`?perf=1` or ⌘⇧P in dev). Record bundle/FPS deltas
-in `docs/PERFORMANCE_LOG.md`.
+velocity clamp, capability tier + clock pause/resume, **batchedInvoke coalescing + ghost
+Tab/Esc state**) · `npm run build` (tsc gate + bundle report) · `cargo test` in
+`src-tauri` (**haptic no-op contract + asset path validator**) · `npx playwright test`
+(e2e + `perf-1106`/`materials-1107`/`macos-1108` traces). Capture FPS via the 11.0
+overlay (`?perf=1` or ⌘⇧P in dev). Record bundle/FPS deltas in `docs/PERFORMANCE_LOG.md`.
 
 > ⚠️ RTK can serve a stale cached "No tests found" for filtered Playwright runs.
 > For a truthful run use the binary directly: `./node_modules/.bin/playwright test <spec>`.

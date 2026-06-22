@@ -6,6 +6,7 @@ import AppShell from "@/layouts/AppShell";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { PageSkeleton } from "@/components/ui/Skeleton";
 import { useDeferredLoading } from "@/hooks/useDeferredLoading";
+import { useThemeReveal } from "@/hooks/useThemeReveal";
 import { getOnboardingStatus } from "@/services/settings";
 import FirstRunWizard from "@/pages/FirstRunWizard";
 import FpsOverlay from "@/components/dev/FpsOverlay";
@@ -48,6 +49,10 @@ export default function App() {
   const [backendError, setBackendError] = useState(false);
   const perfRequested = usePerfOverlay();
   const showPerf = import.meta.env.DEV && perfRequested;
+
+  // System theme sync with clip-path reveal (DMI-001). Root-level so it runs for
+  // the whole app regardless of route.
+  useThemeReveal();
 
   useEffect(() => {
     const checkWithRetry = async (attemptsLeft: number): Promise<void> => {

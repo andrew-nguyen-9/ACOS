@@ -52,6 +52,9 @@ coverage.json
 .pytest_cache/
 .benchmarks/
 test_output.txt
+# Playwright run artifacts (screenshots, traces, last-run) — never versioned
+frontend/test-results/
+frontend/playwright-report/
 
 # ── Misc ────────────────────────────────────────────────
 .DS_Store

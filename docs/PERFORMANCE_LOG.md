@@ -205,3 +205,34 @@ shim + capability/clock; under the 80.8 ceiling). three stays **out of entry**
 (PERF-IL-001). e2e: `e2e/materials-1107.spec.ts` — one canvas on Full, none on Off,
 live Settings toggle, zero console/WebGL errors either way. **CSP unchanged:** three/R3F
 need no `eval`/`wasm`/worker/blob for this material, so `script-src 'self'` stands as-is.
+
+**11.8 frontend (macOS integration + signature features):** **within budget, gate
+PASSED.** First Rust/Tauri-boundary segment (haptics command + asset:// scheme) plus
+theme reveal, X-Ray, and copilot ghost text. Measured live (chrome-devtools, real app,
+backend up):
+
+| Scenario | long tasks / jank | CWV | notes |
+|---|---|---|---|
+| idle (resumes page, new code mounted) | 0 frames >50ms over 80 frames | — | rAF sampler: **60 FPS** |
+| OS theme change → clip-path reveal (×2 toggles) | INP **79 ms** (good <200ms) | **CLS 0.00** | whole-page token flip = one-time style+paint; the `clip-path` wipe runs on the compositor (single fixed overlay div, WAAPI) |
+
+- **Theme reveal** is a single fixed overlay animating `clip-path: circle()` (WAAPI,
+  compositor) with the class swap at cover; **CLS 0.00** — the overlay/token flip causes
+  no layout shift. The 79ms INP is the discrete theme-change interaction (style recalc +
+  paint of the token-driven surfaces), not per-frame animation cost. Reduced-motion
+  bypasses the overlay entirely.
+- **X-Ray popover** position tracks the cursor via the **same imperative transient-store
+  pattern as 11.7 `useSpecular`** (already perf-validated) — `subscribePointer` writes a
+  `transform` directly, **no per-move React render**. Portaled to `<body>`, intent-delayed
+  (260ms). Functional correctness in `e2e/macos-1108.spec.ts`; real-data hover trace not
+  capturable here (dev DB has no ingested evidence → empty resume → no bullets).
+- **Ghost text** renders in an overlay layer (clip-path ink-bleed on accept), not the
+  input value. **IPC**: `batchedInvoke` rAF-coalesces high-freq invokes (≤1/command/frame);
+  haptics throttled 60ms + guarded — both keep the bridge quiet (PERF-IPC-001).
+- **Bundle:** entry chunk **78.68 → 79.30 kB gz (+0.62)**, under the **80.8 ceiling**. The
+  Tauri `@tauri-apps/api` (`core`/`window`) lands in **separate lazy chunks** off the
+  entry; X-Ray/GhostText ride their already-lazy route chunks (ResumePage/CopilotPage).
+- **CSP:** added **only** `img-src 'self' asset:` for the new local-asset scheme;
+  `script-src 'self'`/`connect-src` unchanged. Native haptics + asset:// exist only in the
+  packaged Tauri app (browser can't exercise them) — covered by `cargo test` (haptic no-op
+  contract + asset path validator, 3 pass) and the honest manual-hardware tick check.

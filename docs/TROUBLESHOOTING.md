@@ -304,6 +304,38 @@ or `Blob:` URL, add `worker-src 'self' blob:` to the CSP — and always test the
 **production** Tauri build (`npm run tauri build`), not just `vite dev`, because CSP is
 enforced in the packaged app, not the dev server.
 
+## macOS Integration: Haptics / asset:// / Theme Reveal (Phase 11.8)
+
+**No haptic tick when I generate a resume / accept a suggestion.**
+Haptics are macOS-only and **only fire in the packaged Tauri app**, never in `vite dev`,
+the browser, or e2e (`src/lib/haptics.ts` no-ops when `isTauri()` is false). They are
+additive feedback — the app works identically without them. On a Mac, a tick needs a
+**Force Touch trackpad** (most MacBooks); external mice/keyboards produce nothing. Calls
+are throttled to one per 60ms, so a burst of events feels like a single tap by design.
+
+**Images served over `asset://` return 403 / 404.**
+The `asset:` scheme only serves files inside the **allowlisted app-data dir**, validated
+by `resolve_asset_path` (`src-tauri/src/haptics.rs`). A `403` means the path failed the
+traversal/containment check (anything with `..`, an absolute path, or a symlink that
+escapes the root) — this is correct, default-closed behavior. A `404` means the path is
+valid but the file isn't there. The scheme is registered only in the **packaged app**;
+`vite dev` has no `asset://` handler. The CSP must include `img-src 'self' asset:`
+(`src-tauri/tauri.conf.json`) — test the **production** build, not `vite dev`.
+
+**Theme doesn't follow the OS / no reveal animation.**
+ACOS is **true-dark by default** (the designed identity). It syncs on *live* OS theme
+changes while the app is open (`useThemeReveal.ts`): flip macOS appearance (System
+Settings → Appearance) and watch the circular `clip-path` reveal. Notes:
+- The light theme is a **token-layer** flip (`:root[data-theme="light"]`); many
+  components still carry hardcoded dark classes, so light mode is intentionally partial
+  (a full per-component light audit is deferred — the reveal is the 11.8 deliverable).
+- **Reduced-motion** (macOS → Accessibility → Display → Reduce motion) → the swap is
+  **instant, no clip-path** by design.
+- The initial theme is *not* read from the OS at load (so the app always opens true-dark);
+  only subsequent OS changes trigger a swap.
+- In the browser, `prefers-color-scheme` drives it; Tauri `onThemeChanged` is the
+  packaged-app path (guarded import, no-op outside Tauri).
+
 ## Getting More Debug Information
 
 Enable verbose backend logging by starting the backend with the `--log-level debug` flag:

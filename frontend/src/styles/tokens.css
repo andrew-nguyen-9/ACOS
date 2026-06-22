@@ -54,6 +54,23 @@
   --fs-display: clamp(1.5rem, 1.1rem + 1.6vw, 2.25rem);
 }
 
+/* Light theme (Phase 11.8, DMI-001). Opt-in via `data-theme="light"` on <html>,
+   set by the theme-reveal hook when the OS flips to light; its absence is the
+   designed true-dark default above. Overrides the token layer only — the
+   shell/aurora and other token-driven surfaces adapt.
+   ponytail: many components hardcode dark Tailwind classes (text-neutral-50,
+   bg-white/5); a full per-component light audit is deferred — the reveal + token
+   flip are the 11.8 deliverable, not a finished light skin. */
+:root[data-theme="light"] {
+  --bg: #f5f5f7;
+  --fg: #1c1c1e;
+  --fg-muted: #6b6b70;
+  --glass-bg: rgb(255 255 255 / 0.72);
+  --glass-border: rgb(0 0 0 / 0.08);
+  --elevation-card: inset 0 1px 0 rgb(255 255 255 / 0.60), 0 18px 50px rgb(0 0 0 / 0.10);
+  --elevation-panel: 0 24px 80px rgb(0 0 0 / 0.18);
+}
+
 /* Display-P3 widens accent + confidence on capable displays. The sRGB values
    above remain the fallback on non-P3 screens. */
 @supports (color: color(display-p3 1 1 1)) {
