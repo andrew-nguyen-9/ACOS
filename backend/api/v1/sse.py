@@ -17,6 +17,39 @@ class _Disconnectable(Protocol):
     async def is_disconnected(self) -> bool: ...
 
 
+async def sse_status_stream(
+    request: _Disconnectable,
+    snapshot: Callable[[], dict | None],
+    terminal: set[str],
+    *,
+    poll_seconds: float = 0.25,
+) -> AsyncIterator[str]:
+    """Stream a job's status as SSE frames until it reaches a terminal state.
+
+    Reuses the 12.4 framing (``data: {json}\\n\\n``) and disconnect handling.
+    ``snapshot()`` returns the current job dict (or ``None`` if it vanished); a
+    frame is emitted only when ``status`` changes, and the stream closes once the
+    status is in ``terminal``. Honours client disconnect within one poll.
+    """
+    import asyncio
+
+    last: str | None = None
+    while True:
+        if await request.is_disconnected():
+            return
+        job = snapshot()
+        if job is None:
+            yield f"data: {json.dumps({'error': 'unknown_job'})}\n\n"
+            return
+        status = job.get("status")
+        if status != last:
+            yield f"data: {json.dumps(job)}\n\n"
+            last = status
+        if status in terminal:
+            return
+        await asyncio.sleep(poll_seconds)
+
+
 async def sse_token_stream(
     request: _Disconnectable,
     tokens: AsyncIterator[str],

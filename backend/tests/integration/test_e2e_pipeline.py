@@ -102,7 +102,7 @@ def _make_chroma_mock() -> MagicMock:
 # The single E2E test function
 # ---------------------------------------------------------------------------
 
-def test_full_pipeline(client, seed_config):
+def test_full_pipeline(client, seed_config, test_session):
     """
     Full 8-step pipeline test.  Each step's output feeds the next.
     is_available=True so resume/RAG code paths fully execute (LLM JSON
@@ -110,7 +110,15 @@ def test_full_pipeline(client, seed_config):
     """
     chroma_mock = _make_chroma_mock()
 
+    from contextlib import contextmanager
+
+    @contextmanager
+    def _bg_session():
+        # 12.6 background ingest opens a FRESH session; route it onto the test DB.
+        yield test_session
+
     with (
+        patch("backend.ingestion.jobs.BACKGROUND_SESSION_FACTORY", _bg_session),
         patch(
             "backend.services.ollama_client.OllamaClient.is_available",
             return_value=True,
@@ -147,10 +155,14 @@ def test_full_pipeline(client, seed_config):
             "/api/v1/ingest",
             files={"file": ("resume.txt", io.BytesIO(file_bytes), "text/plain")},
         )
-        assert resp.status_code == 200, f"Step 2 ingest: {resp.text}"
-        ingest_data = resp.json()
-        assert "document_id" in ingest_data, f"Step 2 missing document_id: {ingest_data}"
-        document_id = ingest_data["document_id"]
+        # 12.6: ingestion is now async — 202 + job id; the background task already
+        # ran (TestClient runs it before returning), so the job is terminal.
+        assert resp.status_code == 202, f"Step 2 ingest: {resp.text}"
+        job_id = resp.json()["job_id"]
+        status = client.get(f"/api/v1/ingest/{job_id}")
+        assert status.status_code == 200, f"Step 2 status: {status.text}"
+        assert status.json()["status"] == "done", f"Step 2 job not done: {status.json()}"
+        document_id = status.json()["document_id"]
         assert document_id, "Step 2: document_id must be non-empty"
 
         # ------------------------------------------------------------------
