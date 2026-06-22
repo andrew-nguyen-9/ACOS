@@ -64,3 +64,5 @@ a scripted interaction) capture a trace:
 | Date | Segment | Metric | Baseline | Measured | Pass? |
 |------|---------|--------|----------|----------|-------|
 | 2026-06-21 | 11.0 | (harness established — baselines above) | — | — | — |
+| 2026-06-21 | 11.1 | resume/generate median (mocked LLM) | 0.32 ms | 0.32 ms | ✅ |
+| 2026-06-21 | 11.1 | copilot chat median (mocked LLM) | 0.008 ms | 0.008 ms | ✅ |
