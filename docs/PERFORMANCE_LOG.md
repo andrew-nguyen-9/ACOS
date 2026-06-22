@@ -502,3 +502,22 @@ preserve recall. Correctness covered by real-ChromaDB `test_collection_filtering
 > a scored baseline. Single-index `n_results` scaling is a mild recall *change* vs
 > the old per-partition loop (the reranker re-sorts the pooled candidates); building
 > a scored golden set is tracked separately.
+
+---
+
+## Phase 12.16 — Close-out audit
+
+**Suite + coverage (re-run at close-out):** full backend suite **green**, coverage
+above the 90% gate (see the command output in the close-out commit). The in-suite
+bench tests (`test_startup_bench`, `test_async_latency`, `test_embed_batch`,
+`test_fts5_*`, `test_structured_output`) pass, exercising the non-Ollama perf paths.
+
+**Live-Ollama benches (TTFT, structured-output, ingest):** verified at their segment
+commits (12.4/12.5/12.6/12.8) with live numbers recorded above. **Not re-run at
+close-out** — the close-out environment has no live Ollama. Per
+verification-before-completion these are not re-asserted with fresh numbers here; the
+segment-time measurements stand and are cited in the sections above.
+
+**Budgets:** no new request-path work landed in 12.10–12.16 (read-side flywheel compute
++ an indexed `tenant_id` predicate). The tenant filter is a single indexed column
+predicate; isolation adds no per-request regression beyond that index lookup.
