@@ -21,3 +21,34 @@ body {
   background: var(--bg);
   color: var(--fg);
 }
+
+@layer components {
+  /* Cursor-mapped specular highlight (HAM-002). `--spec-x/--spec-y` are written
+     by useSpecular from the transient pointer store; a hovered card lifts a soft
+     accent gloss that tracks the cursor. Reduced-motion drops it entirely. */
+  .specular-surface {
+    position: relative;
+  }
+  .specular-surface::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity var(--duration-base) var(--ease-out);
+    background: radial-gradient(
+      18rem 18rem at var(--spec-x, 50%) var(--spec-y, 50%),
+      rgb(var(--accent-rgb) / 0.16),
+      transparent 60%
+    );
+  }
+  .specular-surface:hover::after {
+    opacity: 1;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .specular-surface::after {
+      display: none;
+    }
+  }
+}

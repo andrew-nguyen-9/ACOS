@@ -277,6 +277,33 @@ curl http://localhost:8000/api/v1/settings
 
 ---
 
+## Visual Effects / WebGL Material (Phase 11.7)
+
+**Symptom:** background looks flat (no animated material), or the GPU runs hot / the
+fan spins, or you want to turn the effects off.
+
+**Disable the effects:** Settings → **Visual Effects** → **Off** (or **Reduced**).
+The choice persists in `localStorage` (`acos:visual-effects`) and applies live — no
+restart. `Off` falls back to the cheap static aurora; the app is fully functional on
+every tier (the WebGL material is decoration, never a requirement).
+
+**Why the material isn't showing (it's expected, not a bug) when:**
+- The display/GPU has **no WebGL** — `capability.ts` resolves the tier to `Off`. The
+  Settings panel shows a note when WebGL is unavailable.
+- **OS reduced-motion** is on (macOS: System Settings → Accessibility → Display →
+  Reduce motion) — the tier resolves to `Off` by design.
+- The window is **hidden or blurred** — the App-Nap clock parks the render loop
+  (`clock.ts`, DMI-003) so the canvas costs ~0 in the background; it resumes on focus.
+- The GPU **lost the WebGL context** (`webglcontextlost`) — the canvas unmounts to the
+  static aurora automatically. Switch the tier Off→Full in Settings to remount.
+
+**CSP note:** `three` + `@react-three/fiber` need no `eval`, `wasm`, Web Worker, or
+`blob:` URL for this material, so the Tauri CSP (`src-tauri/tauri.conf.json`,
+`script-src 'self'`) is **unchanged** by 11.7. If a *future* shader uses a Web Worker
+or `Blob:` URL, add `worker-src 'self' blob:` to the CSP — and always test the
+**production** Tauri build (`npm run tauri build`), not just `vite dev`, because CSP is
+enforced in the packaged app, not the dev server.
+
 ## Getting More Debug Information
 
 Enable verbose backend logging by starting the backend with the `--log-level debug` flag:

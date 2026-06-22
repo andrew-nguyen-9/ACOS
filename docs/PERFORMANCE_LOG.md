@@ -122,6 +122,10 @@ win is reverted. Mocked-LLM medians below confirm they hold within noise.
 | 2026-06-21 | 11.6 | DOM node count, 500-row list (ceiling <1500) | <1500 | 16 rows mounted | ✅ |
 | 2026-06-21 | 11.6 | scroll FPS (500-row virtualized list) | ≥ 60 | 60 | ✅ |
 | 2026-06-21 | 11.6 | long tasks, modal fling-dismiss | 0 | 0 | ✅ |
+| 2026-06-21 | 11.7 | initial JS bundle (gzip, entry chunk) | 77.77 kB (11.6) / 80.8 kB ceiling | 78.68 kB (+0.91 kB) | ✅ |
+| 2026-06-21 | 11.7 | three + R3F chunk (gzip, off-entry) | — | 221 kB (lazy `MaterialCanvas` chunk, not in entry) | ✅ |
+| 2026-06-21 | 11.7 | frontend idle FPS, WebGL canvas active (Full) | ≥ 60 | 60 | ✅ |
+| 2026-06-21 | 11.7 | long tasks, client-side nav (canvas active) | 0 | 0 | ✅ |
 
 **11.4 startup probe cost:** the corruption probe is a single `PRAGMA quick_check`
 run **once in the lifespan** (not on the request path, not in the `import →
@@ -173,3 +177,31 @@ entry chunk**; the entry chunk grew only +0.98 kB gz (77.77 kB, under the 80.8 c
 Predictive `warm()` is idle/deduped/idempotent-GET only, capped at 4 concurrent and
 guarded on `document.visibilityState`. Reduced-motion still honored (scroll `y`
 collapse drops to constant; `MotionConfig` covers the rest).
+
+**11.7 frontend (WebGL hardware-accelerated materials):** the **first heavy tier** —
+**within budget, BLOCKING gate PASSED**. One full-screen R3F shader canvas
+(`MaterialCanvas`) behind the app shell: animated gradient + value-noise + cursor
+focus-glow, P3 accent, `frameloop="demand"` driven by the App-Nap clock (DPR ≤2).
+Measured live (`?perf=1` FpsOverlay + chrome-devtools) against the real app (backend up):
+
+| Scenario | long tasks (>50ms) | FPS | canvases |
+|---|---|---|---|
+| idle, Full tier, canvas active | 0 | 60 | 1 |
+| client nav (Applications→Dashboard→ATS→Copilot) | 0 | 60 | 1 |
+| page load (cold lazy-chunk fetch) | 0 | — | CLS 0.00 |
+
+One shared GL context (no per-component canvases) persists across route changes, so
+client nav swaps only the routed DOM while the canvas keeps compositing — **0 long
+tasks, steady 60 fps**. Per-card specular (HAM-002) is **CSS** (`--spec-x/--spec-y`
+radial-gradient fed by the transient pointer store), not extra GL contexts. App-Nap
+(DMI-003): the singleton clock parks the rAF on `visibilitychange` hidden + Tauri
+window blur, so a hidden/blurred window costs ~0 (unit-tested in `clock.test.ts`).
+Degradation: `capability.ts` clamps the user tier to `off` under no-WebGL or OS
+reduced-motion → the static 11.5 aurora is the fallback; `webglcontextlost` unmounts
+to the same fallback. **Bundle:** `three` + `@react-three/fiber` (221 kB gz) land in a
+**separate lazy `MaterialCanvas` chunk**, loaded via `React.lazy` only on the
+Full/Reduced tier — the entry chunk grew **+0.91 kB gz (77.77→78.68 kB**, just the tier
+shim + capability/clock; under the 80.8 ceiling). three stays **out of entry**
+(PERF-IL-001). e2e: `e2e/materials-1107.spec.ts` — one canvas on Full, none on Off,
+live Settings toggle, zero console/WebGL errors either way. **CSP unchanged:** three/R3F
+need no `eval`/`wasm`/worker/blob for this material, so `script-src 'self'` stands as-is.

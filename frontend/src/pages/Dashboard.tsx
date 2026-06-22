@@ -90,7 +90,7 @@ export default function Dashboard() {
       <m.div className="grid grid-cols-4 gap-4" variants={staggerContainer}>
         {stats.map(({ label, value, icon: Icon, color }) => (
           <m.div key={label} variants={scaleIn}>
-            <GlassCard className="p-5">
+            <GlassCard specular className="p-5">
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-xs text-[var(--fg-muted)]">{label}</p>

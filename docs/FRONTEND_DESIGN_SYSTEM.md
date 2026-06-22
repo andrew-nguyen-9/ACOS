@@ -107,11 +107,33 @@ Measured: 500-row scroll = **0 long tasks, 60fps, 16 DOM rows**; modal fling = 0
 tasks (`e2e/perf-1106.spec.ts`). Reference page: `src/pages/ApplicationsPage.tsx`
 composes virtualization + scroll kinematics + `startTransition` + velocity-dismiss.
 
-## 6. Verification
+## 6. WebGL materials + App-Nap + capability tier (Phase 11.7)
+
+One GPU-composited shader material behind the shell — **the first heavy tier, default-on
+only while it holds 60fps**. Build 11.8/11.9 (haptics, particles) on the clock +
+capability + canvas primitives below; **never add a second GL context.**
+
+| Primitive | File | Guideline | Notes |
+|---|---|---|---|
+| Material canvas | `src/webgl/MaterialCanvas.tsx` + `shaders.ts` | HAM-001 / PERF-AC-002 | **One** full-screen R3F `<Canvas frameloop="demand">`, `pointer-events-none`, behind the shell. Fragment shader = gradient + value-noise + cursor focus-glow; uniforms `uTime`/`uPointer`/`uResolution`/`uAccent` fed from the P3 `--accent-rgb` token. DPR capped (Full ≤2, Reduced 1). Statically imports `three`; loaded only via `React.lazy` → never in entry. |
+| App-Nap clock | `src/webgl/clock.ts` | DMI-003 | **The single pause/resume authority.** `subscribe(cb)` drives one shared rAF with continuous elapsed-seconds; parks on `visibilitychange` hidden + Tauri `onFocusChanged` blur → hidden window costs ~0. Every loop subscribes here — don't start private rAFs. Pause/resume unit-tested. |
+| Capability tier | `src/lib/capability.ts` | — | `pickTier({pref,webgl,reducedMotion})` (pure, unit-tested) clamps the saved preference to `off` under no-WebGL or OS reduced-motion. Preference persisted to **localStorage** (`acos:visual-effects`, default `full`) — no backend round-trip. `Off` = the static §3 aurora. |
+| Cursor specular | `src/webgl/useSpecular.ts` + `.specular-surface` CSS | HAM-002 | Transient pointer → `--spec-x/--spec-y` on a card; a **CSS** `radial-gradient` does the per-card highlight (no GL context per card). Opt in via `<GlassCard specular>`. Fires on pointer movement only; reduced-motion drops it. |
+| Tier shim | `src/webgl/MaterialBackground.tsx` | PERF-IL-001 | Tiny, `three`-free entry component AppShell mounts. Resolves the tier, lazy-loads the canvas when on, owns the single `pointermove → setPointer` writer, re-resolves live on the Settings toggle (`acos:effects-changed`) + reduced-motion change. |
+
+Settings → **Visual Effects: Full / Reduced / Off** (`SettingsPage.tsx`) writes the
+preference + dispatches `acos:effects-changed` so the material re-tiers without reload.
+Degradation is first-class: the app renders fully on `Off` via the cheap aurora, and
+`webglcontextlost` unmounts the canvas to that same fallback. Measured: **60fps idle +
+0 long-tasks on client nav** with the canvas active; entry chunk +0.91 kB gz (three is
+off-entry). **CSP unchanged** — this material needs no `eval`/`wasm`/worker/blob.
+
+## 7. Verification
 `npm run test` (vitest: motion + transient logic, 200ms gate, prefetch dedup,
-velocity clamp) · `npm run build` (tsc gate + bundle report) · `npx playwright test`
-(e2e + `perf-1106` trace). Capture FPS via the 11.0 overlay (`?perf=1` or ⌘⇧P in
-dev). Record bundle/FPS deltas in `docs/PERFORMANCE_LOG.md`.
+velocity clamp, **capability tier + clock pause/resume**) · `npm run build` (tsc gate +
+bundle report) · `npx playwright test` (e2e + `perf-1106`/`materials-1107` traces).
+Capture FPS via the 11.0 overlay (`?perf=1` or ⌘⇧P in dev). Record bundle/FPS deltas
+in `docs/PERFORMANCE_LOG.md`.
 
 > ⚠️ RTK can serve a stale cached "No tests found" for filtered Playwright runs.
 > For a truthful run use the binary directly: `./node_modules/.bin/playwright test <spec>`.

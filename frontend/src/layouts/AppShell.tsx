@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { springs } from "@/motion";
 import { ROUTES } from "@/routes";
 import { warmRoute } from "@/services/prefetch";
+import MaterialBackground from "@/webgl/MaterialBackground";
 
 // Material proxy (PERF-AC-002): a STATIC, pre-blurred aurora instead of a live
 // `backdrop-filter: blur(60px)`. Soft radial gradients are inherently "blurred",
@@ -45,7 +46,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="relative min-h-screen w-screen overflow-hidden bg-[var(--bg)] text-neutral-50">
-      {/* Static aurora layer — opacity animates in, never the blur. */}
+      {/* Static aurora layer — the cheap Off-tier fallback and the base the WebGL
+          canvas blends over. Opacity animates in, never the blur. */}
       <m.div
         aria-hidden
         initial={{ opacity: 0 }}
@@ -54,6 +56,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
         className="contain-strict pointer-events-none absolute inset-0"
         style={{ background: AURORA }}
       />
+
+      {/* WebGL material (HAM-001) behind the glass shell. Lazy + capability-gated;
+          renders nothing on the Off tier, leaving the static aurora above. */}
+      <MaterialBackground />
 
       <div className="relative flex h-screen overflow-hidden p-8">
         <div className="flex w-full overflow-hidden rounded-3xl border border-[var(--glass-border)] bg-[var(--glass-bg)] shadow-panel">
