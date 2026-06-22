@@ -69,6 +69,9 @@ async def health_integrity(session: AsyncSession = Depends(get_async_session)) -
     """On-demand deep integrity checks (can be slow on large DBs)."""
     settings = get_settings()
 
+    # ponytail: the Chroma reconcile runs inside run_sync, holding the async DB
+    # connection for the duration — acceptable on this on-demand deep-check route;
+    # not worth splitting the Chroma probe out of the DB greenlet for one endpoint.
     def _impl(s: Session) -> dict:
         chroma_result: dict
         try:
