@@ -49,11 +49,18 @@ class SkillGapItem(BaseModel):
     priority_rank: float
 
 
+class StrategyAnchor(BaseModel):
+    template_name: str
+    success_score: float
+    signal_count: int
+
+
 class ResumeStrategyRecommendation(BaseModel):
     template_name: str
     bullet_emphasis: list[str]
     keyword_priorities: list[str]
     reason: str
+    anchored_candidates: list[StrategyAnchor] = Field(default_factory=list)
     requires_approval: Literal[True] = True
 
 

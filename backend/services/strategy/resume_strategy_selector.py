@@ -10,6 +10,7 @@ import re
 
 from sqlalchemy.orm import Session
 
+from backend.services.learning import anchors
 from backend.services.strategy.career_path_simulator import CATEGORY_KEYWORDS
 
 logger = logging.getLogger(__name__)
@@ -72,15 +73,25 @@ class ResumeStrategySelector:
         template = _TEMPLATE_MAP.get(category, "pm_executive")
         emphasis = _BULLET_EMPHASIS.get(category, ["impact", "leadership", "technical"])
         keywords = _extract_top_keywords(jd_text)
+        # Success anchoring (11.3): always *consider* proven high-success
+        # strategies, immune to recency-only drift. Added to candidates, not
+        # pinned to output — the detected template stays the recommendation.
+        anchored = anchors.select_anchors(self._session)
         reason = (
             f"Detected role category '{category}'. "
             f"Template '{template}' maximizes readability for this category. "
             f"Emphasis on {emphasis[0]} and {emphasis[1]} bullets aligns with historical signal patterns."
         )
+        if anchored:
+            reason += (
+                f" Also considering proven anchor(s): "
+                f"{', '.join(a['template_name'] for a in anchored)}."
+            )
         return {
             "template_name": template,
             "bullet_emphasis": emphasis,
             "keyword_priorities": keywords,
             "reason": reason,
+            "anchored_candidates": anchored,
             "requires_approval": True,
         }

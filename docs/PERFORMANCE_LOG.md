@@ -59,6 +59,44 @@ a scripted interaction) capture a trace:
 5. Record before/after numbers in the segment's PR. `markInteraction(name)`
    (`frontend/src/utils/perf.ts`) drops User Timing marks to align the trace.
 
+## Phase 11.3 — startup optimization (lazy Chroma init)
+
+**Change:** `import chromadb` was eager at module load (`backend.rag.chroma_client`),
+so `import backend.main` pulled in chromadb **and its heavy transitive deps**
+(numpy, onnxruntime, opentelemetry, grpc, tqdm) at startup — even though
+`create_app()` never touches Chroma. 11.3 defers the import + `PersistentClient`
+construction to first collection use. Profiled with `scripts/perf/profile_startup.py
+--importtime` (chromadb 86 ms self + ~150 ms transitive on the startup path).
+
+Risk mitigation: `GET /health/warmup` forces Chroma init so lazy errors surface
+on demand (not hidden until first user query). Guarded by
+`test_lazy_chroma.py` (chromadb must not be in `sys.modules` after `create_app()`).
+
+| Metric | Before (11.0) | After (11.3) | Δ | Budget (≤) |
+|--------|---------------|--------------|---|-----------|
+| Backend cold start — median | 706.7 ms | **634.5 ms** | −10.2% | 778 ms ✅ |
+| Backend cold start — p95 | 1082.7 ms | **904.6 ms** | −16.5% | 1191 ms ✅ |
+| Backend cold start — min | 697.9 ms | **542.9 ms** | −22.2% | — |
+
+> `startup_bench.py --n 9`, quiet machine (`macOS-26.5.1-arm64`, Python 3.12.13).
+> Cold-start variance is high; the `min` delta (−155 ms) best isolates the removed
+> import cost. `scripts/perf/baselines/startup.json` re-baselined to the after run.
+
+**Embedding refresh (skip-unchanged):** `RAGIndexer.index_all(only_changed=True)`
+now stores a `content_hash` in Chroma metadata and skips documents whose hash is
+unchanged → **0 embed calls** for an unchanged corpus (was N). Verified by
+`test_embedding_refresh_skips.py` (counting fake embedder). Live-Ollama embed
+latency unchanged per call; the win is in *call count* avoided on refresh.
+
+**resume/generate & copilot:** profiled — no memoizable cost (template lookup is
+an O(1) dict; the layout loop is trivial arithmetic; copilot assembly is ~8 µs).
+Per YAGNI (spec §3, §9) **no change made** — any optimization without a measured
+win is reverted. Mocked-LLM medians below confirm they hold within noise.
+
+> **Live-Ollama latency** for resume/generate and copilot first-token is still
+> deferred (no live Ollama on this run; same reason as Phase 10 — see project
+> memory). Mocked benches measure orchestration only.
+
 ## Per-segment regression log
 
 | Date | Segment | Metric | Baseline | Measured | Pass? |
@@ -68,3 +106,8 @@ a scripted interaction) capture a trace:
 | 2026-06-21 | 11.1 | copilot chat median (mocked LLM) | 0.008 ms | 0.008 ms | ✅ |
 | 2026-06-21 | 11.2 | resume/generate min (mocked LLM) | 0.31 ms | 0.32 ms | ✅ |
 | 2026-06-21 | 11.2 | copilot chat median (mocked LLM) | 0.008 ms | 0.008 ms | ✅ |
+| 2026-06-21 | 11.3 | backend cold start — median | 706.7 ms | 634.5 ms (−10%) | ✅ |
+| 2026-06-21 | 11.3 | backend cold start — p95 | 1082.7 ms | 904.6 ms (−16%) | ✅ |
+| 2026-06-21 | 11.3 | resume/generate median (mocked LLM) | 0.32 ms | 0.358 ms (µs-noise, no code change) | ✅ |
+| 2026-06-21 | 11.3 | copilot chat median (mocked LLM) | 0.008 ms | 0.008 ms | ✅ |
+| 2026-06-21 | 11.3 | embedding refresh (unchanged corpus) | N embed calls | 0 embed calls | ✅ |

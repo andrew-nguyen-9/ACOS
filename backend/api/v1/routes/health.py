@@ -1,3 +1,4 @@
+import logging
 import os
 
 from fastapi import APIRouter, Depends
@@ -77,6 +78,26 @@ def health_integrity(session: Session = Depends(get_session)) -> dict:
         "chroma": chroma_result,
         "embedding": integrity.embedding_status(session, settings.embedding_model),
     }
+
+
+@router.get("/warmup")
+def health_warmup() -> JSONResponse:
+    """Force lazy Chroma init so connection errors surface on demand.
+
+    Chroma's client + chromadb import are deferred for fast startup (11.3); this
+    probe materializes them by creating all collections.
+    """
+    settings = get_settings()
+    from backend.rag.chroma_client import ChromaManager
+
+    try:
+        ChromaManager(path=settings.chroma_db_path).init_all_collections()
+        return JSONResponse(status_code=200, content={"warmed": True, "chroma": "ok"})
+    except Exception as exc:
+        logging.getLogger(__name__).exception("Chroma warmup failed")
+        return JSONResponse(
+            status_code=503, content={"warmed": False, "chroma": str(exc)}
+        )
 
 
 @router.get("/ollama")
