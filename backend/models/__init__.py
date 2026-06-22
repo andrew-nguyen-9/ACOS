@@ -5,6 +5,7 @@ from backend.models.project import Project
 from backend.models.skill import Skill, SkillEvidence, experience_skills_table, project_skills_table
 from backend.models.application import Application, ApplicationTimeline
 from backend.models.document import Document, IngestionLog
+from backend.models.ingestion_failure import IngestionFailure
 from backend.models.resume import Resume, ResumeTemplate, WritingProfile
 from backend.models.question import Question, Answer
 from backend.models.knowledge_graph import KnowledgeGraphNode, KnowledgeGraphEdge
@@ -32,6 +33,7 @@ __all__ = [
     "ApplicationTimeline",
     "Document",
     "IngestionLog",
+    "IngestionFailure",
     "Resume",
     "ResumeTemplate",
     "WritingProfile",

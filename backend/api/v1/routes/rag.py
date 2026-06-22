@@ -8,6 +8,7 @@ from backend.config import get_settings
 from backend.database import get_session
 from backend.rag.chroma_client import ChromaManager
 from backend.rag.embedder import Embedder
+from backend.rag.fallback import KeywordFallback
 from backend.rag.retriever import RAGRetriever
 from backend.rag.reranker import Reranker
 from backend.services.ollama_client import OllamaClient
@@ -29,5 +30,10 @@ def rag_query(body: QueryRequest, session: Session = Depends(get_session)):
     chroma = ChromaManager(path=settings.chroma_db_path)
     retriever = RAGRetriever(chroma, embedder)
     reranker = Reranker()
-    svc = RAGService(retriever, reranker, ollama if ollama.is_available() else None)
+    svc = RAGService(
+        retriever,
+        reranker,
+        ollama if ollama.is_available() else None,
+        fallback=KeywordFallback(session),
+    )
     return svc.query(body.query, intent=body.intent)

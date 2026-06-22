@@ -2,14 +2,20 @@ from __future__ import annotations
 
 import importlib
 import logging
+import time
 from pathlib import Path
+from typing import Callable
 
 from sqlalchemy.orm import Session
 
 from backend.ingestion import security
 from backend.ingestion.entity_extractor import EntityExtractor
+from backend.ingestion.errors import PermanentError, TransientError
 from backend.ingestion.normalizer import normalize
+from backend.ingestion.retry import retry
 from backend.models.document import Document
+from backend.models.ingestion_failure import IngestionFailure
+from backend.observability import log_operation
 from backend.rag.indexer import RAGIndexer
 from backend.repositories.document import DocumentRepository
 from backend.services.knowledge_graph.service import KnowledgeGraphService
@@ -123,6 +129,60 @@ class IngestionPipeline:
         doc.ingestion_status = "complete"
         self._session.flush()
         return doc.id
+
+    def ingest_safe(
+        self,
+        path: str,
+        *,
+        attempts: int = 3,
+        sleep: Callable[[float], None] = time.sleep,
+    ) -> dict:
+        """Resilient wrapper around :meth:`ingest`.
+
+        Retries transient failures with bounded backoff; dead-letters permanent
+        or exhausted failures to ``ingestion_failures`` and returns a structured
+        result instead of raising. Unknown exceptions are treated as permanent
+        (not retried) so a real bug is surfaced, not silently re-run.
+        """
+        try:
+            document_id = retry(
+                lambda: self.ingest(path),
+                attempts=attempts,
+                exc=(TransientError,),
+                sleep=sleep,
+            )
+            return {"status": "ok", "document_id": document_id}
+        except TransientError as exc:
+            return self._record_failure(path, exc, "transient", attempts)
+        except PermanentError as exc:
+            return self._record_failure(path, exc, "permanent", 1)
+        except Exception as exc:  # unknown — do not retry, treat as permanent
+            return self._record_failure(path, exc, "permanent", 1)
+
+    def _record_failure(
+        self, path: str, exc: BaseException, error_type: str, attempts: int
+    ) -> dict:
+        record = IngestionFailure(
+            path=path,
+            stage="ingest",
+            error_type=error_type,
+            message=str(exc),
+            attempts=attempts,
+        )
+        self._session.add(record)
+        self._session.flush()
+        log_operation(
+            "ingestion_failure",
+            path=path,
+            error_type=error_type,
+            attempts=attempts,
+            failure_id=record.id,
+        )
+        logger.warning(
+            "pipeline: dead-letter '%s' (%s, attempts=%d): %s",
+            path, error_type, attempts, exc,
+        )
+        return {"status": "failed", "error": str(exc), "failure_id": record.id}
 
     def _store_entities(self, doc: Document, entities: dict) -> None:
         doc_node = self._kg.get_or_create_node(

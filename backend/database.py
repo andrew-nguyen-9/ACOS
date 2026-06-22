@@ -55,6 +55,7 @@ def seed_system_config(session: Session) -> None:
     defaults = [
         ("default_model", "qwen3:8b", "Default Ollama model for generation"),
         ("embedding_model", "nomic-embed-text", "Ollama model for embeddings"),
+        ("embedding_schema_version", "1", "Embedding scheme version; bump on re-embed"),
         ("learning_trigger_count", "5", "Applications before learning refresh"),
         ("ats_keyword_weight", "0.35", "ATS scoring: keyword match weight"),
         ("ats_skill_weight", "0.25", "ATS scoring: skill match weight"),

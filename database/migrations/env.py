@@ -16,7 +16,9 @@ from backend.config import get_settings
 config = context.config
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # disable_existing_loggers=False: running migrations in-process (e.g. the
+    # roundtrip test) must not silence the app's already-configured loggers.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 target_metadata = Base.metadata
 

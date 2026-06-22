@@ -31,6 +31,13 @@ alembic downgrade -1                          # roll back one step
 ORM models in [`../backend/models/`](../backend/models/) are the source of truth for the
 schema; migrations make the database match them.
 
+## Migration rules
+
+**Every migration must define a working `downgrade()`.** This is enforced by
+`backend/tests/integration/test_migration_roundtrip.py`, which runs the full
+revision chain `upgrade head → downgrade base → upgrade head` on a temp DB. A
+migration that cannot be cleanly reversed will fail that test.
+
 ## Resetting local data
 
 `acos.db` and `chroma/` are regenerated from migrations + ingestion, so deleting them

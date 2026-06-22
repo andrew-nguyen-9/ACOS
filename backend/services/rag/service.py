@@ -23,14 +23,31 @@ _CONFIDENCE_PRIORITY: dict[str, int] = {"verified": 3, "strong_inference": 2, "w
 
 
 class RAGService:
-    def __init__(self, retriever, reranker, ollama_client) -> None:
+    def __init__(self, retriever, reranker, ollama_client, fallback=None) -> None:
         self._retriever = retriever
         self._reranker = reranker
         self._ollama = ollama_client
+        # Optional KeywordFallback (SQLite) used when the vector store is down.
+        self._fallback = fallback
 
     def query(self, query: str, intent: str = "knowledge_lookup") -> dict:
         collections = _INTENT_COLLECTIONS.get(intent, _INTENT_COLLECTIONS["knowledge_lookup"])
-        raw_results = self._retriever.retrieve(query, collections)
+
+        degraded_reason: str | None = None
+        try:
+            raw_results = self._retriever.retrieve(query, collections)
+        except Exception as exc:
+            raw_results = []
+            degraded_reason = f"vector store error: {exc}"
+
+        # Degrade to keyword fallback when the vector store errored or returned
+        # nothing and a fallback is wired.
+        if not raw_results and self._fallback is not None:
+            fb_evidence = self._fallback.search(query)
+            if fb_evidence:
+                reason = degraded_reason or "vector store unavailable or empty; keyword fallback"
+                return self._fallback_response(fb_evidence, reason)
+
         ranked = self._reranker.rerank(query, raw_results)
 
         context_parts = []
@@ -58,6 +75,7 @@ class RAGService:
                 "response": context[:500] if context else "No relevant context found.",
                 "evidence": evidence,
                 "confidence_summary": conf_summary,
+                "degraded": False,
             }
 
         prompt = (
@@ -73,6 +91,24 @@ class RAGService:
             "response": response,
             "evidence": evidence,
             "confidence_summary": conf_summary,
+            "degraded": False,
+        }
+
+    def _fallback_response(self, evidence: list[dict], reason: str) -> dict:
+        """Assemble a degraded result from SQLite keyword-fallback evidence."""
+        conf_summary = max(
+            (e.get("confidence", "weak_inference") for e in evidence[:5]),
+            key=lambda c: _CONFIDENCE_PRIORITY.get(c, 0),
+            default="no_evidence",
+        )
+        context = "\n\n".join(e["text"] for e in evidence[:15])
+        log_operation("rag_fallback", evidence=len(evidence), reason=reason)
+        return {
+            "response": context[:500] if context else "No relevant context found.",
+            "evidence": evidence,
+            "confidence_summary": conf_summary,
+            "degraded": True,
+            "degraded_reason": reason,
         }
 
     def _summarize_confidence(self, results: list[dict]) -> str:
