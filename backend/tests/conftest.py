@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Generator
 
 import pytest
 from fastapi import FastAPI
@@ -10,8 +10,24 @@ from sqlalchemy.orm import sessionmaker, Session
 
 import backend.models  # noqa: F401 — registers all models
 from backend.models.base import Base
-from backend.database import get_session
+from backend.database import get_async_session, get_session
 from backend.main import create_app
+
+
+class _SyncSessionBridge:
+    """Test shim for the 12.2 async boundary.
+
+    Production routes depend on ``get_async_session`` (an ``AsyncSession``) and do
+    DB work via ``await session.run_sync(fn)``. In tests we hand routes this bridge
+    so ``run_sync(fn)`` runs ``fn`` against the existing sync ``test_session`` — so
+    API requests and direct-repo tests share one in-memory DB, unchanged.
+    """
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    async def run_sync(self, fn, *args, **kwargs):
+        return fn(self._session, *args, **kwargs)
 
 
 def _enable_fk(dbapi_connection: object, _: object) -> None:
@@ -41,7 +57,7 @@ def test_engine():
 
 
 @pytest.fixture(scope="function")
-def test_session(test_engine) -> Session:
+def test_session(test_engine) -> Generator[Session, None, None]:
     """Database session backed by in-memory SQLite."""
     TestSession = sessionmaker(bind=test_engine, autocommit=False, autoflush=False)
     session = TestSession()
@@ -51,7 +67,7 @@ def test_session(test_engine) -> Session:
 
 
 @pytest.fixture(scope="function")
-def client(test_session) -> TestClient:
+def client(test_session) -> Generator[TestClient, None, None]:
     """FastAPI test client with DB dependency overridden and lifespan suppressed.
 
     The production lifespan calls init_db() and seed_system_config() against
@@ -74,7 +90,17 @@ def client(test_session) -> TestClient:
             test_session.rollback()
             raise
 
+    async def override_get_async_session():
+        bridge = _SyncSessionBridge(test_session)
+        try:
+            yield bridge
+            test_session.commit()
+        except Exception:
+            test_session.rollback()
+            raise
+
     app.dependency_overrides[get_session] = override_get_session
+    app.dependency_overrides[get_async_session] = override_get_async_session
 
     with TestClient(app, raise_server_exceptions=True) as c:
         yield c

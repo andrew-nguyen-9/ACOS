@@ -6,10 +6,11 @@ import tempfile
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
 from backend.config import get_settings
-from backend.database import get_session
+from backend.database import get_async_session
 from backend.ingestion.entity_extractor import EntityExtractor
 from backend.ingestion.pipeline import IngestionPipeline
 from backend.rag.chroma_client import ChromaManager
@@ -24,9 +25,9 @@ _ALLOWED_EXTENSIONS = {".txt", ".md", ".markdown", ".pdf", ".docx"}
 
 
 @router.post("/ingest")
-def ingest_file(
+async def ingest_file(
     file: UploadFile = File(...),
-    session: Session = Depends(get_session),
+    session: AsyncSession = Depends(get_async_session),
 ) -> dict:
     """Accept a file upload, run the ingestion pipeline, return the document ID."""
     settings = get_settings()
@@ -50,20 +51,22 @@ def ingest_file(
         embedder = Embedder(ollama, model=settings.embedding_model)
         chroma = ChromaManager(path=settings.chroma_db_path)
         indexer = RAGIndexer(chroma, embedder)
-        kg_svc = KnowledgeGraphService(session)
         extractor = EntityExtractor(
             ollama if ollama.is_available() else None
         )
 
-        pipeline = IngestionPipeline(
-            session=session,
-            kg_service=kg_svc,
-            indexer=indexer,
-            entity_extractor=extractor,
-            allowed_dirs=[tmpdir],
-        )
+        def _impl(s: Session) -> str:
+            pipeline = IngestionPipeline(
+                session=s,
+                kg_service=KnowledgeGraphService(s),
+                indexer=indexer,
+                entity_extractor=extractor,
+                allowed_dirs=[tmpdir],
+            )
+            return pipeline.ingest(str(dest))
+
         try:
-            doc_id = pipeline.ingest(str(dest))
+            doc_id = await session.run_sync(_impl)
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc))
 

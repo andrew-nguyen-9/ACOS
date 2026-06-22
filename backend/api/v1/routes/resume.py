@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
 from backend.config import Settings, get_settings
-from backend.database import get_session
+from backend.database import get_async_session
 from backend.rag.chroma_client import ChromaManager
 from backend.rag.embedder import Embedder
 from backend.rag.retriever import RAGRetriever
@@ -80,9 +81,9 @@ def analyze_ats(body: ATSRequest) -> dict[str, object]:
 
 
 @router.post("/resume/generate")
-def generate_resume(
+async def generate_resume(
     body: GenerateRequest,
-    session: Session = Depends(get_session),
+    session: AsyncSession = Depends(get_async_session),
 ) -> dict[str, object]:
     if body.template_name not in _VALID_TEMPLATES:
         raise HTTPException(
@@ -90,23 +91,26 @@ def generate_resume(
             detail=f"Invalid template: '{body.template_name}'. Valid options: {TEMPLATE_NAMES}",
         )
     settings = get_settings()
-    gen, _ = _build_deps(settings, session)
-    try:
+
+    def _impl(s: Session) -> dict:
+        gen, _ = _build_deps(settings, s)
         result = gen.generate(
             body.job_description, body.template_name, body.application_id,
             company=body.company, job_title=body.job_title,
         )
+        _emit_ats_metric(s, result, body.template_name)
+        return result
+
+    try:
+        return await session.run_sync(_impl)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
 
-    _emit_ats_metric(session, result, body.template_name)
-    return result
-
 
 @router.post("/resume/generate/download")
-def generate_resume_docx(
+async def generate_resume_docx(
     body: GenerateRequest,
-    session: Session = Depends(get_session),
+    session: AsyncSession = Depends(get_async_session),
 ) -> Response:
     if body.template_name not in _VALID_TEMPLATES:
         raise HTTPException(
@@ -114,16 +118,21 @@ def generate_resume_docx(
             detail=f"Invalid template: '{body.template_name}'. Valid options: {TEMPLATE_NAMES}",
         )
     settings = get_settings()
-    gen, exporter = _build_deps(settings, session)
-    try:
+
+    def _impl(s: Session) -> dict:
+        gen, exporter = _build_deps(settings, s)
         result = gen.generate(
             body.job_description, body.template_name, body.application_id,
             company=body.company, job_title=body.job_title,
         )
+        return {"content_json": result["content_json"], "exporter": exporter}
+
+    try:
+        payload = await session.run_sync(_impl)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     contact = load_contact(default_contact_path())
-    docx_bytes = exporter.export(result["content_json"], body.template_name, contact_info=contact)
+    docx_bytes = payload["exporter"].export(payload["content_json"], body.template_name, contact_info=contact)
     return Response(
         content=docx_bytes,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",

@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
 from backend.config import get_settings
-from backend.database import get_session
+from backend.database import get_async_session
 from backend.rag.chroma_client import ChromaManager
 from backend.rag.embedder import Embedder
 from backend.rag.fallback import KeywordFallback
@@ -49,11 +50,14 @@ def _build_copilot(session: Session) -> CopilotEngine:
 
 
 @router.post("/copilot/chat")
-def copilot_chat(
-    body: ChatRequest, session: Session = Depends(get_session)
+async def copilot_chat(
+    body: ChatRequest, session: AsyncSession = Depends(get_async_session)
 ) -> dict:
-    engine = _build_copilot(session)
-    return engine.chat(body.message, conversation_history=body.conversation_history)
+    def _impl(s: Session) -> dict:
+        engine = _build_copilot(s)
+        return engine.chat(body.message, conversation_history=body.conversation_history)
+
+    return await session.run_sync(_impl)
 
 
 @router.get("/copilot/intents")

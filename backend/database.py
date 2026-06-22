@@ -93,6 +93,10 @@ def reset_engine() -> None:
     """
     global engine, SessionLocal, async_engine, AsyncSessionLocal
     engine.dispose()
+    # Drop the async pool too: it holds aiosqlite handles to the same file, so a
+    # restore swap would otherwise leave async request paths on the stale inode.
+    # sync_engine.dispose() closes the adapted DBAPI connections synchronously.
+    async_engine.sync_engine.dispose()
     engine = build_engine()
     SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
     async_engine = build_async_engine()

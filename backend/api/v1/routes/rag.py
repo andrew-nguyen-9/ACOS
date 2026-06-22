@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
 from backend.config import get_settings
-from backend.database import get_session
+from backend.database import get_async_session
 from backend.rag.chroma_client import ChromaManager
 from backend.rag.embedder import Embedder
 from backend.rag.fallback import KeywordFallback
@@ -24,22 +25,26 @@ class QueryRequest(BaseModel):
 
 
 @router.post("/rag/query")
-def rag_query(body: QueryRequest, session: Session = Depends(get_session)):
+async def rag_query(body: QueryRequest, session: AsyncSession = Depends(get_async_session)):
     settings = get_settings()
     ollama = OllamaClient(base_url=settings.ollama_base_url)
     embedder = Embedder(ollama, model=settings.embedding_model)
     chroma = ChromaManager(path=settings.chroma_db_path)
     retriever = RAGRetriever(chroma, embedder)
     reranker = Reranker()
-    svc = RAGService(
-        retriever,
-        reranker,
-        ollama if ollama.is_available() else None,
-        fallback=KeywordFallback(session),
-    )
-    result = svc.query(body.query, intent=body.intent)
-    _emit_retrieval_metric(session, result)
-    return result
+
+    def _impl(s: Session) -> dict:
+        svc = RAGService(
+            retriever,
+            reranker,
+            ollama if ollama.is_available() else None,
+            fallback=KeywordFallback(s),
+        )
+        result = svc.query(body.query, intent=body.intent)
+        _emit_retrieval_metric(s, result)
+        return result
+
+    return await session.run_sync(_impl)
 
 
 def _emit_retrieval_metric(session: Session, result: dict) -> None:

@@ -3,10 +3,11 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
 from backend.config import Settings, get_settings
-from backend.database import get_session
+from backend.database import get_async_session
 from backend.rag.chroma_client import ChromaManager
 from backend.rag.embedder import Embedder
 from backend.rag.retriever import RAGRetriever
@@ -54,40 +55,47 @@ def _build_generator(settings: Settings, session: Session) -> QuestionGenerator:
 
 
 @router.post("/questions/generate")
-def generate_questions(
-    body: GenerateQuestionsRequest, session: Session = Depends(get_session)
+async def generate_questions(
+    body: GenerateQuestionsRequest, session: AsyncSession = Depends(get_async_session)
 ) -> dict:
-    gen = _build_generator(get_settings(), session)
-    return {
-        "questions": gen.generate_questions(
-            body.job_description,
-            company=body.company,
-            position=body.position,
-            industry=body.industry,
-            tech_stack=body.tech_stack,
-            application_id=body.application_id,
-        )
-    }
+    def _impl(s: Session) -> dict:
+        gen = _build_generator(get_settings(), s)
+        return {
+            "questions": gen.generate_questions(
+                body.job_description,
+                company=body.company,
+                position=body.position,
+                industry=body.industry,
+                tech_stack=body.tech_stack,
+                application_id=body.application_id,
+            )
+        }
+
+    return await session.run_sync(_impl)
 
 
 @router.post("/questions/{question_id}/answer")
-def generate_answer(
+async def generate_answer(
     question_id: str,
     body: GenerateAnswerRequest,
-    session: Session = Depends(get_session),
+    session: AsyncSession = Depends(get_async_session),
 ) -> dict:
     if body.length_target not in _VALID_LENGTHS:
         raise HTTPException(
             status_code=422, detail=f"Invalid length_target '{body.length_target}'"
         )
-    gen = _build_generator(get_settings(), session)
-    try:
+
+    def _impl(s: Session) -> dict:
+        gen = _build_generator(get_settings(), s)
         return gen.generate_answer(
             question_id=question_id,
             variables=body.variables,
             application_id=body.application_id,
             length_target=body.length_target,
         )
+
+    try:
+        return await session.run_sync(_impl)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
     except IntegrityError:
@@ -95,57 +103,66 @@ def generate_answer(
 
 
 @router.patch("/questions/{question_id}/answers/{answer_id}")
-def edit_answer(
+async def edit_answer(
     question_id: str,
     answer_id: str,
     body: EditAnswerRequest,
-    session: Session = Depends(get_session),
+    session: AsyncSession = Depends(get_async_session),
 ) -> dict:
-    gen = _build_generator(get_settings(), session)
-    try:
+    def _impl(s: Session) -> dict:
+        gen = _build_generator(get_settings(), s)
         return gen.edit_answer(
             answer_id=answer_id,
             edited_text=body.edited_text,
             diff_summary=body.diff_summary,
         )
+
+    try:
+        return await session.run_sync(_impl)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
 
 
 @router.get("/questions")
-def list_questions(
-    category: str | None = None, session: Session = Depends(get_session)
+async def list_questions(
+    category: str | None = None, session: AsyncSession = Depends(get_async_session)
 ) -> list[dict]:
-    q_repo = QuestionRepository(session)
-    questions = q_repo.get_by_category(category) if category else q_repo.list()
-    return [
-        {
-            "id": q.id,
-            "question_template": q.question_template,
-            "category": q.category,
-            "variables": q.variables,
-        }
-        for q in questions
-    ]
+    def _impl(s: Session) -> list[dict]:
+        q_repo = QuestionRepository(s)
+        questions = q_repo.get_by_category(category) if category else q_repo.list()
+        return [
+            {
+                "id": q.id,
+                "question_template": q.question_template,
+                "category": q.category,
+                "variables": q.variables,
+            }
+            for q in questions
+        ]
+
+    return await session.run_sync(_impl)
 
 
 @router.get("/questions/{question_id}/answers")
-def list_answers(
-    question_id: str, session: Session = Depends(get_session)
+async def list_answers(
+    question_id: str, session: AsyncSession = Depends(get_async_session)
 ) -> list[dict]:
-    q_repo = QuestionRepository(session)
-    if q_repo.get(question_id) is None:
-        raise HTTPException(status_code=404, detail="Question not found")
-    a_repo = AnswerRepository(session)
-    answers = a_repo.get_by_question(question_id)
-    return [
-        {
-            "id": a.id,
-            "original_answer": a.original_answer,
-            "edited_answer": a.edited_answer,
-            "confidence_level": a.confidence_level,
-            "evidence_ids": a.evidence_ids,
-            "created_at": a.created_at,
-        }
-        for a in answers
-    ]
+    def _impl(s: Session) -> list[dict]:
+        q_repo = QuestionRepository(s)
+        if q_repo.get(question_id) is None:
+            raise HTTPException(status_code=404, detail="Question not found")
+        a_repo = AnswerRepository(s)
+        answers = a_repo.get_by_question(question_id)
+        return [
+            {
+                "id": a.id,
+                "original_answer": a.original_answer,
+                "edited_answer": a.edited_answer,
+                "confidence_level": a.confidence_level,
+                "evidence_ids": a.evidence_ids,
+                "created_at": a.created_at,
+            }
+            for a in answers
+        ]
+
+    return await session.run_sync(_impl)
