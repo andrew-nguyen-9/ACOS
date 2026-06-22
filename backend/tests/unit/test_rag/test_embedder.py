@@ -6,6 +6,7 @@ from backend.rag.embedder import Embedder
 def _make_embedder() -> tuple[Embedder, MagicMock]:
     mock_client = MagicMock()
     mock_client.embed.return_value = [0.1] * 768
+    mock_client.embed_batch.side_effect = lambda model, texts: [[0.1] * 768 for _ in texts]
     return Embedder(ollama_client=mock_client, model="nomic-embed-text"), mock_client
 
 
@@ -21,7 +22,8 @@ def test_embed_batch_returns_one_vector_per_text():
     texts = ["a", "b", "c"]
     results = embedder.embed_batch(texts)
     assert len(results) == 3
-    assert mock_client.embed.call_count == 3
+    # one batched call (≤128), not one call per text
+    assert mock_client.embed_batch.call_count == 1
 
 
 def test_embed_batch_empty_returns_empty():

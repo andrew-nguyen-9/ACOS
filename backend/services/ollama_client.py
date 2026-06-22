@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 _GENERATE_PATH = "/api/generate"
 _EMBED_PATH = "/api/embeddings"
+_EMBED_BATCH_PATH = "/api/embed"  # plural-response batch endpoint (distinct from /api/embeddings)
 _TAGS_PATH = "/api/tags"
 
 # 12.5 calibration defaults. num_thread pins to the M1 performance-core count;
@@ -189,6 +190,23 @@ class OllamaClient:
         )
         resp.raise_for_status()
         return resp.json()["embedding"]
+
+    def embed_batch(self, model: str, texts: list[str]) -> list[list[float]]:
+        """Embed a list of texts in one round trip via POST /api/embed.
+
+        Distinct from :meth:`embed`: `/api/embed` takes `input: [list]` and
+        returns `embeddings: [[...]]` (plural), one vector per input in order.
+        An empty list makes no HTTP call (an empty `input` is a 400).
+        """
+        if not texts:
+            return []
+        resp = httpx.post(
+            f"{self._base_url}{_EMBED_BATCH_PATH}",
+            json={"model": model, "input": texts, "keep_alive": self._keep_alive},
+            timeout=self._timeout,
+        )
+        resp.raise_for_status()
+        return resp.json()["embeddings"]
 
     def unload(self, model: str) -> None:
         """Fire-and-forget: free a model's RAM via keep_alive:0 (empty prompt).
