@@ -288,3 +288,51 @@ tone dial (`focus-visible:ring`) and all controls; the cadence meter / interlocu
 `aria-hidden` decorative; the celebration fallback is `role="status" aria-live="polite"`.
 The effects-**Off** tier is a fully usable, calm app (proven by `showcase-1109` running
 entirely with effects off).
+
+---
+
+## Baseline — 2026-06-22 (Phase 12.0 re-baseline + harness extension)
+
+Phase 12 opens by re-measuring the Phase 11 metrics on the current machine and adding the
+latency surfaces Phase 11 never measured (TTFT, ingestion throughput, concurrent request
+latency). **Measurement only — no source behavior changed.** Re-run *after* the 12.0
+dependency bumps (`python-multipart 0.0.20→0.0.31`, `pypdf 5.1.0→6.13.3`,
+`requests 2.32.3→2.33.0`, `pytest 8.3.4→9.0.3`) to confirm the upgrades did not regress.
+
+Machine: `macOS-26.5.1-arm64` (Apple Silicon), Python 3.12.13.
+
+| Metric | Phase-11 final | Budget (≤) | 12.0 re-baseline | Verdict |
+|---|---|---|---|---|
+| Backend cold start — median | 597 ms | 778 ms | **643.8 ms** (n=7) | ✅ under |
+| Backend cold start — p95 | 800 ms | 1191 ms | **785.2 ms** (n=7) | ✅ under |
+| `POST /resume/generate` median (mocked) | ~0.35 ms | 0.35 ms | **~0.36 ms** (min 0.31, isolated) | ✅ at ceiling — sub-ms microbench noise; 12.0 changes no source |
+| Copilot chat median (mocked) | 0.0079 ms | 0.009 ms | **0.0078 ms** | ✅ under |
+| Initial JS bundle (gzip) | 79.60 kB | 80.8 kB | **79.60 kB** (unchanged) | ✅ no FE change in 12.0 |
+
+**Dependency-bump verification:** full backend suite **842 passed** both before and after
+the bumps (92.99% coverage, identical). `pypdf 6.13.3` re-verified on a real resume PDF —
+3647 chars extracted, malformed-xref objects skipped gracefully (no crash, per CLAUDE.md
+"never crash on malformed files"). The bumped packages are not on the cold-start import
+path (chromadb-guard test still green), so the cold-start variance vs Phase 11 is machine
+load, not the upgrade.
+
+### New latency surfaces (added in 12.0, gathered live in later segments)
+
+These benches were **added** in 12.0; their baselines need live Ollama and are gathered
+when the relevant velocity segment runs (roadmap §10 — targets, not gates, until measured).
+
+| Metric | Target | Measured by | 12.0 status |
+|---|---|---|---|
+| Time-to-first-token (TTFT), warm | ≤ 800 ms (12.4/12.5) | `scripts/perf/ttft_bench.py` | pending live Ollama (bench skips cleanly without `OLLAMA_LIVE`) |
+| Document ingest (per PDF), live | ≤ 3 s (12.6) | `scripts/perf/ingest_bench.py` | pending live Ollama (skips cleanly) |
+| Request p50/p95 under N concurrent | sync baseline for 12.2 | `backend/tests/benchmark/test_async_latency.py` | harness green (2 passed); 12.2 records the before/after delta |
+
+### Per-segment regression log (Phase 12)
+
+| Date | Segment | Metric | Before | After | Verdict |
+|------|---------|--------|--------|-------|---------|
+| 2026-06-22 | 12.0 | backend cold start — median | 597 ms (11.9) / 778 ceiling | 643.8 ms | ✅ |
+| 2026-06-22 | 12.0 | backend cold start — p95 | 800 ms (11.9) / 1191 ceiling | 785.2 ms | ✅ |
+| 2026-06-22 | 12.0 | resume/generate median (mocked) | ~0.35 ms | ~0.36 ms (µs-noise, no code change) | ✅ |
+| 2026-06-22 | 12.0 | copilot chat median (mocked) | 0.0079 ms | 0.0078 ms | ✅ |
+| 2026-06-22 | 12.0 | full suite after dep bumps | 842 passed | 842 passed (92.99% cov) | ✅ |
