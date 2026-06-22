@@ -62,6 +62,7 @@ fresh session should be able to open a single segment spec and start work with m
 | 12.7 | FTS5 lexical search (replace Python BM25) | Velocity | `…-phase-12-7-fts5-lexical.md` |
 | 12.8 | Advanced inference spikes (GBNF / logit bias / spec-decoding) — optional | Velocity | `…-phase-12-8-inference-spikes.md` |
 | 12.9 | Architecture spikes (msgpack IPC / FAISS / PyO3 / Nuitka) — research | Velocity | `…-phase-12-9-architecture-spikes.md` |
+| 12.9.1–x | Conditional architecture *implementation* (speculative; activated by 12.9 verdicts) | Velocity | `…-phase-12-9-implementation-speculative.md` |
 | 12.10 | Local feedback-loop engine | Flywheel | `…-phase-12-10-local-feedback-loop.md` |
 | 12.11 | Skill ROI engine | Flywheel | `…-phase-12-11-skill-roi-engine.md` |
 | 12.12 | Resume strategy intelligence layer | Flywheel | `…-phase-12-12-resume-strategy-intelligence.md` |

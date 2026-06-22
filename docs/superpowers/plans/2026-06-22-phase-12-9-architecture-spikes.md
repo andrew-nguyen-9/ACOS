@@ -36,8 +36,8 @@ high-effort, high-risk, and unproven for our scale. We spike, benchmark, and wri
 
 - [ ] Each spike has a reproducible micro-benchmark + a numbers table in a findings doc.
 - [ ] Each spike ends in **adopt / defer / reject** with rationale.
-- [ ] Any "adopt" produces an ADR (e.g. ADR-010 IPC format) and a *follow-up* segment proposal — it is
-      not implemented inline.
+- [ ] Any "adopt" produces an ADR (e.g. ADR-010 IPC format) and activates its conditional sub-segment in
+      `2026-06-22-phase-12-9-implementation-speculative.md` (12.9.1–12.9.x) — it is **not** implemented inline.
 - [ ] Default production stack (HTTP-JSON, Chroma, PyInstaller, FastAPI) remains unchanged unless an ADR says otherwise.
 
 ## 5. Design
