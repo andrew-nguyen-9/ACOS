@@ -12,6 +12,7 @@ from backend.rag.retriever import RAGRetriever
 from backend.rag.reranker import Reranker
 from backend.services.ats.keyword_extractor import KeywordExtractor
 from backend.services.ats.scorer import ATSScorer
+from backend.services.observability.metrics import MetricsStore
 from backend.services.ollama_client import OllamaClient
 from backend.services.prompt_loader import PromptLoader
 from backend.services.resume.docx_exporter import ResumeDOCXExporter
@@ -23,6 +24,19 @@ from backend.services.profile.contact_loader import default_contact_path, load_c
 router = APIRouter(tags=["resume"])
 
 _VALID_TEMPLATES = set(TEMPLATE_NAMES)
+
+
+def _emit_ats_metric(session: Session, result: dict, template: str) -> None:
+    """Best-effort: record the generated resume's ATS score for drift tracking.
+
+    Telemetry must never fail a generation, so swallow any error.
+    """
+    try:
+        score = result.get("ats_score", {}).get("overall_score")
+        if score is not None:
+            MetricsStore(session).record("ats_score", float(score), {"template": template})
+    except Exception:
+        pass
 
 
 class ATSRequest(BaseModel):
@@ -78,12 +92,15 @@ def generate_resume(
     settings = get_settings()
     gen, _ = _build_deps(settings, session)
     try:
-        return gen.generate(
+        result = gen.generate(
             body.job_description, body.template_name, body.application_id,
             company=body.company, job_title=body.job_title,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
+
+    _emit_ats_metric(session, result, body.template_name)
+    return result
 
 
 @router.post("/resume/generate/download")

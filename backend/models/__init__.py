@@ -14,6 +14,7 @@ from backend.models.optimization import (
     OptimizationProposal, OptimizationLog, PromptVersion, ABExperiment, ABVariant,
 )
 from backend.models.generation import GenerationLog
+from backend.models.metric import Metric
 from backend.models.system_config import SystemConfig
 from backend.models.memory import Memory
 
@@ -48,6 +49,7 @@ __all__ = [
     "ABExperiment",
     "ABVariant",
     "GenerationLog",
+    "Metric",
     "SystemConfig",
     "Memory",
 ]

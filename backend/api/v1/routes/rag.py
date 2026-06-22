@@ -11,6 +11,7 @@ from backend.rag.embedder import Embedder
 from backend.rag.fallback import KeywordFallback
 from backend.rag.retriever import RAGRetriever
 from backend.rag.reranker import Reranker
+from backend.services.observability.metrics import MetricsStore
 from backend.services.ollama_client import OllamaClient
 from backend.services.rag.service import RAGService
 
@@ -36,4 +37,19 @@ def rag_query(body: QueryRequest, session: Session = Depends(get_session)):
         ollama if ollama.is_available() else None,
         fallback=KeywordFallback(session),
     )
-    return svc.query(body.query, intent=body.intent)
+    result = svc.query(body.query, intent=body.intent)
+    _emit_retrieval_metric(session, result)
+    return result
+
+
+def _emit_retrieval_metric(session: Session, result: dict) -> None:
+    """Best-effort: record mean top-5 evidence similarity for drift tracking."""
+    try:
+        scores = [e.get("similarity_score", 0.0) for e in result.get("evidence", [])[:5]]
+        if scores:
+            MetricsStore(session).record(
+                "retrieval_quality", sum(scores) / len(scores),
+                {"degraded": result.get("degraded", False)},
+            )
+    except Exception:
+        pass

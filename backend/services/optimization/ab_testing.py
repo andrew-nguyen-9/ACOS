@@ -24,6 +24,39 @@ class ABTestingService:
         self._session.flush()
         return exp
 
+    def create_prompt_experiment(
+        self,
+        name: str,
+        target_engine: str,
+        prompt_name: str,
+        version_a: str,
+        version_b: str,
+    ) -> ABExperiment:
+        """A/B two prompt versions; identity stored in each variant's config."""
+        return self.create_experiment(
+            name,
+            target_engine,
+            {"prompt_name": prompt_name, "version": version_a},
+            {"prompt_name": prompt_name, "version": version_b},
+        )
+
+    def comparison(self, experiment_id: str) -> dict:
+        """Per-variant outcomes (incl. prompt identity from config) + rates."""
+        rows = []
+        for v in self._var.list_for_experiment(experiment_id):
+            config = json.loads(v.config_json) if v.config_json else {}
+            rate = round(v.conversions / v.impressions, 4) if v.impressions else 0.0
+            rows.append({
+                "id": v.id,
+                "label": v.label,
+                "prompt_name": config.get("prompt_name"),
+                "version": config.get("version"),
+                "impressions": v.impressions,
+                "conversions": v.conversions,
+                "conversion_rate": rate,
+            })
+        return {"experiment_id": experiment_id, "variants": rows}
+
     def record_impression(self, variant_id: str) -> None:
         v = self._var.get(variant_id)
         if v is None:
