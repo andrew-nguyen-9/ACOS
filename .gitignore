@@ -34,6 +34,8 @@ frontend/dist/
 
 # ── Databases & vector store — runtime data, not source ──
 *.db
+*.db-shm
+*.db-wal
 *.sqlite3
 # ChromaDB persistent store (backend + any stray copies)
 **/chroma/
