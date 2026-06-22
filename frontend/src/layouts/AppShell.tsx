@@ -8,6 +8,8 @@ import { ROUTES } from "@/routes";
 import { warmRoute } from "@/services/prefetch";
 import MaterialBackground from "@/webgl/MaterialBackground";
 import CelebrationFallback from "@/components/CelebrationFallback";
+import { PageSkeleton } from "@/components/ui/Skeleton";
+import { useBackendReady } from "@/hooks/useBackendReady";
 
 // Material proxy (PERF-AC-002): a STATIC, pre-blurred aurora instead of a live
 // `backdrop-filter: blur(60px)`. Soft radial gradients are inherently "blurred",
@@ -20,6 +22,11 @@ const AURORA =
 
 export default function AppShell({ children }: { children: ReactNode }) {
   const [degraded, setDegraded] = useState<{ degraded: boolean; message: string } | null>(null);
+  // Sidecar warmup (12.3): the shell chrome paints within the first frame; the
+  // content area shows a skeleton until /health binds, then swaps to live. Never
+  // flashes an error here — the hook holds "loading" through the warmup budget,
+  // and App.tsx owns the terminal "backend unreachable" screen.
+  const backend = useBackendReady();
 
   useEffect(() => {
     const check = async () => {
@@ -109,7 +116,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
                 {degraded.message}
               </div>
             )}
-            <div className="flex-1 overflow-auto">{children}</div>
+            <div className="flex-1 overflow-auto">
+              {backend === "ready" ? children : <PageSkeleton />}
+            </div>
           </main>
         </div>
       </div>
