@@ -107,6 +107,27 @@ test("streamSSE surfaces a leading meta event via onMeta without yielding it", a
   expect(meta).toEqual({ confidence: "strong_inference", citations: [] });
 });
 
+test("streamSSE skips a malformed data line instead of aborting the stream", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(() =>
+      Promise.resolve(
+        sseResponse([
+          'data: {"delta": "a"}\n\n',
+          "data: not-json\n\n", // corrupt frame — must be tolerated
+          'data: {"delta": "b"}\n\n',
+          'data: {"done": true}\n\n',
+        ])
+      )
+    )
+  );
+
+  const out: string[] = [];
+  for await (const d of streamSSE("/x", {})) out.push(d);
+
+  expect(out).toEqual(["a", "b"]); // bad line skipped, stream survives
+});
+
 test("streamSSE throws when the stream sends an error frame mid-flight", async () => {
   vi.stubGlobal(
     "fetch",

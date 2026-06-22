@@ -45,7 +45,12 @@ export async function* streamSSE(
         const event = buffer.slice(0, sep).trim();
         buffer = buffer.slice(sep + 2);
         if (!event.startsWith("data:")) continue;
-        const payload = JSON.parse(event.slice("data:".length).trim());
+        let payload;
+        try {
+          payload = JSON.parse(event.slice("data:".length).trim());
+        } catch {
+          continue; // tolerate a malformed line, like the backend's NDJSON parser
+        }
         if (payload.error) throw new ApiError(500, payload.error);
         if (payload.meta !== undefined) {
           onMeta?.(payload.meta); // leading non-token event (e.g. citations)

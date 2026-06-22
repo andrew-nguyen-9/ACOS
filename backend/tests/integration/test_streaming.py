@@ -129,6 +129,51 @@ def test_copilot_stream_route_emits_sse_events(client, monkeypatch):
     assert frames[-1] == {"done": True}
 
 
+def test_copilot_stream_fallback_emits_ready_answer_not_empty_delta(client, monkeypatch):
+    """When RAG returns a ready answer (prompt=None), stream it; never an empty delta."""
+    from backend.services.copilot.engine import CopilotEngine
+
+    monkeypatch.setattr(
+        CopilotEngine,
+        "prepare",
+        lambda self, message, conversation_history=None: (
+            None,  # degraded/fallback: no LLM prompt, answer is ready in base
+            {"response": "Keyword fallback answer.", "intent": "knowledge_lookup",
+             "confidence": "weak_inference", "citations": [], "evidence_count": 0},
+        ),
+    )
+
+    with client.stream("POST", "/api/v1/copilot/chat/stream", json={"message": "hi"}) as r:
+        body = "".join(r.iter_text())
+
+    frames = [json.loads(line[len("data: ") :]) for line in body.strip().split("\n\n")]
+    deltas = [f["delta"] for f in frames if "delta" in f]
+    assert deltas == ["Keyword fallback answer."]  # one real delta, no empty frame
+    assert frames[-1] == {"done": True}
+
+
+def test_copilot_stream_empty_fallback_emits_no_delta(client, monkeypatch):
+    """A truly empty fallback yields meta + done only — no blank-bubble delta."""
+    from backend.services.copilot.engine import CopilotEngine
+
+    monkeypatch.setattr(
+        CopilotEngine,
+        "prepare",
+        lambda self, message, conversation_history=None: (
+            None,
+            {"response": "", "intent": "knowledge_lookup", "confidence": "no_evidence",
+             "citations": [], "evidence_count": 0},
+        ),
+    )
+
+    with client.stream("POST", "/api/v1/copilot/chat/stream", json={"message": "hi"}) as r:
+        body = "".join(r.iter_text())
+
+    frames = [json.loads(line[len("data: ") :]) for line in body.strip().split("\n\n")]
+    assert not any("delta" in f for f in frames)  # no empty delta frame
+    assert frames[-1] == {"done": True}
+
+
 def test_copilot_stream_logs_completion_only_after_full_drain(client, monkeypatch):
     """on_complete (the persist seam) fires on clean finish, with a terminal `done`."""
     _stub_copilot(monkeypatch, ["one", "two", "three"])

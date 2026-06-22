@@ -205,8 +205,26 @@ export default function CopilotPage() {
           updateLast((m) => ({ ...m, content: m.content + delta }));
         }
       }
-      // Backfill meta.response so downstream consumers see the full answer text.
-      updateLast((m) => (m.meta ? { ...m, meta: { ...m.meta, response: m.content } } : m));
+      // A clean abort ends the generator WITHOUT throwing (streamSSE returns on
+      // signal.aborted), so a superseded turn reaches here, not the catch. Bail
+      // before touching state that now belongs to the newer generation.
+      if (controllerRef.current !== controller) return;
+      if (!started) {
+        // No visible tokens (reasoning-only budget, or empty fallback) — show a
+        // graceful answer instead of leaving the user turn unanswered.
+        setLoading(false);
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: meta?.response || "I couldn't find anything to answer that. Try rephrasing.",
+            meta,
+          },
+        ]);
+      } else {
+        // Backfill meta.response so downstream consumers see the full answer text.
+        updateLast((m) => (m.meta ? { ...m, meta: { ...m.meta, response: m.content } } : m));
+      }
       haptics.success();
     } catch {
       if (controller.signal.aborted) return; // superseded by a newer send — stay quiet

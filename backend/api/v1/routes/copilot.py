@@ -91,7 +91,9 @@ async def copilot_chat_stream(
 
     async def _tokens():
         if prompt is None:
-            yield base.get("response", "")  # fallback/degraded: emit the ready answer
+            ready = base.get("response", "")  # fallback/degraded: the answer is ready
+            if ready:
+                yield ready  # don't frame an empty delta → blank bubble
             return
         async for delta in ollama.generate_stream(
             model=RAG_MODEL, prompt=prompt, temperature=0.3, system=RAG_SYSTEM
