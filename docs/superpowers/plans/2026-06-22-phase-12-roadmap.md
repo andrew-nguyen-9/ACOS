@@ -52,7 +52,7 @@ fresh session should be able to open a single segment spec and start work with m
 
 | Seg | Title | Track | Spec file |
 |-----|-------|-------|-----------|
-| 12.0 | Foundation: perf harness + token-efficient workflow | Shared | `…-phase-12-0-foundation-velocity-harness.md` |
+| 12.0 | Foundation: perf harness + token-efficient workflow + Dependabot triage | Shared | `…-phase-12-0-foundation-velocity-harness.md` |
 | 12.1 | SQLite hot-path pragmas (WAL / synchronous / mmap) | Velocity | `…-phase-12-1-sqlite-pragmas.md` |
 | 12.2 | Async runtime (uvloop + aiosqlite + async sessions) | Velocity | `…-phase-12-2-async-runtime.md` |
 | 12.3 | Cold-start (lazy imports + single-worker + sidecar warmup) | Velocity | `…-phase-12-3-cold-start.md` |
