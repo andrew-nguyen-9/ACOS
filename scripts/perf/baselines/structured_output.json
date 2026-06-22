@@ -1,0 +1,25 @@
+{
+  "metric": "structured_output_valid_json_rate",
+  "note": "entity-extraction prompt: raw-response JSON validity, flag off vs on",
+  "date": "2026-06-22",
+  "model": "qwen3:8b",
+  "n": 12,
+  "baseline_flag_off": {
+    "valid_json": 2,
+    "parse_errors": 0,
+    "timeouts": 10,
+    "failures": 10,
+    "n": 12
+  },
+  "structured_flag_on": {
+    "valid_json": 12,
+    "parse_errors": 0,
+    "timeouts": 0,
+    "failures": 0,
+    "n": 12
+  },
+  "machine": {
+    "platform": "macOS-26.5.1-arm64-arm-64bit",
+    "python": "3.12.13"
+  }
+}

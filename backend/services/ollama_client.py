@@ -102,6 +102,7 @@ class OllamaClient:
         operation: Operation = Operation.DEFAULT,
         prompt_tokens: int | None = None,
         think: bool | None = None,
+        output_format: dict | None = None,
     ) -> str:
         payload: dict = {
             "model": model,
@@ -120,6 +121,10 @@ class OllamaClient:
             payload["system"] = system
         if think is not None:
             payload["think"] = think
+        # 12.8 Spike A: top-level `format` = JSON Schema (Ollama structured output,
+        # not GBNF) — constrains output to valid JSON. Threaded like `think`.
+        if output_format is not None:
+            payload["format"] = output_format
 
         resp = httpx.post(
             f"{self._base_url}{_GENERATE_PATH}",
@@ -140,6 +145,7 @@ class OllamaClient:
         operation: Operation = Operation.DEFAULT,
         prompt_tokens: int | None = None,
         think: bool | None = None,
+        output_format: dict | None = None,
     ) -> AsyncIterator[str]:
         """Yield token deltas from Ollama's streaming /api/generate (stream=True).
 
@@ -165,6 +171,10 @@ class OllamaClient:
             payload["system"] = system
         if think is not None:
             payload["think"] = think
+        # ponytail: symmetric with generate(); no streaming-JSON caller today
+        # (12.4 copilot stream is prose), but keeps the two paths from diverging.
+        if output_format is not None:
+            payload["format"] = output_format
 
         async with httpx.AsyncClient(timeout=self._timeout) as client:
             async with client.stream(

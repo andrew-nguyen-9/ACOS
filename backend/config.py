@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     default_model: str = "qwen3:8b"
     embedding_model: str = "nomic-embed-text"
 
+    # 12.8 Spike A — structured output (Ollama `format` = JSON Schema) on the
+    # JSON-extraction routes. Default off (spec called this ENABLE_GBNF; renamed
+    # because Ollama uses JSON-Schema `format`, not GBNF grammar files).
+    enable_structured_output: bool = False
+
     # Learning
     learning_trigger_count: int = 5
 

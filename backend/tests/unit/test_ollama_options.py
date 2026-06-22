@@ -67,6 +67,48 @@ def test_generate_threads_think_when_set() -> None:
     assert sent["think"] is False
 
 
+# ---------- structured output (12.8 Spike A) ----------
+
+_SCHEMA = {"type": "object", "properties": {"x": {"type": "integer"}}, "required": ["x"]}
+
+
+@respx.mock
+def test_generate_threads_format_when_set() -> None:
+    route = respx.post(f"{_BASE}/api/generate").mock(
+        return_value=httpx.Response(200, json={"response": '{"x": 1}'})
+    )
+    OllamaClient(base_url=_BASE).generate(
+        model="qwen3:8b", prompt="p", output_format=_SCHEMA
+    )
+    sent = json.loads(route.calls.last.request.content)
+    assert sent["format"] == _SCHEMA
+
+
+@respx.mock
+def test_generate_omits_format_by_default() -> None:
+    route = respx.post(f"{_BASE}/api/generate").mock(
+        return_value=httpx.Response(200, json={"response": "hi"})
+    )
+    OllamaClient(base_url=_BASE).generate(model="qwen3:8b", prompt="p")
+    sent = json.loads(route.calls.last.request.content)
+    assert "format" not in sent
+
+
+@respx.mock
+async def test_generate_stream_threads_format_when_set() -> None:
+    route = respx.post(f"{_BASE}/api/generate").mock(
+        return_value=httpx.Response(200, content='{"response": "hi", "done": true}\n')
+    )
+    _ = [
+        c
+        async for c in OllamaClient(base_url=_BASE).generate_stream(
+            model="qwen3:8b", prompt="p", output_format=_SCHEMA
+        )
+    ]
+    sent = json.loads(route.calls.last.request.content)
+    assert sent["format"] == _SCHEMA
+
+
 # ---------- unload ----------
 
 @respx.mock
