@@ -41,6 +41,9 @@ frontend/dist/
 **/chroma/
 # stray runtime DB copy under frontend — should not be versioned
 frontend/database/
+# Backup snapshots (Phase 11.4) — local-only restore points, never versioned
+database/backups/*/
+!database/backups/.gitkeep
 
 # ── Test / coverage output ──────────────────────────────
 .coverage

@@ -17,6 +17,7 @@ from backend.models.generation import GenerationLog
 from backend.models.metric import Metric
 from backend.models.system_config import SystemConfig
 from backend.models.memory import Memory
+from backend.models.maintenance import MaintenanceSuggestion, MaintenanceAudit
 
 __all__ = [
     "Base",
@@ -52,4 +53,6 @@ __all__ = [
     "Metric",
     "SystemConfig",
     "Memory",
+    "MaintenanceSuggestion",
+    "MaintenanceAudit",
 ]

@@ -111,3 +111,12 @@ win is reverted. Mocked-LLM medians below confirm they hold within noise.
 | 2026-06-21 | 11.3 | resume/generate median (mocked LLM) | 0.32 ms | 0.358 ms (µs-noise, no code change) | ✅ |
 | 2026-06-21 | 11.3 | copilot chat median (mocked LLM) | 0.008 ms | 0.008 ms | ✅ |
 | 2026-06-21 | 11.3 | embedding refresh (unchanged corpus) | N embed calls | 0 embed calls | ✅ |
+| 2026-06-21 | 11.4 | backend cold start — median | 634.5 ms (11.3) / 778 ms ceiling | 577.7 ms | ✅ |
+| 2026-06-21 | 11.4 | backend cold start — p95 | 904.6 ms (11.3) / 1191 ms ceiling | 769.4 ms | ✅ |
+
+**11.4 startup probe cost:** the corruption probe is a single `PRAGMA quick_check`
+run **once in the lifespan** (not on the request path, not in the `import →
+create_app` bench), so it adds nothing to the measured cold-start metric. The small
+delta vs the pre-11.4 in-session run (555 ms) is the extra module imports
+(`backend/recovery.py` + the two new routers) and machine noise — comfortably under
+the +10% ceiling. Snapshots/restore are user-triggered and entirely off the request path.

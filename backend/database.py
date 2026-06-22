@@ -37,6 +37,19 @@ def init_db() -> None:
     Base.metadata.create_all(bind=engine)
 
 
+def reset_engine() -> None:
+    """Dispose the pooled connections and rebuild the engine + session factory.
+
+    Required around a restore: the live engine's pool holds open handles to the
+    SQLite file, so swapping the file underneath them would leave callers reading
+    the old (unlinked) inode. Drop the pool, swap, then rebuild against the new file.
+    """
+    global engine, SessionLocal
+    engine.dispose()
+    engine = build_engine()
+    SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+
+
 def get_session() -> Generator[Session, None, None]:
     """FastAPI dependency that yields a database session per request."""
     with SessionLocal() as session:

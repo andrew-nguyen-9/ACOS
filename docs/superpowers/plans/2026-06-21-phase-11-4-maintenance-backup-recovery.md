@@ -144,3 +144,36 @@ with 11.0 startup bench.
 Advisor (suggest-only), approval-gated executor with snapshot-before-execute + audit, full/incremental
 backup, restore round-trip, corruption read-only recovery — all tested ≥90%, release-safety review run,
 existing tests green, PR opened. **This completes the backend hardening track (11.1–11.4).**
+
+## 12. Release-safety review outcome (silent-failure-hunter + reliability)
+
+Fixed before merge:
+- **Engine pool vs DB swap** — restore now disposes `backend.database.engine` before the
+  `os.replace` and rebuilds it after (`database.reset_engine`), so no pooled handle holds the
+  old inode / a deleted WAL.
+- **Failure-audit durability** — `executor._fail` commits the `failed` status + audit
+  independently, so a re-raised execution failure can't be rolled back by the request session.
+- **Incremental-restore Chroma staleness** — restore resolves the Chroma copy from the newest
+  snapshot at-or-before the target that physically holds one (an incremental that skipped Chroma
+  no longer leaves the live store mismatched while reporting `integrity_ok=True`).
+- **Best-effort pre-restore snapshot** — a corrupt *current* DB no longer blocks restore (the
+  auto restore point is skipped, `pre_restore_snapshot_id=None`).
+- **Atomic-ish swaps** — `_swap_dir` rolls back on a failed rename and reconciles an interrupted
+  prior swap; a partial restore raises `RestoreError` naming the restore point; DB swap fsyncs
+  the temp file + dir.
+- **Crash-mid-swap** — a `.restore_in_progress` sentinel is written before the swaps and removed
+  on success; startup (`recovery.check_interrupted_restore`) enters READONLY_RECOVERY if found.
+- **Observability** — `probe_integrity`, the snapshot JSON dumps, and the lifespan startup
+  handler now log swallowed exceptions; `_hash_dir` tolerates per-file read errors.
+
+Deferred (documented residual risks — out of 11.4 scope):
+- **Runtime re-probe** — corruption that occurs *after* startup is not auto-detected; only the
+  startup probe + sentinel engage recovery. Upgrade: flip `RECOVERY` from a central handler on
+  repeated SQLite `DatabaseError`.
+- **Backup retention/quota** — snapshots are unbounded (every executed action takes one); spec §3
+  keeps pruning manual. Upgrade: keep-last-K that preserves Chroma-holding fulls referenced by
+  incrementals.
+- **Concurrency** — no lock on `backups_dir`; the app is single-process local (ADR-001), so
+  concurrent snapshot/restore is not a real path today.
+- **`quick_check` depth + Chroma validation** — startup uses the cheap probe (budget); restore
+  validates DB integrity only, not Chroma consistency.
