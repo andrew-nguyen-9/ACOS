@@ -7,9 +7,32 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from backend.config import get_settings
 from backend.repositories.question import AnswerRepository, QuestionRepository
 
 logger = logging.getLogger(__name__)
+
+# 12.8 Spike A — schemas for the two JSON routes. The questions route returns a
+# top-level array; the answer route a single object. Shape-only (open items).
+_QUESTIONS_SCHEMA: dict = {
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "question_template": {"type": "string"},
+            "category": {"type": "string"},
+        },
+        "required": ["question_template"],
+    },
+}
+_ANSWER_SCHEMA: dict = {
+    "type": "object",
+    "properties": {
+        "answer_text": {"type": "string"},
+        "confidence_level": {"type": "string"},
+    },
+    "required": ["answer_text"],
+}
 
 _VALID_LENGTHS = {"short", "medium", "long"}
 _VALID_CONFIDENCE = {"verified", "strong_inference", "weak_inference"}
@@ -178,11 +201,14 @@ class QuestionGenerator:
                 industry=variables.get("industry", ""),
                 tech_stack=variables.get("tech_stack", ""),
             )
+            fmt = _QUESTIONS_SCHEMA if get_settings().enable_structured_output else None
             raw = self._ollama.generate(
                 model="qwen3:8b",
                 prompt=user_prompt,
                 system=prompt_data["system"],
                 temperature=0.4,
+                output_format=fmt,
+                think=False if fmt else None,
             )
             match = re.search(r"\[.*\]", raw, re.DOTALL)
             if match:
@@ -230,11 +256,14 @@ class QuestionGenerator:
                 evidence=evidence_text,
                 length_target=length_target,
             )
+            fmt = _ANSWER_SCHEMA if get_settings().enable_structured_output else None
             raw = self._ollama.generate(
                 model="qwen3:8b",
                 prompt=user_prompt,
                 system=prompt_data["system"],
                 temperature=0.3,
+                output_format=fmt,
+                think=False if fmt else None,
             )
             match = re.search(r"\{.*\}", raw, re.DOTALL)
             if match:

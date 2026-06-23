@@ -52,6 +52,21 @@ class OutcomeRanker:
             industry=industry,
             position_type=position_type,
         )
+        # 12.10 flywheel emit: normalize this outcome into a source-linked signal.
+        # Best-effort — a feedback-loop hiccup must never fail outcome recording.
+        try:
+            from backend.services.flywheel.feedback import record_signal
+
+            record_signal(
+                self._session,
+                entity_type="application",
+                entity_id=application_id,
+                signal_type=signal_type,
+                value=weight,
+                source={"table": "outcome_signals", "ids": [signal.id]},
+            )
+        except Exception:  # noqa: BLE001 — telemetry never breaks the write path
+            logger.warning("flywheel signal emit failed for outcome %s", signal.id, exc_info=True)
         return {
             "signal_id": signal.id,
             "signal_type": signal.signal_type,

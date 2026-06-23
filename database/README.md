@@ -18,6 +18,25 @@ versioned.
 | `acos.db` | ❌ ignored | The SQLite database (runtime). |
 | `chroma/` | ❌ ignored | ChromaDB persistent store (runtime). |
 
+## Hot-path pragmas & durability
+
+`backend/database.py` applies these on every connection (`_apply_pragmas`, Phase 12.1):
+
+| Pragma | Value | Why |
+|--------|-------|-----|
+| `journal_mode` | `WAL` | Concurrent readers + writer; persistent in the file header. |
+| `synchronous` | `NORMAL` (1) | Fewer fsyncs on the write path. |
+| `mmap_size` | `268435456` (256 MiB) | Memory-mapped reads cut syscall overhead. |
+| `foreign_keys` | `ON` | Enforce referential integrity (per-connection default is OFF). |
+
+**Durability — `NORMAL` is safe under WAL.** In rollback-journal mode `NORMAL` risks
+corruption on a power loss, but under WAL it does not: the database stays consistent and the
+only residual risk is losing the *last* committed transaction(s) on an OS crash or power cut
+(an fsync happens at WAL checkpoints, not on every commit). For a local single-user desktop
+app that trade is acceptable. Use `FULL` only if last-transaction loss is unacceptable.
+Of these, only `journal_mode` persists in the file; the rest reset to defaults on each new
+connection, so they are re-applied per connect.
+
 ## Migrations (Alembic)
 
 Configured in [`../alembic.ini`](../alembic.ini) (`script_location = database/migrations`).

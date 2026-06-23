@@ -1,0 +1,18 @@
+{
+  "metric": "embed_batch",
+  "date": "2026-06-22",
+  "n": 300,
+  "sequential": {
+    "http_calls": 300,
+    "seconds": 13.186
+  },
+  "batched": {
+    "http_calls": 3,
+    "seconds": 7.076
+  },
+  "speedup_x": 1.86,
+  "machine": {
+    "platform": "macOS-26.5.1-arm64-arm-64bit",
+    "python": "3.12.13"
+  }
+}

@@ -45,6 +45,13 @@ a = Analysis(
         "sqlalchemy.dialects.sqlite",
         "sqlalchemy.dialects.sqlite.base",
         "sqlalchemy.dialects.sqlite.pysqlite",
+        # Phase 12.7 FTS5: lexical search needs FTS5 compiled into the SQLite that
+        # _sqlite3 links. PyInstaller bundles the interpreter's own _sqlite3 (FTS5
+        # is enabled on the build interpreter — see test_fts5_available), so it
+        # carries over. There is no separate libsqlite to ship. If a future build
+        # interpreter ever lacks FTS5, the create_all 'CREATE VIRTUAL TABLE ... fts5'
+        # DDL fails loudly at startup. Smoke-test the packaged binary by hitting a
+        # /copilot or /rag query (exercises lexical.search) after any toolchain bump.
 
         # alembic
         "alembic",

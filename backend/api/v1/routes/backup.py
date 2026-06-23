@@ -5,10 +5,11 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
 from backend.config import get_settings
-from backend.database import get_session
+from backend.database import get_async_session
 from backend.recovery import RECOVERY
 from backend.services.backup.restore import RestoreError, restore
 from backend.services.backup.snapshot import list_snapshots, snapshot
@@ -30,14 +31,19 @@ def _backups_dir() -> Path:
 
 
 @router.post("/backup/snapshot")
-def create_snapshot(body: SnapshotRequest, session: Session = Depends(get_session)) -> dict:
+async def create_snapshot(
+    body: SnapshotRequest, session: AsyncSession = Depends(get_async_session)
+) -> dict:
     settings = get_settings()
-    meta = snapshot(
-        session, full=body.full, backups_dir=_backups_dir(),
-        db_path=settings.db_path, chroma_path=settings.chroma_db_path,
-        app_version=settings.app_version,
-    )
-    return asdict(meta)
+
+    def _impl(s: Session):
+        return snapshot(
+            s, full=body.full, backups_dir=_backups_dir(),
+            db_path=settings.db_path, chroma_path=settings.chroma_db_path,
+            app_version=settings.app_version,
+        )
+
+    return asdict(await session.run_sync(_impl))
 
 
 @router.get("/backup/list")
@@ -50,9 +56,10 @@ def restore_snapshot(body: RestoreRequest) -> dict:
     from backend import database
 
     settings = get_settings()
-    # Drop the live connection pool so no handle holds the DB file open during the
-    # swap; rebuild it afterwards so subsequent requests bind to the restored file.
+    # Drop the live connection pools (sync + async) so no handle holds the DB file
+    # open during the swap; reset_engine() rebuilds both against the restored file.
     database.engine.dispose()
+    database.async_engine.sync_engine.dispose()
     try:
         result = restore(
             body.snapshot_id, backups_dir=_backups_dir(),

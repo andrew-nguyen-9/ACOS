@@ -1,5 +1,6 @@
 -r requirements.txt
 pytest==9.0.3
+pytest-asyncio==1.4.0
 pytest-cov==6.0.0
 pytest-benchmark==5.2.3
 coverage==7.6.9

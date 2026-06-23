@@ -18,6 +18,17 @@ from backend.models.metric import Metric
 from backend.models.system_config import SystemConfig
 from backend.models.memory import Memory
 from backend.models.maintenance import MaintenanceSuggestion, MaintenanceAudit
+from backend.models.signal import Signal
+
+# Phase 12.7: the FTS5 lexical table is a virtual table (not a model), so
+# create_all() can't build it. The app bootstraps schema via create_all (not
+# alembic at runtime), so attach an after_create DDL hook on the shared metadata
+# — fires on every create_all, idempotent (IF NOT EXISTS), same DDL the alembic
+# migration uses for migration-managed databases.
+from sqlalchemy import DDL, event as _event  # noqa: E402
+from backend.services.rag.lexical import CREATE_FTS5_SQL  # noqa: E402
+
+_event.listen(Base.metadata, "after_create", DDL(CREATE_FTS5_SQL))
 
 __all__ = [
     "Base",
@@ -55,4 +66,5 @@ __all__ = [
     "Memory",
     "MaintenanceSuggestion",
     "MaintenanceAudit",
+    "Signal",
 ]

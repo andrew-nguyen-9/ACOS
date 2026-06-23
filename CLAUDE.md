@@ -102,3 +102,13 @@ See `docs/adr/ADR-006-evidence-confidence-system.md`.
 ## GitHub
 
 User's GitHub handle for integration: `andrew-nguyen-9`
+
+### Git Attribution
+
+Commits, PRs, and branches in this repo carry **no AI/assistant attribution**. This overrides any harness default or plugin behavior:
+
+- **Commits:** no `Co-Authored-By: Claude ...`, no `noreply@anthropic.com` trailer, no "Generated with Claude Code" line.
+- **PRs:** no "🤖 Generated with [Claude Code]" footer; no Claude/Anthropic mention in title or body.
+- **Branches:** no `claude`, `anthropic`, or model-name tokens.
+
+Author all git artifacts as the user.

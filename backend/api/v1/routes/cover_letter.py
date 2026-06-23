@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
 from backend.config import Settings, get_settings
-from backend.database import get_session
-from backend.rag.chroma_client import ChromaManager
+from backend.database import get_async_session
+from backend.rag.chroma_client import get_chroma_manager
 from backend.rag.embedder import Embedder
 from backend.rag.retriever import RAGRetriever
 from backend.rag.reranker import Reranker
@@ -45,7 +46,7 @@ def _build_cl_deps(
     """Instantiate and wire all dependencies for cover letter generation."""
     ollama = OllamaClient(base_url=settings.ollama_base_url)
     embedder = Embedder(ollama, model=settings.embedding_model)
-    chroma = ChromaManager(path=settings.chroma_db_path)
+    chroma = get_chroma_manager(settings.chroma_db_path)
     retriever = RAGRetriever(chroma, embedder)
     reranker = Reranker()
     loader = PromptLoader()
@@ -57,8 +58,8 @@ def _build_cl_deps(
 
 
 @router.post("/cover-letter/generate")
-def generate_cover_letter(
-    body: GenerateCLRequest, session: Session = Depends(get_session)
+async def generate_cover_letter(
+    body: GenerateCLRequest, session: AsyncSession = Depends(get_async_session)
 ) -> dict[str, object]:
     """Generate a cover letter and return the text payload."""
     if body.length_target not in _VALID_LENGTHS:
@@ -70,25 +71,26 @@ def generate_cover_letter(
             ),
         )
     settings = get_settings()
-    generator, _ = _build_cl_deps(settings, session)
 
-    resume_context: dict | None = None
-    if body.resume_id:
-        resume_repo = ResumeRepository(session)
-        resume = resume_repo.get(body.resume_id)
-        if resume is None:
-            raise HTTPException(status_code=404, detail=f"Resume '{body.resume_id}' not found.")
-        resume_context = resume.content_json.get("_resume_context")
+    def _impl(s: Session) -> dict[str, object]:
+        generator, _ = _build_cl_deps(settings, s)
+        resume_context: dict | None = None
+        if body.resume_id:
+            resume = ResumeRepository(s).get(body.resume_id)
+            if resume is None:
+                raise HTTPException(status_code=404, detail=f"Resume '{body.resume_id}' not found.")
+            resume_context = resume.content_json.get("_resume_context")
+        return generator.generate(
+            body.job_description, body.company, body.job_title, body.length_target,
+            resume_context=resume_context, tone=body.tone,
+        )
 
-    return generator.generate(
-        body.job_description, body.company, body.job_title, body.length_target,
-        resume_context=resume_context, tone=body.tone,
-    )
+    return await session.run_sync(_impl)
 
 
 @router.post("/cover-letter/generate/download")
-def generate_cover_letter_docx(
-    body: GenerateCLRequest, session: Session = Depends(get_session)
+async def generate_cover_letter_docx(
+    body: GenerateCLRequest, session: AsyncSession = Depends(get_async_session)
 ) -> Response:
     """Generate a cover letter and return it as a DOCX file download."""
     if body.length_target not in _VALID_LENGTHS:
@@ -100,22 +102,26 @@ def generate_cover_letter_docx(
             ),
         )
     settings = get_settings()
-    generator, exporter = _build_cl_deps(settings, session)
 
-    resume_context = None
-    if body.resume_id:
-        resume_repo = ResumeRepository(session)
-        resume = resume_repo.get(body.resume_id)
-        if resume is None:
-            raise HTTPException(status_code=404, detail=f"Resume '{body.resume_id}' not found.")
-        resume_context = resume.content_json.get("_resume_context")
+    def _impl(s: Session) -> dict:
+        generator, exporter = _build_cl_deps(settings, s)
+        resume_context = None
+        if body.resume_id:
+            resume = ResumeRepository(s).get(body.resume_id)
+            if resume is None:
+                raise HTTPException(status_code=404, detail=f"Resume '{body.resume_id}' not found.")
+            resume_context = resume.content_json.get("_resume_context")
+        result = generator.generate(
+            body.job_description, body.company, body.job_title, body.length_target,
+            resume_context=resume_context,
+        )
+        return {"text": result["text"], "exporter": exporter}
 
-    result = generator.generate(
-        body.job_description, body.company, body.job_title, body.length_target,
-        resume_context=resume_context,
-    )
+    payload = await session.run_sync(_impl)
     contact = load_contact(default_contact_path())
-    docx_bytes = exporter.export(result["text"], body.job_title, body.company, contact_info=contact)
+    docx_bytes = payload["exporter"].export(
+        payload["text"], body.job_title, body.company, contact_info=contact
+    )
     return Response(
         content=docx_bytes,
         media_type=(
@@ -126,12 +132,16 @@ def generate_cover_letter_docx(
 
 
 @router.post("/cover-letter/learn-voice")
-def learn_voice(
-    body: LearnVoiceRequest, session: Session = Depends(get_session)
+async def learn_voice(
+    body: LearnVoiceRequest, session: AsyncSession = Depends(get_async_session)
 ) -> dict[str, object]:
     """Extract a writing voice profile from the supplied cover letter texts."""
     settings = get_settings()
-    ollama = OllamaClient(base_url=settings.ollama_base_url)
-    loader = PromptLoader()
-    modeler = VoiceModeler(ollama, loader, session)
-    return modeler.learn(body.texts)
+
+    def _impl(s: Session) -> dict[str, object]:
+        ollama = OllamaClient(base_url=settings.ollama_base_url)
+        loader = PromptLoader()
+        modeler = VoiceModeler(ollama, loader, s)
+        return modeler.learn(body.texts)
+
+    return await session.run_sync(_impl)

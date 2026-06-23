@@ -9,6 +9,32 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# ponytail: module-level memo, not a DI container. One PersistentClient per
+# process — routes build a fresh ChromaManager per request otherwise, paying the
+# client construction each time. Re-keyed on path so a test pointing at a new
+# tmpdir gets its own client instead of a stale one.
+_manager: "ChromaManager | None" = None
+
+
+def get_chroma_manager(path: str) -> "ChromaManager":
+    """Process-wide memoized ChromaManager. chromadb stays lazy until first use.
+
+    The memo itself is not locked — a construction race just rebuilds a cheap,
+    side-effect-free ``ChromaManager`` (the expensive ``PersistentClient`` is
+    built lazily under ``_client_lock``, so no client leaks). workers=1 makes a
+    race unlikely anyway.
+    """
+    global _manager
+    if _manager is None or _manager._path != path:
+        _manager = ChromaManager(path)
+    return _manager
+
+
+def reset_chroma_manager() -> None:
+    """Drop the memoized manager. Tests reset it per-function for isolation."""
+    global _manager
+    _manager = None
+
 
 class ChromaManager:
     def __init__(self, path: str) -> None:
@@ -35,10 +61,10 @@ class ChromaManager:
         return self._client.get_or_create_collection(name=name, metadata=metadata)
 
     def init_all_collections(self) -> None:
-        """Idempotently create all 10 ACOS collections."""
+        """Idempotently create the consolidated ACOS collection(s) (12.6: one)."""
         for name in ALL_COLLECTION_NAMES:
             self.get_or_create_collection(name)
-        logger.info("ChromaDB: all %d collections ready", len(ALL_COLLECTION_NAMES))
+        logger.info("ChromaDB: %d collection(s) ready", len(ALL_COLLECTION_NAMES))
 
     def add(
         self,
@@ -77,6 +103,18 @@ class ChromaManager:
         if where:
             kwargs["where"] = where
         return col.query(**kwargs)
+
+    def list_collection_names(self) -> list[str]:
+        """Names of collections that physically exist (does not create any)."""
+        return [c.name for c in self._client.list_collections()]
+
+    def export_all(self, collection: str) -> dict[str, Any]:
+        """All records in a collection, embeddings included (for the 12.6 migration)."""
+        col = self.get_or_create_collection(collection)
+        return dict(col.get(include=["documents", "embeddings", "metadatas"]))
+
+    def delete_collection(self, name: str) -> None:
+        self._client.delete_collection(name=name)
 
     def get(self, collection: str, ids: list[str]) -> dict[str, Any]:
         # Default include returns ids + metadatas + documents (enough for the

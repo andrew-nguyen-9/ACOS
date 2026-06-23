@@ -42,7 +42,7 @@ class _FakeRetriever:
     def __init__(self, pool: list[dict]) -> None:
         self._pool = pool
 
-    def retrieve(self, query: str, collections: list[str], top_k: int = 10) -> list[dict]:
+    def retrieve(self, query: str, doc_types: list[str], top_k: int = 10) -> list[dict]:
         return self._pool
 
 

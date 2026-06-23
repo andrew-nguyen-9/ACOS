@@ -84,7 +84,7 @@ def ingest(username: str) -> None:
                 "project_id": doc_id,
                 "confidence_level": "strong_inference",
             }
-            indexer.index_document("acos_github", doc_id, text[:2000], metadata)
+            indexer.index_document(doc_id, text[:2000], metadata, doc_type="acos_github")
 
             for skill in entities.get("skills", []):
                 kg_svc.get_or_create_node(

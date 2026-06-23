@@ -3,10 +3,11 @@ import os
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
-from backend.database import get_session
+from backend.database import get_async_session
 from backend.config import get_settings
 from backend.services import integrity
 from backend.services.ollama_client import OllamaClient
@@ -32,20 +33,24 @@ class _ChromaLiveness:
 
 
 @router.get("")
-def health(session: Session = Depends(get_session)) -> JSONResponse:
+async def health(session: AsyncSession = Depends(get_async_session)) -> JSONResponse:
     settings = get_settings()
-    try:
-        session.execute(text("SELECT 1"))
-        db_status = "connected"
-    except Exception:
-        db_status = "error"
 
-    subsystems = collect(
-        session,
-        _ChromaLiveness(settings.chroma_db_path),
-        OllamaClient(base_url=settings.ollama_base_url, timeout=2),
-        settings.embedding_model,
-    ).as_dict()
+    def _impl(s: Session) -> tuple[str, dict]:
+        try:
+            s.execute(text("SELECT 1"))
+            db = "connected"
+        except Exception:
+            db = "error"
+        subs = collect(
+            s,
+            _ChromaLiveness(settings.chroma_db_path),
+            OllamaClient(base_url=settings.ollama_base_url, timeout=2),
+            settings.embedding_model,
+        ).as_dict()
+        return db, subs
+
+    db_status, subsystems = await session.run_sync(_impl)
 
     http_status = 200 if db_status == "connected" else 503
     return JSONResponse(
@@ -60,24 +65,31 @@ def health(session: Session = Depends(get_session)) -> JSONResponse:
 
 
 @router.get("/integrity")
-def health_integrity(session: Session = Depends(get_session)) -> dict:
+async def health_integrity(session: AsyncSession = Depends(get_async_session)) -> dict:
     """On-demand deep integrity checks (can be slow on large DBs)."""
     settings = get_settings()
-    chroma_result: dict
-    try:
-        from backend.rag.chroma_client import ChromaManager
 
-        chroma = ChromaManager(path=settings.chroma_db_path)
-        chroma_result = integrity.chroma_reconcile(session, chroma)
-    except Exception as exc:
-        chroma_result = {"reconciled": False, "reason": f"chroma unavailable: {exc}"}
+    # ponytail: the Chroma reconcile runs inside run_sync, holding the async DB
+    # connection for the duration — acceptable on this on-demand deep-check route;
+    # not worth splitting the Chroma probe out of the DB greenlet for one endpoint.
+    def _impl(s: Session) -> dict:
+        chroma_result: dict
+        try:
+            from backend.rag.chroma_client import get_chroma_manager
 
-    return {
-        "sqlite_integrity": integrity.sqlite_integrity(session),
-        "foreign_key_violations": integrity.foreign_key_check(session),
-        "chroma": chroma_result,
-        "embedding": integrity.embedding_status(session, settings.embedding_model),
-    }
+            chroma = get_chroma_manager(settings.chroma_db_path)
+            chroma_result = integrity.chroma_reconcile(s, chroma)
+        except Exception as exc:
+            chroma_result = {"reconciled": False, "reason": f"chroma unavailable: {exc}"}
+
+        return {
+            "sqlite_integrity": integrity.sqlite_integrity(s),
+            "foreign_key_violations": integrity.foreign_key_check(s),
+            "chroma": chroma_result,
+            "embedding": integrity.embedding_status(s, settings.embedding_model),
+        }
+
+    return await session.run_sync(_impl)
 
 
 @router.get("/warmup")
@@ -88,10 +100,10 @@ def health_warmup() -> JSONResponse:
     probe materializes them by creating all collections.
     """
     settings = get_settings()
-    from backend.rag.chroma_client import ChromaManager
+    from backend.rag.chroma_client import get_chroma_manager
 
     try:
-        ChromaManager(path=settings.chroma_db_path).init_all_collections()
+        get_chroma_manager(settings.chroma_db_path).init_all_collections()
         return JSONResponse(status_code=200, content={"warmed": True, "chroma": "ok"})
     except Exception as exc:
         logging.getLogger(__name__).exception("Chroma warmup failed")

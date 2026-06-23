@@ -1,0 +1,23 @@
+{
+  "metric": "lexical_query_ms",
+  "date": "2026-06-22",
+  "docs": 1000,
+  "queries": 100,
+  "fts5": {
+    "median_ms": 0.7973,
+    "p95_ms": 0.9225,
+    "min_ms": 0.6441,
+    "max_ms": 1.0652
+  },
+  "python_bm25": {
+    "median_ms": 2.102,
+    "p95_ms": 2.2237,
+    "min_ms": 2.0173,
+    "max_ms": 2.518
+  },
+  "machine": {
+    "platform": "macOS-26.5.1-arm64-arm-64bit",
+    "python": "3.12.13",
+    "sqlite": "3.53.2"
+  }
+}

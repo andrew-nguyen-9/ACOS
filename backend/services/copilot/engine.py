@@ -35,17 +35,15 @@ class CopilotEngine:
     def __init__(self, rag_service: RAGService) -> None:
         self._rag = rag_service
 
-    def chat(
-        self,
-        message: str,
-        conversation_history: list[dict] | None = None,
-    ) -> dict:
+    def _route(self, message: str, conversation_history: list[dict] | None) -> tuple[str, str]:
         history = conversation_history or []
         intent = _detect_intent(message)
         history_text = _format_history(history)
         query = f"{history_text}\nUser: {message}".strip() if history_text else message
-        rag_result = self._rag.query(query, intent=intent)
-        evidence = rag_result.get("evidence", [])
+        return intent, query
+
+    def _assemble(self, intent: str, rag_base: dict) -> dict:
+        evidence = rag_base.get("evidence", [])
         citations = [
             {
                 "source": e.get("source", ""),
@@ -55,12 +53,35 @@ class CopilotEngine:
             }
             for e in evidence[:5]
         ]
-        result = {
-            "response": rag_result.get("response", ""),
+        return {
+            "response": rag_base.get("response", ""),
             "intent": intent,
-            "confidence": rag_result.get("confidence_summary", "no_evidence"),
+            "confidence": rag_base.get("confidence_summary", "no_evidence"),
             "citations": citations,
             "evidence_count": len(evidence),
         }
-        log_operation("copilot_chat", intent=intent, citations=len(citations))
+
+    def chat(
+        self,
+        message: str,
+        conversation_history: list[dict] | None = None,
+    ) -> dict:
+        intent, query = self._route(message, conversation_history)
+        result = self._assemble(intent, self._rag.query(query, intent=intent))
+        log_operation("copilot_chat", intent=intent, citations=len(result["citations"]))
         return result
+
+    def prepare(
+        self,
+        message: str,
+        conversation_history: list[dict] | None = None,
+    ) -> tuple[str | None, dict]:
+        """Streaming-path counterpart of chat(): retrieval + prompt, no generation.
+
+        Returns ``(prompt, result)``. ``prompt`` is ``None`` when RAG already has a
+        usable response (fallback / degraded); otherwise ``result["response"]`` is
+        empty for the streaming route to fill from token deltas.
+        """
+        intent, query = self._route(message, conversation_history)
+        prompt, base = self._rag.build_prompt(query, intent=intent)
+        return prompt, self._assemble(intent, base)

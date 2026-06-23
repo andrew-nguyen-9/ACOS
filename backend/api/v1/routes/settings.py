@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
-from backend.database import get_session
+from backend.database import get_async_session
 from backend.repositories.system_config import SystemConfigRepository
 
 router = APIRouter(tags=["settings"])
@@ -53,33 +54,38 @@ class UpdateSettingRequest(BaseModel):
 
 
 @router.get("/settings")
-def get_settings(session: Session = Depends(get_session)) -> dict:
-    repo = SystemConfigRepository(session)
-    rows = repo.list()
-    return {"settings": {r.key: r.value for r in rows if r.key != "onboarding_complete"}}
+async def get_settings(session: AsyncSession = Depends(get_async_session)) -> dict:
+    def _impl(s: Session) -> dict:
+        rows = SystemConfigRepository(s).list()
+        return {"settings": {r.key: r.value for r in rows if r.key != "onboarding_complete"}}
+
+    return await session.run_sync(_impl)
 
 
 @router.put("/settings/{key}")
-def update_setting(
-    key: str, body: UpdateSettingRequest, session: Session = Depends(get_session)
+async def update_setting(
+    key: str, body: UpdateSettingRequest, session: AsyncSession = Depends(get_async_session)
 ) -> dict:
     if key not in _EDITABLE_KEYS:
         raise HTTPException(status_code=404, detail=f"Unknown setting key '{key}'")
     _validate_value(key, body.value)
-    repo = SystemConfigRepository(session)
-    record = repo.set_value(key, body.value)
-    return {"key": record.key, "value": record.value}
+
+    def _impl(s: Session) -> dict:
+        record = SystemConfigRepository(s).set_value(key, body.value)
+        return {"key": record.key, "value": record.value}
+
+    return await session.run_sync(_impl)
 
 
 @router.get("/settings/onboarding")
-def onboarding_status(session: Session = Depends(get_session)) -> dict:
-    repo = SystemConfigRepository(session)
-    value = repo.get_value("onboarding_complete", default="false")
+async def onboarding_status(session: AsyncSession = Depends(get_async_session)) -> dict:
+    value = await session.run_sync(
+        lambda s: SystemConfigRepository(s).get_value("onboarding_complete", default="false")
+    )
     return {"completed": value == "true"}
 
 
 @router.post("/settings/onboarding/complete")
-def complete_onboarding(session: Session = Depends(get_session)) -> dict:
-    repo = SystemConfigRepository(session)
-    repo.set_value("onboarding_complete", "true")
+async def complete_onboarding(session: AsyncSession = Depends(get_async_session)) -> dict:
+    await session.run_sync(lambda s: SystemConfigRepository(s).set_value("onboarding_complete", "true"))
     return {"completed": True}

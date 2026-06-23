@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from typing import NoReturn
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
-from backend.database import get_session
+from backend.database import get_async_session
 from backend.repositories.optimization import (
     OptimizationProposalRepository, OptimizationLogRepository,
 )
@@ -37,67 +38,77 @@ def _serialize_log(l) -> dict:
 
 
 @router.get("/optimization/proposals")
-def list_proposals(
-    status: str | None = Query(default=None), session: Session = Depends(get_session)
+async def list_proposals(
+    status: str | None = Query(default=None), session: AsyncSession = Depends(get_async_session)
 ) -> dict:
-    repo = OptimizationProposalRepository(session)
-    rows = repo.list_by_status(status) if status else repo.list()
-    return {"proposals": [_serialize_proposal(p) for p in rows]}
+    def _impl(s: Session) -> dict:
+        repo = OptimizationProposalRepository(s)
+        rows = repo.list_by_status(status) if status else repo.list()
+        return {"proposals": [_serialize_proposal(p) for p in rows]}
+
+    return await session.run_sync(_impl)
 
 
 @router.post("/optimization/proposals/generate")
-def generate_proposals(session: Session = Depends(get_session)) -> dict:
-    created = Recommender(session).generate_proposals()
-    return {"created": len(created), "proposal_ids": [p.id for p in created]}
+async def generate_proposals(session: AsyncSession = Depends(get_async_session)) -> dict:
+    def _impl(s: Session) -> dict:
+        created = Recommender(s).generate_proposals()
+        return {"created": len(created), "proposal_ids": [p.id for p in created]}
+
+    return await session.run_sync(_impl)
 
 
 @router.post("/optimization/proposals/{proposal_id}/approve")
-def approve_proposal(proposal_id: str, session: Session = Depends(get_session)) -> dict:
+async def approve_proposal(proposal_id: str, session: AsyncSession = Depends(get_async_session)) -> dict:
     try:
-        p = Applier(session).approve(proposal_id)
+        return await session.run_sync(
+            lambda s: _serialize_proposal(Applier(s).approve(proposal_id))
+        )
     except ValueError as exc:
         _raise_not_found_or_conflict(exc)
-    return _serialize_proposal(p)
 
 
 @router.post("/optimization/proposals/{proposal_id}/reject")
-def reject_proposal(proposal_id: str, session: Session = Depends(get_session)) -> dict:
+async def reject_proposal(proposal_id: str, session: AsyncSession = Depends(get_async_session)) -> dict:
     try:
-        p = Applier(session).reject(proposal_id)
+        return await session.run_sync(
+            lambda s: _serialize_proposal(Applier(s).reject(proposal_id))
+        )
     except ValueError as exc:
         _raise_not_found_or_conflict(exc)
-    return _serialize_proposal(p)
 
 
 @router.post("/optimization/proposals/{proposal_id}/apply")
-def apply_proposal(proposal_id: str, session: Session = Depends(get_session)) -> dict:
+async def apply_proposal(proposal_id: str, session: AsyncSession = Depends(get_async_session)) -> dict:
     try:
-        log = Applier(session).apply(proposal_id)
+        return await session.run_sync(
+            lambda s: _serialize_log(Applier(s).apply(proposal_id))
+        )
     except ApprovalRequired as exc:
         raise HTTPException(status_code=409, detail=str(exc))
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
-    return _serialize_log(log)
 
 
 @router.post("/optimization/proposals/{proposal_id}/revert")
-def revert_proposal(proposal_id: str, session: Session = Depends(get_session)) -> dict:
+async def revert_proposal(proposal_id: str, session: AsyncSession = Depends(get_async_session)) -> dict:
     try:
-        log = Applier(session).revert(proposal_id)
+        return await session.run_sync(
+            lambda s: _serialize_log(Applier(s).revert(proposal_id))
+        )
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc))
-    return _serialize_log(log)
 
 
 @router.get("/optimization/logs")
-def list_logs(limit: int = 50, session: Session = Depends(get_session)) -> dict:
-    logs = OptimizationLogRepository(session).list_recent(limit=limit)
+async def list_logs(limit: int = 50, session: AsyncSession = Depends(get_async_session)) -> dict:
+    logs = await session.run_sync(lambda s: OptimizationLogRepository(s).list_recent(limit=limit))
     return {"logs": [_serialize_log(l) for l in logs]}
 
 
 @router.post("/optimization/loop/run")
-def run_loop(session: Session = Depends(get_session)) -> dict:
-    return LearningLoop(session).maybe_run()
+async def run_loop(session: AsyncSession = Depends(get_async_session)) -> dict:
+    return await session.run_sync(lambda s: LearningLoop(s).maybe_run())
 
 
 def _raise_not_found_or_conflict(exc: ValueError) -> NoReturn:
@@ -148,76 +159,89 @@ def _serialize_version(v) -> dict:
 
 
 @router.post("/optimization/experiments")
-def create_experiment(body: CreateExperimentRequest, session: Session = Depends(get_session)) -> dict:
-    svc = ABTestingService(session)
-    exp = svc.create_experiment(body.name, body.target_engine, body.variant_a, body.variant_b)
-    variants = {v.label: v.id for v in ABVariantRepository(session).list_for_experiment(exp.id)}
-    return {"experiment_id": exp.id, "variant_ids": variants}
+async def create_experiment(body: CreateExperimentRequest, session: AsyncSession = Depends(get_async_session)) -> dict:
+    def _impl(s: Session) -> dict:
+        svc = ABTestingService(s)
+        exp = svc.create_experiment(body.name, body.target_engine, body.variant_a, body.variant_b)
+        variants = {v.label: v.id for v in ABVariantRepository(s).list_for_experiment(exp.id)}
+        return {"experiment_id": exp.id, "variant_ids": variants}
+
+    return await session.run_sync(_impl)
 
 
 @router.get("/optimization/experiments")
-def list_experiments(session: Session = Depends(get_session)) -> dict:
-    svc = ABTestingService(session)
-    exp_repo = ABExperimentRepository(session)
-    var_repo = ABVariantRepository(session)
-    out = []
-    for exp in exp_repo.list():
-        out.append(_serialize_experiment(exp, var_repo.list_for_experiment(exp.id), svc))
-    return {"experiments": out}
+async def list_experiments(session: AsyncSession = Depends(get_async_session)) -> dict:
+    def _impl(s: Session) -> dict:
+        svc = ABTestingService(s)
+        exp_repo = ABExperimentRepository(s)
+        var_repo = ABVariantRepository(s)
+        out = []
+        for exp in exp_repo.list():
+            out.append(_serialize_experiment(exp, var_repo.list_for_experiment(exp.id), svc))
+        return {"experiments": out}
+
+    return await session.run_sync(_impl)
 
 
 @router.post("/optimization/experiments/variants/{variant_id}/impression")
-def record_impression(variant_id: str, session: Session = Depends(get_session)) -> dict:
+async def record_impression(variant_id: str, session: AsyncSession = Depends(get_async_session)) -> dict:
     try:
-        ABTestingService(session).record_impression(variant_id)
+        await session.run_sync(lambda s: ABTestingService(s).record_impression(variant_id))
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
     return {"ok": True}
 
 
 @router.post("/optimization/experiments/variants/{variant_id}/conversion")
-def record_conversion(variant_id: str, session: Session = Depends(get_session)) -> dict:
+async def record_conversion(variant_id: str, session: AsyncSession = Depends(get_async_session)) -> dict:
     try:
-        ABTestingService(session).record_conversion(variant_id)
+        await session.run_sync(lambda s: ABTestingService(s).record_conversion(variant_id))
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
     return {"ok": True}
 
 
 @router.post("/optimization/experiments/{experiment_id}/conclude")
-def conclude_experiment(experiment_id: str, session: Session = Depends(get_session)) -> dict:
-    svc = ABTestingService(session)
-    try:
+async def conclude_experiment(experiment_id: str, session: AsyncSession = Depends(get_async_session)) -> dict:
+    def _impl(s: Session) -> dict:
+        svc = ABTestingService(s)
         exp = svc.conclude(experiment_id)
+        variants = ABVariantRepository(s).list_for_experiment(exp.id)
+        return _serialize_experiment(exp, variants, svc)
+
+    try:
+        return await session.run_sync(_impl)
     except ValueError as exc:
         msg = str(exc)
         code = 404 if "not found" in msg else 409
         raise HTTPException(status_code=code, detail=msg)
-    variants = ABVariantRepository(session).list_for_experiment(exp.id)
-    return _serialize_experiment(exp, variants, svc)
 
 
 # Declare the literal-segment activate route BEFORE the {prompt_name:path} routes
 # to prevent the :path converter from capturing "versions/{version_id}/activate".
 @router.post("/optimization/prompts/versions/{version_id}/activate")
-def activate_prompt_version(version_id: str, session: Session = Depends(get_session)) -> dict:
+async def activate_prompt_version(version_id: str, session: AsyncSession = Depends(get_async_session)) -> dict:
     try:
-        v = PromptEvolver(session).activate(version_id)
+        return await session.run_sync(
+            lambda s: _serialize_version(PromptEvolver(s).activate(version_id))
+        )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
-    return _serialize_version(v)
 
 
 @router.get("/optimization/prompts/{prompt_name:path}/versions")
-def list_prompt_versions(prompt_name: str, session: Session = Depends(get_session)) -> dict:
-    repo = PromptVersionRepository(session)
-    return {"versions": [_serialize_version(v) for v in repo.list_for_prompt(prompt_name)]}
+async def list_prompt_versions(prompt_name: str, session: AsyncSession = Depends(get_async_session)) -> dict:
+    versions = await session.run_sync(
+        lambda s: PromptVersionRepository(s).list_for_prompt(prompt_name)
+    )
+    return {"versions": [_serialize_version(v) for v in versions]}
 
 
 @router.post("/optimization/prompts/{prompt_name:path}/seed")
-def seed_prompt(prompt_name: str, session: Session = Depends(get_session)) -> dict:
+async def seed_prompt(prompt_name: str, session: AsyncSession = Depends(get_async_session)) -> dict:
     try:
-        v = PromptEvolver(session).seed_from_disk(prompt_name)
+        return await session.run_sync(
+            lambda s: _serialize_version(PromptEvolver(s).seed_from_disk(prompt_name))
+        )
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
-    return _serialize_version(v)

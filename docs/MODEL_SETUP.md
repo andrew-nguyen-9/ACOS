@@ -146,6 +146,64 @@ switching.
 
 ---
 
+## Memory / TTFT Calibration (Phase 12.5)
+
+On a 16GB M1, two models co-resident (generator + embedder) plus a large context
+window can cross the swap cliff, collapsing throughput from ~20 t/s to <2 t/s.
+ACOS calibrates the request payload automatically; two daemon-side settings are
+yours to set because **ACOS does not launch the Ollama daemon** — the Tauri
+sidecar launches the Python backend, not Ollama.
+
+### Daemon environment (set these on your Ollama)
+
+```bash
+source scripts/setup_ollama.sh   # exports the vars + pulls pinned tags
+```
+
+| Env var | Value | Effect |
+|---------|-------|--------|
+| `OLLAMA_FLASH_ATTENTION` | `1` | Caps memory growth as context grows |
+| `OLLAMA_KV_CACHE_TYPE` | `q8_0` | ~½ the KV-cache memory (requires flash attention) |
+
+For the macOS `Ollama.app` daemon, persist via launchd then restart the app:
+
+```bash
+launchctl setenv OLLAMA_FLASH_ATTENTION 1
+launchctl setenv OLLAMA_KV_CACHE_TYPE q8_0
+```
+
+These are read at daemon start — set them **before** `ollama serve`.
+
+### What ACOS does in the request payload (no setup needed)
+
+- **`num_ctx`** sized per operation, dynamically down to **2048** for short
+  retrievals (a tiny chat shouldn't reserve 4096 of KV cache); capped at 4096.
+- **`keep_alive: 1h`** holds the generator warm — no idle-unload cold start.
+- **`num_thread: 4`** pins to the performance-core count.
+- **Sequential unload:** after the query is embedded, the embedder is evicted
+  (`keep_alive: 0`) *before* the generator runs, so the two never co-reside.
+
+These are configurable via env: `ACOS_OLLAMA_NUM_THREAD`, `ACOS_OLLAMA_KEEP_ALIVE`.
+
+### Pinned quantization
+
+`scripts/setup_ollama.sh` pulls `qwen3:8b` (Q4_K_M) and `nomic-embed-text` so
+every machine runs identical weights. Confirm with `ollama show qwen3:8b | grep -i quant`.
+
+### Measuring it
+
+```bash
+OLLAMA_LIVE=1 python scripts/perf/ttft_bench.py --n 5
+```
+
+Reports two metrics: **first-chunk TTFT** (streaming-path latency, already near
+the floor) and **visible-token TTFT under `think:false`** — the user-facing
+latency 12.5 targets. With thinking enabled, qwen3 streams seconds of empty
+"thinking" chunks before the first visible token; `think:false` collapses that.
+Check `ollama ps` during a run to confirm only the generator is resident.
+
+---
+
 ## Hardware Requirements
 
 | RAM | Recommended Configuration |

@@ -7,11 +7,25 @@ from pathlib import Path
 
 import yaml
 
+from backend.config import get_settings
 from backend.services.ollama_client import OllamaClient
 
 logger = logging.getLogger(__name__)
 
 _PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "extract_entities.yaml"
+
+# 12.8 Spike A — structure-only schema: guarantees the three array keys exist as
+# arrays. Item shapes stay open so the model never invents required fields
+# (no-hallucination); confidence still traces to evidence as before.
+_EXTRACT_SCHEMA: dict = {
+    "type": "object",
+    "properties": {
+        "skills": {"type": "array"},
+        "experiences": {"type": "array"},
+        "projects": {"type": "array"},
+    },
+    "required": ["skills", "experiences", "projects"],
+}
 
 # Known skill ontology for pattern-based strong_inference matching
 _KNOWN_SKILLS: frozenset[str] = frozenset({
@@ -64,12 +78,15 @@ class EntityExtractor:
         user_tmpl = self._prompt.get("user_template", "{text}")
         user = user_tmpl.format(document_type=document_type, text=text[:6000])
 
+        fmt = _EXTRACT_SCHEMA if get_settings().enable_structured_output else None
         try:
             raw = self._ollama.generate(
                 model="qwen3:8b",
                 prompt=user,
                 temperature=0.1,
                 system=system,
+                output_format=fmt,
+                think=False if fmt else None,  # schema constraint vs qwen3 reasoning
             )
             data = json.loads(raw)
             return {

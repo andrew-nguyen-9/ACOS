@@ -1,0 +1,19 @@
+{
+  "metric": "ingest_seconds_per_doc",
+  "date": "2026-06-22",
+  "pdf": "Andrew-Nguyen_Resume.pdf",
+  "n": 3,
+  "median_s": 0.169,
+  "min_s": 0.158,
+  "max_s": 0.878,
+  "samples": [
+    0.878,
+    0.158,
+    0.169
+  ],
+  "machine": {
+    "platform": "macOS-26.5.1-arm64-arm-64bit",
+    "python": "3.12.13",
+    "processor": "arm"
+  }
+}

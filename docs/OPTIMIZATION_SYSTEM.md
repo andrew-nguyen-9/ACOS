@@ -170,3 +170,35 @@ All routes are under `/api/v1`.
 
 The system never deletes prior prompt versions, never overwrites prompts in place, and
 never changes production config without an approved, logged, reversible proposal.
+
+---
+
+## Phase 12 token-efficient workflow (dev process, not product code)
+
+> This section is the **development working agreement** for Phase 12, not part of the
+> product's self-optimization system above. It is documented here per the 12.0 spec so
+> every later segment runs the same low-token loop. It changes no shipped behavior.
+
+Phase 12 is large (17 segments, 12.0–12.16). To minimize Claude token spend per segment,
+the dev loop runs under four cooperating tools. Each segment follows this loop.
+
+| Tool | Role in Phase 12 | How it saves tokens |
+|------|------------------|---------------------|
+| **RTK** (Rust Token Killer) | CLI proxy; `git`/test/build commands are hook-rewritten to `rtk <cmd>` transparently. | Filters verbose command output (60–90% fewer output tokens on dev ops); confirm active with `rtk --version`. |
+| **Caveman** | Terse assistant prose during implementation. | Drops articles/filler/hedging from explanations. **Code, commits, PRs, and security/irreversible-action text stay normal prose.** |
+| **Ponytail** | Laziness ladder on every segment: YAGNI → stdlib → native platform → existing dep → one line → minimal new code. | Less code written = less to read, test, and review. Mark deliberate simplifications with a `ponytail:` comment naming the ceiling + upgrade path. |
+| **Superpowers** | Enforced per segment: `test-driven-development` (tests before impl — CLAUDE.md rule 2), `systematic-debugging`, `verification-before-completion` (real, pasted, dated numbers), `requesting-code-review`. | Prevents rework; verification-before-completion stops false "done" claims that cost re-investigation. |
+| `context7` | All framework APIs (uvloop / aiosqlite / FastAPI streaming / Chroma / Ollama / FTS5) and patched dependency ranges — never from memory (CLAUDE.md rule 4). | One authoritative fetch instead of trial-and-error against the wrong API surface. |
+| `ralph-loop` / `ralph-skills` | Flywheel track (12.10–12.13): optimization-loop + skill-ROI scaffolding. | Reused loop structure instead of bespoke per-segment harnesses. |
+| `skill-creator` | Flywheel ontology expansion (skill taxonomy growth, 12.11/12.12). | — |
+
+**Per-segment loop:**
+
+1. Open the single segment spec (`docs/superpowers/plans/2026-06-22-phase-12-N-*.md`) — self-contained, minimal archaeology.
+2. Confirm the prior segment's Definition of Done is met.
+3. TDD: write the failing test first, then the minimum code (Ponytail ladder).
+4. Run the perf harness **before and after**; attach the delta to the PR (`docs/PERFORMANCE_LOG.md`).
+5. `security-review` any file-I/O / user-input / dependency change.
+6. `verification-before-completion` before claiming done — paste the real command output.
+
+This is a workflow constraint only; 12.0 documents it and later segments follow it.

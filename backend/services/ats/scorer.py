@@ -6,9 +6,27 @@ import re
 from collections.abc import Mapping
 from typing import Any, cast
 
+from backend.config import get_settings
 from backend.observability import log_operation
 
 logger = logging.getLogger(__name__)
+
+# 12.8 Spike A — ATS score schema. Scores are integers; keyword lists are open
+# arrays. Constrains shape only, so the model fills values it derives.
+_ATS_SCHEMA: dict = {
+    "type": "object",
+    "properties": {
+        "overall_score": {"type": "integer"},
+        "keyword_score": {"type": "integer"},
+        "skill_score": {"type": "integer"},
+        "experience_score": {"type": "integer"},
+        "industry_score": {"type": "integer"},
+        "matched_keywords": {"type": "array"},
+        "missing_keywords": {"type": "array"},
+        "explanation": {"type": "string"},
+    },
+    "required": ["overall_score", "explanation"],
+}
 
 _DEFAULT_RESULT: dict[str, object] = {
     "overall_score": 0,
@@ -52,11 +70,14 @@ class ATSScorer:
                 job_description=job_description[:3000],
                 resume_text=resume_text[:3000],
             )
+            fmt = _ATS_SCHEMA if get_settings().enable_structured_output else None
             raw = self._ollama.generate(
                 model=None,
                 prompt=user,
                 temperature=0.1,
                 system=prompt_data["system"],
+                output_format=fmt,
+                think=False if fmt else None,
             )
             data = json.loads(raw)
             return {

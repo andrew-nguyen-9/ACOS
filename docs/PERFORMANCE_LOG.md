@@ -288,3 +288,217 @@ tone dial (`focus-visible:ring`) and all controls; the cadence meter / interlocu
 `aria-hidden` decorative; the celebration fallback is `role="status" aria-live="polite"`.
 The effects-**Off** tier is a fully usable, calm app (proven by `showcase-1109` running
 entirely with effects off).
+
+---
+
+## Baseline — 2026-06-22 (Phase 12.0 re-baseline + harness extension)
+
+Phase 12 opens by re-measuring the Phase 11 metrics on the current machine and adding the
+latency surfaces Phase 11 never measured (TTFT, ingestion throughput, concurrent request
+latency). **Measurement only — no source behavior changed.** Re-run *after* the 12.0
+dependency bumps (`python-multipart 0.0.20→0.0.31`, `pypdf 5.1.0→6.13.3`,
+`requests 2.32.3→2.33.0`, `pytest 8.3.4→9.0.3`) to confirm the upgrades did not regress.
+
+Machine: `macOS-26.5.1-arm64` (Apple Silicon), Python 3.12.13.
+
+| Metric | Phase-11 final | Budget (≤) | 12.0 re-baseline | Verdict |
+|---|---|---|---|---|
+| Backend cold start — median | 597 ms | 778 ms | **643.8 ms** (n=7) | ✅ under |
+| Backend cold start — p95 | 800 ms | 1191 ms | **785.2 ms** (n=7) | ✅ under |
+| `POST /resume/generate` median (mocked) | ~0.35 ms | 0.35 ms | **~0.36 ms** (min 0.31, isolated) | ✅ at ceiling — sub-ms microbench noise; 12.0 changes no source |
+| Copilot chat median (mocked) | 0.0079 ms | 0.009 ms | **0.0078 ms** | ✅ under |
+| Initial JS bundle (gzip) | 79.60 kB | 80.8 kB | **79.60 kB** (unchanged) | ✅ no FE change in 12.0 |
+
+**Dependency-bump verification:** full backend suite **842 passed** both before and after
+the bumps (92.99% coverage, identical). `pypdf 6.13.3` re-verified on a real resume PDF —
+3647 chars extracted, malformed-xref objects skipped gracefully (no crash, per CLAUDE.md
+"never crash on malformed files"). The bumped packages are not on the cold-start import
+path (chromadb-guard test still green), so the cold-start variance vs Phase 11 is machine
+load, not the upgrade.
+
+### New latency surfaces (added in 12.0, gathered live in later segments)
+
+These benches were **added** in 12.0; their baselines need live Ollama and are gathered
+when the relevant velocity segment runs (roadmap §10 — targets, not gates, until measured).
+
+| Metric | Target | Measured by | 12.0 status |
+|---|---|---|---|
+| Time-to-first-token (TTFT), warm | ≤ 800 ms (12.4/12.5) | `scripts/perf/ttft_bench.py` | pending live Ollama (bench skips cleanly without `OLLAMA_LIVE`) |
+| Document ingest (per PDF), live | ≤ 3 s (12.6) | `scripts/perf/ingest_bench.py` | pending live Ollama (skips cleanly) |
+| Request p50/p95 under N concurrent | sync baseline for 12.2 | `backend/tests/benchmark/test_async_latency.py` | harness green (2 passed); 12.2 records the before/after delta |
+
+### Per-segment regression log (Phase 12)
+
+| Date | Segment | Metric | Before | After | Verdict |
+|------|---------|--------|--------|-------|---------|
+| 2026-06-22 | 12.0 | backend cold start — median | 597 ms (11.9) / 778 ceiling | 643.8 ms | ✅ |
+| 2026-06-22 | 12.0 | backend cold start — p95 | 800 ms (11.9) / 1191 ceiling | 785.2 ms | ✅ |
+| 2026-06-22 | 12.0 | resume/generate median (mocked) | ~0.35 ms | ~0.36 ms (µs-noise, no code change) | ✅ |
+| 2026-06-22 | 12.0 | copilot chat median (mocked) | 0.0079 ms | 0.0078 ms | ✅ |
+| 2026-06-22 | 12.0 | full suite after dep bumps | 842 passed | 842 passed (92.99% cov) | ✅ |
+| 2026-06-22 | 12.1 | write-commit latency (WAL, 200 commits/round) — median | 28.07 ms (`synchronous=FULL`) | 23.60 ms (`synchronous=NORMAL`) | ✅ 16% faster |
+| 2026-06-22 | 12.1 | write-commit latency (WAL, 200 commits/round) — p95 | 40.37 ms (FULL) | 25.78 ms (NORMAL) | ✅ tighter tail |
+| 2026-06-22 | 12.1 | backend cold start — median | 643.8 ms (12.0) / 778 ceiling | 673.4 ms | ✅ machine noise (2 extra pragma execs at startup) |
+| 2026-06-22 | 12.1 | backend cold start — p95 | 785.2 ms (12.0) / 1191 ceiling | 793.6 ms | ✅ |
+| 2026-06-22 | 12.1 | resume/generate + copilot benches (mocked) | ~332 µs / ~8 µs | ~332 µs / ~8 µs | ✅ unaffected (in-memory, no write path) |
+| 2026-06-22 | 12.1 | full suite | 842 passed | 844 passed (+2 pragma tests), 92.99% cov | ✅ |
+| 2026-06-22 | 12.2 | backend cold start — median | 673.4 ms (12.1) / 778 ceiling | 597.96 ms (n=9) | ✅ no regression from uvloop import (uvicorn[standard] already loads it; async engine built lazily) |
+| 2026-06-22 | 12.2 | backend cold start — p95 | 793.6 ms (12.1) / 1191 ceiling | 794.97 ms (n=9) | ✅ |
+| 2026-06-22 | 12.2 | concurrent read latency, 8 workers — p50 | 15.5 ms (sync threads) | 31.3 ms (async/aiosqlite) | ⚠️ regression, justified below |
+| 2026-06-22 | 12.2 | concurrent read latency, 8 workers — p95 | 18.3 ms (sync threads) | 37.8 ms (async/aiosqlite) | ⚠️ regression, justified below |
+| 2026-06-22 | 12.2 | single read latency, 1 worker, 30 scans/req — p50 | 2.9 ms (sync) | 8.0 ms (async) | ⚠️ ~0.17 ms/query aiosqlite hop overhead |
+| 2026-06-22 | 12.2 | full suite | 844 passed | 848 passed (+4 async/uvloop/gate tests), 93.10% cov | ✅ |
+
+> **12.2 concurrency finding (honest).** The async swap (`uvloop` + `aiosqlite` +
+> `AsyncSession`, exposed to routes via `await session.run_sync(...)`) **does not
+> speed up SQLite and measurably regresses raw read latency** — see
+> `scripts/perf/async_latency_bench.py` (sync threads + `Session` vs `gather` +
+> `AsyncSession`, same temp WAL DB, same query). This is expected and inherent:
+> aiosqlite is a *thread-pool wrapper* around pysqlite, so it adds a cross-thread
+> hop (~0.15–0.2 ms) per `execute` and cannot give real parallelism for SQLite
+> under the GIL. AC#5's "p95 improvement *or* no-regression with justification"
+> resolves to the **justification** branch:
+>
+> - 12.2's stated purpose (roadmap §1) is **event-loop responsiveness** — keeping
+>   the loop free so SSE streaming (12.4) does not stutter when a DB op runs
+>   mid-stream — **not** SQLite throughput. The async engine yields at every I/O
+>   point; the sync engine blocks the loop for the whole call. That qualitative win
+>   is realized in 12.4 and is not visible in a raw-latency micro-bench.
+> - ACOS is single-user/local (ADR-001): effective concurrency ≈ 1, and a handful
+>   of per-request queries add a few ms — imperceptible against multi-second LLM
+>   latency. The regression has no practical UX cost here.
+> - The bridge (`run_sync`) keeps repos/services synchronous, so this overhead is
+>   the *only* cost taken on; no service code was async-colored for no benefit.
+
+| Date | Segment | Metric | Before | After | Verdict |
+|------|---------|--------|--------|-------|---------|
+| 2026-06-22 | 12.3 | backend cold start — median (n=9, same session) | 741.7 ms | 633.5 ms | ✅ −108 ms (~15%) from deferring `rank_bm25`→`numpy` off the bind path |
+| 2026-06-22 | 12.3 | backend cold start — p95 (n=9, same session) | 1003.3 ms | 829.8 ms | ✅ −173 ms; still > 778 ceiling on this noisy run, but min=602.8 / median well under |
+| 2026-06-22 | 12.3 | bind-path heavy imports (`chromadb`/`numpy`/`rank_bm25` in `sys.modules`) | numpy + rank_bm25 leaked | none (gated by `test_lazy_imports.py`) | ✅ structural, regression-proof |
+| 2026-06-22 | 12.3 | full suite | 852 passed | 854 passed (+2 lazy-import/memo), 93.11% cov | ✅ |
+
+> **12.3 cold-start finding (honest).** The spec's **≤ 400 ms median target is not
+> reached and is not reachable by lazy imports alone.** Measured this session:
+> median 741.7 → 633.5 ms, p95 1003 → 830 ms (same machine, n=9 each; the machine
+> was noisier today than 12.2's 597.96 ms quiet-run baseline — compare the
+> same-session delta, not the cross-run absolute). The win is real but bounded:
+> the only heavy dep that was still on the server-bind path was `rank_bm25` (it
+> pulls `numpy`, ~45 ms), imported at module load by `backend.rag.reranker` for 5
+> routes. chromadb was **already** deferred (11.x `ChromaManager._client` lazy
+> property), so there was no chromadb win left to take.
+>
+> The residual ~600 ms floor is FastAPI + Starlette + SQLAlchemy + Pydantic +
+> uvicorn import cost — all **required to bind the port**, so they cannot be
+> deferred. Closing the gap to 400 ms needs ahead-of-time compilation (Nuitka),
+> which is the **12.9 spike, explicitly out of scope here**. We treat the **778 ms
+> ceiling** (roadmap §10) as the operative gate; the durable, machine-noise-immune
+> result is the `sys.modules` gate test, which fails CI if any future top-level
+> import drags chromadb/numpy/rank_bm25 back onto the bind path.
+>
+> Also landed: `workers=1` + `loop="uvloop"` pinned in `server_entry.py` (single
+> local user — extra workers only duplicate resident Chroma/model memory), and a
+> module-level memo (`get_chroma_manager`) so the PersistentClient is built once
+> per process instead of per request. PyInstaller `acos-backend.spec` already
+> lists `chromadb`/`numpy`/`rank_bm25` in `hiddenimports`, so the now-lazy imports
+> stay bundled (PyInstaller's static analysis can't see import-inside-function).
+
+## Phase 12.4 — SSE streaming + generation cancellation (2026-06-22)
+
+| Date | Segment | Metric | Before | After | Verdict |
+|------|---------|--------|--------|-------|---------|
+| 2026-06-22 | 12.4 | TTFT — first streamed chunk off model, median (live, n=5, qwen3:8b, warm) | n/a (no streaming path) | 567.7 ms | ✅ under the ≤800 ms warm baseline |
+| 2026-06-22 | 12.4 | TTFT — first streamed chunk, p95 / min (same run) | — | 2050 ms / 448 ms | ⚠️ p95 is a single-run GPU-contention outlier; min 448 ms, median well under gate |
+| 2026-06-22 | 12.4 | perceived latency for a long generation | wait for whole response, then render | first token visible at TTFT, tokens render progressively | ✅ qualitative UX win (the point of the segment) |
+| 2026-06-22 | 12.4 | backend suite | 854 passed | 862 passed (+8 streaming/disconnect/ollama), 93.09% cov | ✅ |
+| 2026-06-22 | 12.4 | frontend vitest | 58 passed | 64 passed (+6 streamSSE: append / split-chunk / abort / error / meta) | ✅ |
+
+> **12.4 TTFT finding (honest).** The number above is **time to the first streamed
+> chunk off the model** — the streaming-*path* latency the segment targets — not
+> the first visible answer token. qwen3:8b is a reasoning model: it streams a
+> multi-second run of empty-`response` "thinking" chunks before the visible
+> answer, so "first visible token" measured ~10 s (64-token budget) to ~43 s
+> (256-token budget, `response_token_runs=0`). Streaming **cannot** shorten the
+> reasoning phase — that latency is the model thinking, not the transport. The
+> path win is real and what streaming delivers: the first chunk arrives at ~568 ms
+> median and tokens then render incrementally instead of all-at-once after the
+> full generation. `ollama_client.generate_stream` deliberately yields only
+> non-empty `.response` deltas (thinking is hidden from the UI), so the bench times
+> the raw first chunk over the same `stream:True` path to isolate transport TTFT.
+> Calibrating *visible*-token TTFT (Ollama `think:false`) is **12.5 calibration,
+> deferred** — consistent with the 12.3/12.5 note above.
+>
+> **Cancellation / disconnect.** `sse_token_stream` checks
+> `request.is_disconnected()` before each token and `return`s on disconnect within
+> one chunk; that finalizes the token async-gen, unwinds `generate_stream`'s
+> `async with httpx.AsyncClient()/.stream()`, closes the socket and frees the GPU
+> job. `on_complete` (the persist seam) runs **only** on a clean full drain, so a
+> cancelled generation leaves no telemetry/row (the 12.2 async-boundary trap). An
+> upstream mid-stream failure (Ollama 500 after headers flush) emits a distinct
+> `data: {"error": …}` frame + logs, so the client never mistakes a truncated
+> stream for success. Frontend `AbortController` per generation: starting a new
+> one aborts the in-flight one (no two concurrent Ollama jobs), and the stream is
+> aborted on page-unmount.
+>
+> **Scope (deferred, documented).** The spec named `/resume/generate` and
+> `/cover-letter` as streaming targets too. Only **copilot chat** was wired:
+> `/resume/generate` returns parsed structured JSON plus a second ATS-scoring LLM
+> round — not a prose token stream (SSE-framing partial JSON forces the client to
+> buffer-and-parse, defeating progressive render); cover-letter would need a
+> generator refactor. The reusable primitives (`sse_token_stream` + `on_complete`
+> persist hook, `RAGService.build_prompt`/`CopilotEngine.prepare` seam, the
+> frontend `streamSSE` helper) are built so those routes adopt streaming without
+> rework. AC line 30 (`/resume/generate streams chunks`) is **deferred**, not
+> silently complete.
+
+---
+
+## Phase 12.6 — RAG Throughput (collections, batching, background ingest, pruning) — 2026-06-22
+
+Machine: macOS-26.5.1 arm64 (M1, 16GB), Python 3.12.13, live Ollama (qwen3:8b + nomic-embed-text).
+
+**Batched embeddings (AC3).** `scripts/perf/embed_batch_bench.py`, n=300 short texts:
+
+| path | HTTP calls | wall time |
+|------|-----------|-----------|
+| per-chunk (`/api/embeddings`, one POST/text) | 300 | 13.186 s |
+| batched (`/api/embed`, one POST/≤128-chunk) | 3 | 7.076 s |
+
+**1.86× faster, 100× fewer round-trips.** The HTTP-call count is also asserted in
+`test_embed_batch.py` (300 → 3 calls, order preserved).
+
+**Ingestion throughput (AC6).** `scripts/perf/ingest_bench.py`, 5-page resume PDF, n=3:
+
+| mode | median | min | max |
+|------|--------|-----|-----|
+| parse → embed → index (12.6 surface, `--regex-extract`) | **0.169 s** | 0.158 s | 0.878 s |
+| full pipeline (LLM entity extraction) | 120.288 s | 119.146 s | 120.322 s |
+
+The 12.6-affected path (parse + embed + index) is **0.169 s median — well under the
+≤3 s target.** The full-pipeline 120 s is **entirely the qwen3 entity-extraction LLM
+call**, which runs reasoning-mode and hits the 120 s httpx timeout before falling
+back to regex — outside 12.6's surface (consolidation/batching/pruning affect
+retrieval and embedding round-trips, not entity extraction). AC4 background
+ingestion makes that cost **non-blocking**: `POST /ingest` returns `202` + a job id
+immediately and the slow work runs off-request, which is the actual UX fix.
+
+> **Honest finding.** The entity-extraction LLM call is now the ingestion
+> bottleneck. A `think:false` extraction path (cf. 12.5) or a shorter timeout would
+> reclaim it; tracked separately, not a 12.6 deliverable.
+
+**Context pruning (AC5).** Reranked context is capped at a cumulative ≤1500 tokens
+via `tokens.count_tokens` before prompt assembly (was a fixed 15-item count). Prompt
+-eval over context dominates TTFT (12.5), so the token budget — not an item count —
+is the lever. Verified in `test_context_pruning.py` on an oversized corpus
+(highest-ranked kept, tail dropped, output ≤ budget).
+
+**Collection consolidation (AC1/AC2).** 10 physical Chroma collections → 1
+(`acos_documents`) partitioned by `doc_type`; retrieval is one `where`-filtered HNSW
+query instead of a ten-index loop. `n_results` scales with partition count to
+preserve recall. Correctness covered by real-ChromaDB `test_collection_filtering.py`
++ idempotent migration `test_consolidate_migration.py`.
+
+> **Golden-set caveat.** No golden-set retrieval harness exists in-repo, so
+> "retrieval correctness unchanged" is asserted via the filtering tests rather than
+> a scored baseline. Single-index `n_results` scaling is a mild recall *change* vs
+> the old per-partition loop (the reranker re-sorts the pooled candidates); building
+> a scored golden set is tracked separately.

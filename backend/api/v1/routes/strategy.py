@@ -4,9 +4,10 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
-from backend.database import get_session as get_db
+from backend.database import get_async_session as get_db
 from backend.models.strategy import (
     EnrichCorpusRequest,
     OutcomeReport,
@@ -29,38 +30,37 @@ router = APIRouter(tags=["strategy"])
 
 
 @router.post("/strategy/role-fit", response_model=RoleFitScore)
-def role_fit(req: RoleFitRequest, db: Session = Depends(get_db)) -> dict:
-    result = RoleFitScorer(db).score(req.jd_text)
-    return result
+async def role_fit(req: RoleFitRequest, db: AsyncSession = Depends(get_db)) -> dict:
+    return await db.run_sync(lambda s: RoleFitScorer(s).score(req.jd_text))
 
 
 @router.get("/strategy/career-paths")
-def career_paths(db: Session = Depends(get_db)) -> list[dict]:
-    return CareerPathSimulator(db).simulate_all()
+async def career_paths(db: AsyncSession = Depends(get_db)) -> list[dict]:
+    return await db.run_sync(lambda s: CareerPathSimulator(s).simulate_all())
 
 
 @router.post("/strategy/prioritize")
-def prioritize(req: PrioritizeRequest, db: Session = Depends(get_db)) -> list[dict]:
-    return ApplicationStrategyEngine(db).prioritize(req.jobs)
+async def prioritize(req: PrioritizeRequest, db: AsyncSession = Depends(get_db)) -> list[dict]:
+    return await db.run_sync(lambda s: ApplicationStrategyEngine(s).prioritize(req.jobs))
 
 
 @router.get("/strategy/skill-gaps")
-def skill_gaps(db: Session = Depends(get_db)) -> list[dict]:
-    return SkillGapForecaster(db).forecast()
+async def skill_gaps(db: AsyncSession = Depends(get_db)) -> list[dict]:
+    return await db.run_sync(lambda s: SkillGapForecaster(s).forecast())
 
 
 @router.get("/strategy/resume-recommendation", response_model=ResumeStrategyRecommendation)
-def resume_recommendation(jd_text: str, db: Session = Depends(get_db)) -> dict:
+async def resume_recommendation(jd_text: str, db: AsyncSession = Depends(get_db)) -> dict:
     if len(jd_text) < 50:
         raise HTTPException(status_code=422, detail="jd_text must be at least 50 characters")
-    return ResumeStrategySelector(db).recommend(jd_text)
+    return await db.run_sync(lambda s: ResumeStrategySelector(s).recommend(jd_text))
 
 
 @router.post("/strategy/resume-recommendation/apply")
-def apply_resume_recommendation(req: ResumeStrategyRequest, db: Session = Depends(get_db)) -> dict:
+async def apply_resume_recommendation(req: ResumeStrategyRequest, db: AsyncSession = Depends(get_db)) -> dict:
     # ponytail: two-step gate — this endpoint confirms approval intent; actual generation
     # delegates to existing resume generation flow via its own endpoint
-    recommendation = ResumeStrategySelector(db).recommend(req.jd_text)
+    recommendation = await db.run_sync(lambda s: ResumeStrategySelector(s).recommend(req.jd_text))
     return {
         "status": "pending_user_confirmation",
         "recommendation": recommendation,
@@ -69,12 +69,12 @@ def apply_resume_recommendation(req: ResumeStrategyRequest, db: Session = Depend
 
 
 @router.post("/strategy/enrich-corpus")
-def enrich_corpus(req: EnrichCorpusRequest, db: Session = Depends(get_db)) -> dict:
+async def enrich_corpus(req: EnrichCorpusRequest, db: AsyncSession = Depends(get_db)) -> dict:
     try:
         import chromadb  # type: ignore[import]
         from backend.config import get_settings
         settings = get_settings()
-        client = chromadb.PersistentClient(path=settings.chroma_db_path())
+        client = chromadb.PersistentClient(path=settings.chroma_db_path)
     except Exception as exc:
         raise HTTPException(status_code=503, detail=f"ChromaDB unavailable: {exc}") from exc
 
@@ -83,5 +83,5 @@ def enrich_corpus(req: EnrichCorpusRequest, db: Session = Depends(get_db)) -> di
 
 
 @router.get("/analytics/outcomes", response_model=OutcomeReport)
-def outcomes_report(db: Session = Depends(get_db)) -> dict:
-    return OutcomeLearner(db).outcome_report()
+async def outcomes_report(db: AsyncSession = Depends(get_db)) -> dict:
+    return await db.run_sync(lambda s: OutcomeLearner(s).outcome_report())

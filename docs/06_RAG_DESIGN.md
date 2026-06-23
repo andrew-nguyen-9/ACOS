@@ -225,3 +225,34 @@ client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
 ```
 
 Collections are created idempotently at startup. No external ChromaDB server required.
+
+---
+
+## Collection Consolidation (Phase 12.6)
+
+The 10 per-type collections were collapsed into a **single physical collection**,
+`acos_documents`, partitioned by a `doc_type` metadata field (values are the legacy
+collection names, e.g. `acos_experiences`). Retrieval issues one HNSW query with
+`where={"doc_type": {"$in": [...]}}` instead of looping ten indexes — fewer disk
+seeks and one index per query.
+
+- **Writes** (`indexer.index_document` / `index_batch`) always target `acos_documents`
+  and tag each record with `doc_type`.
+- **Retrieval** (`RAGRetriever.retrieve(query, doc_types, top_k)`) filters by doc_type;
+  `n_results` scales with the partition count to preserve recall.
+- **Intent → partitions** lives in `services/rag/service.py::_INTENT_DOCTYPES`.
+
+### One-time migration
+
+Existing installs hold vectors in the legacy collections. Re-home them **without
+re-embedding**:
+
+```bash
+PYTHONPATH=. .venv/bin/python -m scripts.migrate_consolidate_collections
+```
+
+It copies vectors+documents+metadata into `acos_documents`, tags `doc_type`,
+backfills untagged rows to the default doc_type, and deletes each legacy collection
+after copying. **Idempotent** — upserts by id and skips already-consumed
+collections, so re-running is a no-op. It is a standalone script (not an Alembic
+revision) because ChromaDB is not part of the SQLAlchemy metadata.
