@@ -75,7 +75,8 @@ See `docs/adr/ADR-006-evidence-confidence-system.md`.
 | Scripts | `scripts/` |
 | Documentation | `docs/` |
 | ADRs | `docs/adr/` |
-| Plans | `docs/superpowers/plans/` |
+| Plans (frozen v1 history) | `docs/v1/plans/` |
+| Forward / post-v1 | `docs/v2/` + `docs/BACKLOG.md` intake |
 
 ---
 

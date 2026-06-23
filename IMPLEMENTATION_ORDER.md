@@ -5,8 +5,8 @@ phases 0–10; see `docs/08_ROADMAP.md`). CLAUDE.md references this file for the
 until the prior passes" rule — that rule still holds for current work, but the *current* phase
 ledger is the roadmaps, not this list.
 
-> **Current / next work:** `docs/superpowers/plans/phase-16-roadmap.md` (final v1 arc = 16–18).
-> **Per-phase history:** frozen under `docs/v1/plans/` (phases 0–15; 0–10 in `v1/plans/archive/`).
+> **Status:** v1 complete — Phases 0–18 shipped (2026-06-23). No active phase.
+> **Per-phase history:** frozen under `docs/v1/plans/` (phases 0–18; 0–10 in `v1/plans/archive/`).
 > **Post-v1 / future:** `docs/v2/` + the `docs/BACKLOG.md` intake convention.
 
 1. Database & Knowledge Graph

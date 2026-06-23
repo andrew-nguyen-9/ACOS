@@ -1,28 +1,25 @@
-# Current Sprint
+# Current Status
 
-**Phase:** Between phases — Phases 0–15 shipped (Phase 15 merged via PR #12, `a59098f`). Final
-v1 arc = **Phases 16–18**, planned, not started.
+**Version:** v1 — **complete**. Phases 0–18 shipped (alpha, 2026-06-23).
 **Branch:** `main`
-**Status:** Planning complete for Phases 16–18 (roadmaps + segment-prompts + ADRs 014–020
-drafted). Awaiting explicit "go" to begin 16.1.
+**Now:** No active phase. Work is demand-driven (v2) — nothing is scheduled until a
+[`BACKLOG.md`](BACKLOG.md) batch or a [`v2/IDEAS.md`](v2/IDEAS.md) entry earns a sponsor.
 
-> Thin pointer to avoid re-rot. Authoritative per-phase ledger: `docs/superpowers/plans/`
-> (active 16–18) + frozen history in `docs/v1/plans/` + the auto-memory `MEMORY.md`.
+> Thin pointer to avoid re-rot. Authoritative per-phase history: `docs/v1/plans/`
+> (phases 0–10 under `v1/plans/archive/`) + the auto-memory `MEMORY.md`.
 
-## Next up — final v1 arc
+## What shipped in v1 (0–18)
 
-| Phase | What | Plan |
-|-------|------|------|
-| 16 | Enterprise security, privacy & isolation — auth (ADR-014), encryption (015), audit (016), injection defense (017), plugin permissions (018), adversarial tests | [`phase-16-roadmap.md`](superpowers/plans/phase-16-roadmap.md) |
-| 17 | Browser extension & job capture — Chrome+Firefox, paired bridge (ADR-019), capture→normalize→draft | [`phase-17-roadmap.md`](superpowers/plans/phase-17-roadmap.md) |
-| 18 | Alpha release — de-personalized onboarding, feature flags, local telemetry, distribution + update (ADR-020); **v1 complete** | [`phase-18-roadmap.md`](superpowers/plans/phase-18-roadmap.md) |
+Local-first AI career OS · evidence-traced generation (no hallucinated facts, ADR-006) ·
+resume / cover-letter / ATS / copilot / Q&A engines · outcome learning + controlled
+optimization loop · recommend-never-act career agent (ADR-012) · multi-tenant with real
+auth + isolation (ADR-014) · tamper-evident audit, injection defense, opt-in at-rest
+encryption (ADR-015/016/017) · capability-based plugin permission model (ADR-018) ·
+browser job-capture extension (ADR-019) · showcase-grade macOS-native UI · alpha-
+distributable DMG + notify-only update + local feature flags (ADR-020).
 
-## After v1
+## What's next (v2 — adhoc)
 
-Adhoc / v2 — see [`v2/ROADMAP.md`](v2/ROADMAP.md) + [`v2/IDEAS.md`](v2/IDEAS.md). Bugs/issues/
-ideas batch into phases via [`BACKLOG.md`](BACKLOG.md).
-
-## Completed
-
-Phases 0–15 complete. History frozen under `docs/v1/plans/` (0–10 in `v1/plans/archive/`);
-see also `docs/08_ROADMAP.md`.
+See [`v2/ROADMAP.md`](v2/ROADMAP.md) (candidate themes, uncommitted) and
+[`v2/IDEAS.md`](v2/IDEAS.md) (raw parking lot). Bugs, issues, and ideas flow through
+[`BACKLOG.md`](BACKLOG.md) and are batched into phases only when a coherent batch forms.

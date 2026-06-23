@@ -1,16 +1,17 @@
 # ACOS Development Roadmap
 
-> **Status (2026-06-23): Phases 0–13 complete.** Next: Phase 14–15 (see
-> [`superpowers/plans/phase-14-15-roadmap.md`](superpowers/plans/phase-14-15-roadmap.md)).
+> **Status (2026-06-23): v1 COMPLETE — Phases 0–18 shipped.** No active phase; further
+> work is demand-driven (see [`v2/ROADMAP.md`](v2/ROADMAP.md)).
 >
 > **⚠️ Numbering caveat.** Phases 0–8 below describe the *original* feature-build order
 > (mirrors [`../IMPLEMENTATION_ORDER.md`](../IMPLEMENTATION_ORDER.md): DB → ingestion → … →
 > Copilot). Actual execution diverged and **renumbered** from Phase 8 onward (e.g. actual
 > Phase 8 = controlled-autonomous optimization, 11 = frontend, 12 = velocity/flywheel/
-> multi-tenant, 13 = surfacing/onboarding/packaging). The **canonical per-phase ledger** is
-> `docs/superpowers/plans/` (phases 0–10 in `plans/archive/`) plus the "Phase 11+" /
-> "Phase 13 outcomes" sections at the end of this file and `MEMORY.md`. Treat the early
-> headers here as historical intent, the late sections + plans as what shipped.
+> multi-tenant, 13 = surfacing/onboarding/packaging, 16 = security, 17 = browser extension,
+> 18 = alpha release). The **canonical per-phase ledger** is the frozen plans under
+> [`v1/plans/`](v1/plans/) (phases 0–10 in `v1/plans/archive/`) plus the "Phase 11+"
+> sections at the end of this file and `MEMORY.md`. Treat the early headers here as
+> historical intent, the late sections + plans as what shipped.
 
 ## Guiding Principle
 
@@ -36,7 +37,7 @@ before any business logic is written.
 - [x] `docs/adr/` — 7 Architecture Decision Records
 - [x] `CLAUDE.md` — project-level development rules
 - [x] Full directory scaffold
-- [x] `docs/superpowers/plans/` — Phase 0 implementation plan
+- [x] `docs/v1/plans/archive/` — Phase 0 implementation plan
 
 **Acceptance Criteria:**
 - All 8 docs exist and are complete

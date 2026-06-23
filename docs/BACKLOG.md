@@ -32,8 +32,9 @@ Assign **severity** and a **target phase**. Severity drives batching priority:
    S3/S4 ride along only when the area is already open.
 3. **Size the batch to ~3–6 segments** (one segment ≈ one build session, matching the
    phase-11→18 cadence). Bigger → split into two phases.
-4. **Name it** `phase-<N>` and move the items under `## Batched`. The phase plan
-   (`docs/superpowers/plans/phase-<N>-roadmap.md`) lists them as acceptance criteria.
+4. **Name it** `phase-<N>` and move the items under `## Batched`. Write its plan as
+   `docs/v2/plans/phase-<N>-roadmap.md` (a fresh dir for the first v2 phase); it lists
+   the batched items as acceptance criteria. Frozen v1 plans live in `docs/v1/plans/`.
 5. **A batch ships when every S1/S2 in it is closed.** S3/S4 may roll to the next batch.
 
 > Post-v1 (after Phase 18) phases are **adhoc** — they exist only when a batch crosses the

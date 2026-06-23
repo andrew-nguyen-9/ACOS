@@ -9,7 +9,6 @@ ACOS/
 ├── REPO_MAP.md                This file — annotated directory tree
 ├── CLAUDE.md                  Non-negotiable development rules (enforced)
 ├── IMPLEMENTATION_ORDER.md    Fixed feature build order
-├── GAMEPLAN.md                Original architecture spec (historical; see docs/02_)
 ├── pyproject.toml             pytest / coverage / pyright config
 ├── alembic.ini                Alembic migration config (→ database/migrations)
 ├── acos-backend.spec          PyInstaller spec for the bundled backend binary
@@ -77,14 +76,20 @@ ACOS/
 │
 ├── docs/                      ← All documentation   [see docs/INDEX.md]
 │   ├── 01_… 09_…              Core specs (vision, architecture, schema, prompts, RAG…)
-│   ├── *_GUIDE / *_SETUP      Operational guides
+│   ├── *_GUIDE / *_SETUP      Operational guides (USER_GUIDE, MODEL_SETUP, PACKAGING…)
+│   ├── INDEX.md               The documentation map — start here
+│   ├── BACKLOG.md             Bug/issue/idea intake → batched into future phases
 │   ├── optimization/          Perf/inference/architecture spike findings + deferred backlog
 │   ├── assets/                Doc images
-│   ├── adr/                   Architecture Decision Records (ADR-001 … 011)
-│   └── superpowers/
-│       ├── plans/             One implementation plan per build phase
-│       │   └── archive/       Plans for completed phases 0–10
-│       └── specs/             Design specs from brainstorming (as needed)
+│   ├── adr/                   Architecture Decision Records (ADR-001 … 020, immutable)
+│   ├── v1/                    Frozen v1 history (Phases 0–18)
+│   │   ├── GAMEPLAN.md        Original "imagination" architecture spec (historical)
+│   │   ├── KNOWN_ISSUES.md    Historical known-issues log
+│   │   ├── plans/             One plan per phase 11–18 (0–10 under plans/archive/)
+│   │   └── specs/             Design specs from that era
+│   └── v2/                    Forward / post-v1 — emergent, demand-driven
+│       ├── ROADMAP.md         Candidate themes (uncommitted)
+│       └── IDEAS.md           Raw idea parking lot
 │
 ├── examples/                  Sample resumes / job descriptions / cover letters
 ├── .static_files/             Your private source data (git-ignored)

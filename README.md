@@ -7,13 +7,18 @@ from application outcomes to improve over time.
 Everything runs on your machine. No career data ever leaves your computer, and after
 setup the app works without any cloud AI service or API key.
 
-> **One deliberate network exception (Phase 13.9):** the packaged app checks a single
-> signed update channel over TLS — a version check plus the signature-verified update
-> download, nothing else (no telemetry, no identity, no career data). See
+> **Status:** v1 complete — Phases 0–18 shipped (alpha, 2026-06-23). Further work is
+> demand-driven; see [`docs/v2/ROADMAP.md`](docs/v2/ROADMAP.md).
+
+> **One deliberate network exception:** the packaged app checks a single signed update
+> channel over TLS — a version check plus the signature-verified update download, nothing
+> else (no telemetry, no identity, no career data). See
 > [`docs/adr/ADR-011-background-auto-update-network-boundary.md`](docs/adr/ADR-011-background-auto-update-network-boundary.md).
 
-> **New here?** Start with [`REPO_MAP.md`](REPO_MAP.md) for the directory layout and
-> [`docs/INDEX.md`](docs/INDEX.md) for the full documentation map.
+> **New here?**
+> - **Just want to run the app?** → [Install the app](#install-the-app-end-users) below.
+> - **Building or contributing?** → [`REPO_MAP.md`](REPO_MAP.md) for the layout and
+>   [`docs/INDEX.md`](docs/INDEX.md) for the full documentation map.
 
 ---
 
@@ -35,6 +40,39 @@ setup the app works without any cloud AI service or API key.
 A core rule of the system: **no hallucinated facts.** Every generated statement traces
 back to a source record with a confidence level (`verified` / `strong_inference` /
 `weak_inference`). See [ADR-006](docs/adr/ADR-006-evidence-confidence-system.md).
+
+---
+
+## Install the app (end users)
+
+ACOS ships as a single macOS **`.dmg`**. You only need **two** things:
+
+1. **The ACOS DMG** — if a packaged build has been published, download it; otherwise
+   build it yourself in one command: `scripts/build_dmg.sh` (see [Packaging](#packaging)).
+2. **[Ollama](https://ollama.ai)** — the local AI engine. Install it, then pull the models:
+
+   ```bash
+   ollama pull qwen3:8b
+   ollama pull nomic-embed-text
+   ```
+
+Then:
+
+1. Open the DMG and drag **ACOS** into **Applications**.
+2. **First launch (one-time):** the alpha DMG is **unsigned**, so macOS Gatekeeper will
+   block a normal double-click. Right-click **ACOS** → **Open** → **Open**. macOS
+   remembers the choice; every launch after is a normal double-click.
+   _(Equivalent terminal one-liner: `xattr -dr com.apple.quarantine /Applications/ACOS.app`.)_
+3. The first-run wizard checks Ollama, helps you pull any missing model, and walks you
+   through importing your first document. Done.
+
+Everything after that runs fully offline. See [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md)
+for day-to-day usage and [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) if launch
+misbehaves.
+
+> Why unsigned? Signing requires a paid Apple Developer ID; the alpha is distributed
+> unsigned by design ([ADR-020](docs/adr/ADR-020-alpha-distribution-update-rollout.md)).
+> The right-click-Open step is the standard, safe way to run it.
 
 ---
 
@@ -169,14 +207,17 @@ coverage gate is `fail_under = 90`.
 ## Packaging
 
 The backend is bundled into a standalone binary with PyInstaller
-(`backend/server_entry.py` is the entry point), then embedded as a Tauri sidecar:
+(`backend/server_entry.py` is the entry point), embedded as a Tauri sidecar, and shipped
+as a macOS DMG. **One command builds the whole thing:**
 
 ```bash
-bash scripts/build_backend.sh   # produce the backend sidecar binary
-cd frontend && npm run tauri build
+scripts/build_dmg.sh
 ```
 
-Details: [`docs/superpowers/plans/2026-06-19-phase-7-production-packaging-release.md`](docs/superpowers/plans/2026-06-19-phase-7-production-packaging-release.md).
+Output: `frontend/src-tauri/target/release/bundle/dmg/ACOS_<version>_<arch>.dmg`.
+
+Full build, signing/notarization, and release-verification details (including the
+unsigned-alpha fallback) are in [`docs/PACKAGING.md`](docs/PACKAGING.md).
 
 ---
 
@@ -200,9 +241,10 @@ A fuller, annotated tree is in [`REPO_MAP.md`](REPO_MAP.md).
 
 Development is governed by [`CLAUDE.md`](CLAUDE.md) — the non-negotiable rules:
 TDD before implementation, type checking, no hallucinated content, and reading the docs
-before building. Implementation proceeds in the fixed order defined in
-[`IMPLEMENTATION_ORDER.md`](IMPLEMENTATION_ORDER.md), with full acceptance criteria in
-[`docs/08_ROADMAP.md`](docs/08_ROADMAP.md). All eight build phases are complete.
+before building. **v1 (Phases 0–18) is complete**; frozen per-phase history lives under
+[`docs/v1/plans/`](docs/v1/plans/). New work is demand-driven and batched through
+[`docs/BACKLOG.md`](docs/BACKLOG.md) into v2 phases — see
+[`docs/v2/ROADMAP.md`](docs/v2/ROADMAP.md).
 
 ---
 
