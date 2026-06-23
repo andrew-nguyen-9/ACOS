@@ -93,7 +93,12 @@ class TestPrioritizeRoute:
     def test_returns_list(self, client):
         with patch("backend.api.v1.routes.strategy.ApplicationStrategyEngine") as MockEng:
             MockEng.return_value.prioritize.return_value = [
-                {"job_id": "j1", "jd_snippet": "...", "priority": "tailor", "reason": "ok", "fit_score": 65.0}
+                {
+                    "job_id": "j1", "jd_snippet": "...", "priority": "tailor",
+                    "reason": "ok", "fit_score": 65.0, "confidence": "strong_inference",
+                    "missing_critical_skills": [], "risk_factors": [],
+                    "explanation": "Moderate fit.", "top_pick": False,
+                }
             ]
             resp = client.post(
                 "/api/v1/strategy/prioritize",
@@ -107,6 +112,32 @@ class TestPrioritizeRoute:
             MockEng.return_value.prioritize.return_value = []
             resp = client.post("/api/v1/strategy/prioritize", json={"jobs": []})
         assert resp.status_code == 200
+
+    def test_response_carries_confidence_and_evidence(self, client):
+        # ADR-012: no bare numbers — each ranked row carries confidence + evidence.
+        with patch("backend.api.v1.routes.strategy.ApplicationStrategyEngine") as MockEng:
+            MockEng.return_value.prioritize.return_value = [
+                {
+                    "job_id": "j1",
+                    "jd_snippet": "...",
+                    "priority": "tailor",
+                    "reason": "ok",
+                    "fit_score": 65.0,
+                    "confidence": "strong_inference",
+                    "missing_critical_skills": ["dbt"],
+                    "risk_factors": [],
+                    "explanation": "Moderate fit.",
+                    "top_pick": True,
+                }
+            ]
+            resp = client.post(
+                "/api/v1/strategy/prioritize",
+                json={"jobs": [{"job_id": "j1", "jd_text": _JD}]},
+            )
+        assert resp.status_code == 200
+        row = resp.json()[0]
+        for key in ("confidence", "missing_critical_skills", "explanation", "top_pick"):
+            assert key in row
 
 
 # ── GET /strategy/skill-gaps ──────────────────────────────────────────────────

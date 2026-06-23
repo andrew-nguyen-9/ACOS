@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, useTransition, type Dispatch, type SetStateAction } from "react";
 import { AnimatePresence, m } from "framer-motion";
-import { Plus, Briefcase, Search, Filter, Clock3, AlertTriangle } from "lucide-react";
+import { Plus, Briefcase, Search, Filter, Clock3, AlertTriangle, ListChecks } from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { JobPrioritization } from "@/components/strategy/JobPrioritization";
 import { PageSkeleton } from "@/components/ui/Skeleton";
 import { VirtualList } from "@/components/ui/VirtualList";
 import { useDeferredLoading } from "@/hooks/useDeferredLoading";
@@ -187,6 +188,11 @@ function ApplicationsView({
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [showAdd, setShowAdd] = useState(false);
+  const [showPrioritize, setShowPrioritize] = useState(false);
+  // Saved JDs already tracked on applications — feed the prioritization surface.
+  const savedJds = applications
+    .map((a) => a.job_description)
+    .filter((jd): jd is string => Boolean(jd && jd.trim()));
   // ASP-003: filtering a large list is the heavy update — keep typing/clicks
   // responsive by marking the derived-list recompute as a transition.
   const [, startTransition] = useTransition();
@@ -247,14 +253,29 @@ function ApplicationsView({
             <h1 className="font-semibold text-neutral-50 text-2xl tracking-tight">Applications</h1>
             <p className="text-[#a1a1a1] text-sm mt-1">Career CRM — {applications.length} tracked applications</p>
           </div>
-          <button
-            onClick={() => setShowAdd(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#4c8dff] text-white text-sm font-semibold hover:opacity-90 transition-opacity"
-          >
-            <Plus className="size-4" />
-            Add Application
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowPrioritize((v) => !v)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${showPrioritize ? "bg-[#4c8dff]/15 text-[#4c8dff]" : "bg-white/[0.06] text-[#a1a1a1] hover:bg-white/[0.1]"}`}
+            >
+              <ListChecks className="size-4" />
+              Prioritize jobs
+            </button>
+            <button
+              onClick={() => setShowAdd(true)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#4c8dff] text-white text-sm font-semibold hover:opacity-90 transition-opacity"
+            >
+              <Plus className="size-4" />
+              Add Application
+            </button>
+          </div>
         </m.div>
+
+        {showPrioritize && (
+          <GlassCard className="p-5">
+            <JobPrioritization savedJds={savedJds} />
+          </GlassCard>
+        )}
 
         <div className="grid grid-cols-5 gap-3">
           {STATUS_OPTIONS.map((s) => {

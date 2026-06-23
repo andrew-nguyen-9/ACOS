@@ -197,6 +197,8 @@ class TestApplicationStrategyEngine:
             "overall": overall,
             "missing_critical_skills": ["python"] * missing,
             "risk_factors": [],
+            "confidence": "weak_inference",
+            "explanation": "mock fit",
         }), \
         patch("backend.repositories.skill.SkillRepository") as MockSR:
             MockSR.return_value.list.return_value = []

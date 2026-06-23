@@ -38,6 +38,13 @@ class ApplicationPriority(BaseModel):
     priority: JobPriorityAction
     reason: str
     fit_score: float
+    # 15.1 enrichment (ADR-006/012): the ranked estimate carries its confidence +
+    # the evidence it derived from; top_pick is server-decided, weak rows excluded.
+    confidence: ConfidenceTier
+    missing_critical_skills: list[str]
+    risk_factors: list[str]
+    explanation: str
+    top_pick: bool
 
 
 class SkillGapItem(BaseModel):
