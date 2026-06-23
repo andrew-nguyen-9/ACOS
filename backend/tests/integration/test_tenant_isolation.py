@@ -65,10 +65,16 @@ def test_signals_isolated_by_tenant(test_session):
     assert {a["entity_id"] for a in t1} == {"python"}
 
 
-def test_route_isolation_via_tenant_header(client, test_session):
-    """The ROI route reading via X-Tenant-Id sees only that tenant's signals."""
-    ensure_tenant(test_session, "t1")
-    ensure_tenant(test_session, "t2")
+def test_route_isolation_via_session(unauth_client, test_session):
+    """The ROI route, driven by two authenticated sessions (ADR-014, not a header),
+    sees only the calling session's tenant signals. Header-selection is gone — a
+    session's bound tenant is the only selector."""
+    from backend.services import auth as auth_service
+
+    auth_service.enroll(test_session, "pw1", tenant_id="t1")
+    auth_service.enroll(test_session, "pw2", tenant_id="t2")
+    t1_token = auth_service.login(test_session, "pw1", tenant_id="t1")
+    t2_token = auth_service.login(test_session, "pw2", tenant_id="t2")
     eng = FeedbackEngine(test_session)
     # t1: python used in 6 apps with outcomes -> a real ROI
     set_session_tenant(test_session, "t1")
@@ -89,11 +95,13 @@ def test_route_isolation_via_tenant_header(client, test_session):
                       value=1.0, source={"table": "resumes", "ids": ["z1"]})
     test_session.commit()
 
-    r1 = client.get("/api/v1/flywheel/skills/roi", headers={"X-Tenant-Id": "t1"})
+    r1 = unauth_client.get("/api/v1/flywheel/skills/roi",
+                           headers={"Authorization": f"Bearer {t1_token}"})
     assert r1.status_code == 200
     assert r1.json()["recommended"] == ["python"]
 
-    r2 = client.get("/api/v1/flywheel/skills/roi", headers={"X-Tenant-Id": "t2"})
+    r2 = unauth_client.get("/api/v1/flywheel/skills/roi",
+                           headers={"Authorization": f"Bearer {t2_token}"})
     assert r2.status_code == 200
     assert r2.json()["skills"] == []  # t2 has no python, no outcomes
 
@@ -127,6 +135,35 @@ def test_lexical_search_scopes_fts_to_tenant(tmp_path, test_session):
     set_session_tenant(test_session, "t1")
     hits = lexical.search(test_session, "python", ["acos_experiences"], tenant_id="t1")
     assert {h["id"] for h in hits} == {"d1"}
+
+
+def test_memory_is_tenant_isolated(test_session):
+    """16.5: agent memory (Memory) never bleeds across tenants — A cannot read B's."""
+    from backend.models.memory import Memory
+
+    ensure_tenant(test_session, "t1")
+    ensure_tenant(test_session, "t2")
+    set_session_tenant(test_session, "t2")
+    test_session.add(Memory(memory_type="long_term", content_json='{"x": "t2-secret"}'))
+    test_session.flush()
+
+    set_session_tenant(test_session, "t1")
+    # A query under t1 sees nothing of t2's memory (auto-filter, 12.14).
+    assert test_session.query(Memory).all() == []
+
+
+def test_cross_tenant_application_read_is_impossible(test_session):
+    """16.5 load-bearing: tenant A cannot read tenant B's application rows."""
+    from backend.models.application import Application
+
+    ensure_tenant(test_session, "t1")
+    ensure_tenant(test_session, "t2")
+    set_session_tenant(test_session, "t2")
+    test_session.add(Application(company="SecretCo", position="PM"))
+    test_session.flush()
+
+    set_session_tenant(test_session, "t1")
+    assert test_session.query(Application).all() == []  # zero leakage
 
 
 def test_tenant_migration_round_trip(tmp_path, monkeypatch):

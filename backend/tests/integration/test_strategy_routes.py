@@ -40,7 +40,13 @@ _MOCK_PATH = {
 
 @pytest.fixture
 def client():
+    # 16.1 (ADR-014): tenant-scoped routes require a real session. These aren't auth
+    # tests, so bind the default tenant directly (same seam as conftest `client`).
+    from backend.api.deps import get_tenant_context
+    from backend.services.tenancy import TenantContext
+
     app = create_app()
+    app.dependency_overrides[get_tenant_context] = lambda: TenantContext(tenant_id="default")
     with TestClient(app) as c:
         yield c
 

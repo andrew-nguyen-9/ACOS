@@ -1,4 +1,5 @@
 mod haptics;
+mod keychain;
 
 use std::sync::Mutex;
 use tauri::http::{Response, StatusCode};
@@ -82,7 +83,12 @@ pub fn run() {
                 }
             }
         })
-        .invoke_handler(tauri::generate_handler![haptics::haptic])
+        .invoke_handler(tauri::generate_handler![
+            haptics::haptic,
+            keychain::keychain_set,
+            keychain::keychain_get,
+            keychain::keychain_delete
+        ])
         .run(tauri::generate_context!())
         .expect("error while running ACOS");
 }

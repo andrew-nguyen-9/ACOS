@@ -19,6 +19,7 @@ from backend.services.ollama_client import OllamaClient
 from backend.services.profile.contact_loader import default_contact_path, load_contact
 from backend.services.prompt_loader import PromptLoader
 from backend.services.resume.evidence_selector import EvidenceSelector
+from backend.services import audit
 
 router = APIRouter(tags=["cover_letter"])
 
@@ -80,10 +81,16 @@ async def generate_cover_letter(
             if resume is None:
                 raise HTTPException(status_code=404, detail=f"Resume '{body.resume_id}' not found.")
             resume_context = resume.content_json.get("_resume_context")
-        return generator.generate(
+        result = generator.generate(
             body.job_description, body.company, body.job_title, body.length_target,
             resume_context=resume_context, tone=body.tone,
         )
+        # 16.3 (ADR-016): audit the generation — digests + metadata, no bodies.
+        audit.safe_record(s, "generation", {
+            "kind": "cover_letter", "company_digest": audit.digest(body.company),
+            "jd_digest": audit.digest(body.job_description),
+        })
+        return result
 
     return await session.run_sync(_impl)
 

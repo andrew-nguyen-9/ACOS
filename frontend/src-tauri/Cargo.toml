@@ -30,6 +30,10 @@ serde_json = "1"
 # so only the NSHapticFeedback bindings compile, not all of AppKit.
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2-app-kit = { version = "0.3", features = ["NSHapticFeedback"] }
+# 16.1 (ADR-014): OS-Keychain credential storage. apple-native uses the Security
+# framework directly (no extra system libs). Only the macOS KeychainStore impl
+# references this; Win/Linux backends slot in behind CredentialStore in Phase 18.
+keyring = { version = "3", features = ["apple-native"] }
 
 [profile.release]
 panic = "abort"

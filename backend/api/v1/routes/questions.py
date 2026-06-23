@@ -18,6 +18,7 @@ from backend.services.prompt_loader import PromptLoader
 from backend.services.knowledge_graph.service import KnowledgeGraphService
 from backend.services.questions.generator import QuestionGenerator
 from backend.services.resume.evidence_selector import EvidenceSelector
+from backend.services import audit
 
 router = APIRouter(tags=["questions"])
 
@@ -74,7 +75,7 @@ async def generate_questions(
 ) -> dict:
     def _impl(s: Session) -> dict:
         gen = _build_generator(get_settings(), s)
-        return {
+        result = {
             "questions": gen.generate_questions(
                 body.job_description,
                 company=body.company,
@@ -85,6 +86,11 @@ async def generate_questions(
                 persona=body.persona,
             )
         }
+        # 16.3 (ADR-016): audit the generation — jd digest, no bodies.
+        audit.safe_record(s, "generation", {
+            "kind": "questions", "jd_digest": audit.digest(body.job_description),
+        })
+        return result
 
     return await session.run_sync(_impl)
 

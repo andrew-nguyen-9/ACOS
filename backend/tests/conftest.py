@@ -135,5 +135,54 @@ def client(test_session) -> Generator[TestClient, None, None]:
     app.dependency_overrides[get_session] = override_get_session
     app.dependency_overrides[get_async_session] = override_get_async_session
 
+    # 16.1 (ADR-014): tenant-scoped routes now require a real bearer session
+    # (default-closed). Existing tests aren't auth tests, so bind the default tenant
+    # directly here — the auth gate itself is exercised by `unauth_client` +
+    # backend/tests/integration/test_auth.py.
+    from backend.api.deps import get_tenant_context
+    from backend.services.tenancy import TenantContext
+
+    def override_tenant_context() -> TenantContext:
+        return TenantContext(tenant_id="default")
+
+    app.dependency_overrides[get_tenant_context] = override_tenant_context
+
+    with TestClient(app, raise_server_exceptions=True) as c:
+        yield c
+
+
+@pytest.fixture(scope="function")
+def unauth_client(test_session) -> Generator[TestClient, None, None]:
+    """Like `client` but WITHOUT the tenant-context override — the real ADR-014 auth
+    dependency runs, so tenant-scoped routes are default-closed (401 without a valid
+    bearer session). Used to test enrollment/login/default-closed end to end."""
+
+    @asynccontextmanager
+    async def _noop_lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+        yield
+
+    app = create_app()
+    app.router.lifespan_context = _noop_lifespan  # type: ignore[assignment]
+
+    def override_get_session():
+        try:
+            yield test_session
+            test_session.commit()
+        except Exception:
+            test_session.rollback()
+            raise
+
+    async def override_get_async_session():
+        bridge = _SyncSessionBridge(test_session)
+        try:
+            yield bridge
+            test_session.commit()
+        except Exception:
+            test_session.rollback()
+            raise
+
+    app.dependency_overrides[get_session] = override_get_session
+    app.dependency_overrides[get_async_session] = override_get_async_session
+
     with TestClient(app, raise_server_exceptions=True) as c:
         yield c

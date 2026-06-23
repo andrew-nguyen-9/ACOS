@@ -210,3 +210,26 @@ Required for these libraries before implementation:
 ```
 
 No feature moves to the next phase until this checklist is complete.
+
+---
+
+## Capability Permission Model (Phase 16.6, ADR-018)
+
+Every internal service module declares a **capability manifest** — the single
+source of truth for what it may touch. Enforcement is **default-closed**: a call
+outside the manifest raises `PermissionDenied` and is audited (ADR-016).
+
+A manifest declares:
+- `data_access` — tenant-scoped resources it may read/write (least-privilege).
+- `actions` — operations it may invoke.
+- `boundaries` — network (default none, local-first) / filesystem (allowlisted).
+
+Manifests live in `backend/security/permissions.py` (`_REGISTRY`); a module enforces
+its boundary at the access point via `permissions.require(module, resource=…,
+action=…, session=…)`. Unlisted access — or an unregistered module — is denied, not
+warned.
+
+**Scope (honest):** this governs *trusted internal* modules. It is NOT a sandbox for
+untrusted third-party code; the runtime/WASM execution engine stays deferred to v2
+(ADR-018 §4, amends ADR-013). The manifest schema is forward-compatible so that
+engine can attach without a redesign.

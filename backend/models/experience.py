@@ -5,6 +5,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.models.base import Base, TimestampMixin, generate_uuid, utcnow
 from backend.models.tenant import TenantScopedMixin
+from backend.security.encryption import EncryptedText  # 16.2 (ADR-015)
 
 
 class Experience(TenantScopedMixin, TimestampMixin, Base):
@@ -28,7 +29,7 @@ class Experience(TenantScopedMixin, TimestampMixin, Base):
     end_date: Mapped[str | None] = mapped_column(String(10), nullable=True)
     is_current: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     location: Mapped[str | None] = mapped_column(Text, nullable=True)
-    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    description: Mapped[str | None] = mapped_column(EncryptedText, nullable=True)  # career history
     source: Mapped[str] = mapped_column(String(20), nullable=False, default="manual")
 
     bullets: Mapped[list[ExperienceBullet]] = relationship(
@@ -52,7 +53,7 @@ class ExperienceBullet(Base):
     experience_id: Mapped[str] = mapped_column(
         String(32), ForeignKey("experiences.id", ondelete="CASCADE"), nullable=False
     )
-    bullet_text: Mapped[str] = mapped_column(Text, nullable=False)
+    bullet_text: Mapped[str] = mapped_column(EncryptedText, nullable=False)  # 16.2
     order_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     confidence_level: Mapped[str] = mapped_column(
         String(20), nullable=False, default="verified"

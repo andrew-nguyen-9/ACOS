@@ -18,6 +18,7 @@ from backend.recovery import (
     maybe_enter_recovery,
 )
 from backend.api.v1.routes.application import router as application_router
+from backend.api.v1.routes.auth import router as auth_router
 from backend.api.v1.routes.backup import router as backup_router
 from backend.api.v1.routes.briefing import router as briefing_router
 from backend.api.v1.routes.copilot import router as copilot_router
@@ -38,6 +39,27 @@ from backend.api.v1.routes.settings import router as settings_router
 from backend.api.v1.routes.strategy import router as strategy_router
 
 
+def _verify_audit_on_startup() -> None:
+    """Enforced-policy audit chain check (ADR-016 §4). Best-effort: never block
+    startup, but log a prominent warning if any tenant's chain is broken."""
+    try:
+        from backend.repositories.system_config import SystemConfigRepository
+        from backend.services import audit
+
+        with SessionLocal() as session:
+            policy = SystemConfigRepository(session).get_value("audit_policy", default="enforced")
+            if policy != "enforced":
+                return
+            broken = audit.verify_all_chains(session)
+            if broken:
+                logging.getLogger(__name__).warning(
+                    "AUDIT TAMPER DETECTED: chain broken for tenant(s) %s "
+                    "(ADR-016 enforced policy)", broken,
+                )
+    except Exception:
+        logging.getLogger(__name__).exception("audit startup verification failed")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     settings = get_settings()
@@ -56,6 +78,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         if not degraded and not RECOVERY.readonly:
             with SessionLocal() as session:
                 seed_system_config(session)
+            # 16.3 (ADR-016): in `enforced` policy, verify the audit chain on startup
+            # and warn loudly on tamper — never silently accept corruption.
+            _verify_audit_on_startup()
     except Exception:  # init_db itself can fail on a corrupt file
         logging.getLogger(__name__).exception("startup failed")
         RECOVERY.enter("startup failed (see logs)")
@@ -92,6 +117,9 @@ def create_app() -> FastAPI:
     tenant_dep = [Depends(get_tenant_context)]
 
     app.include_router(health_router, prefix="/api/v1")
+    # Auth (16.1, ADR-014): unauthenticated by design — establishes the session that
+    # gates every tenant-scoped router below.
+    app.include_router(auth_router, prefix="/api/v1")
     app.include_router(ingestion_router, prefix="/api/v1", dependencies=tenant_dep)
     app.include_router(rag_router, prefix="/api/v1", dependencies=tenant_dep)
     app.include_router(resume_router, prefix="/api/v1", dependencies=tenant_dep)

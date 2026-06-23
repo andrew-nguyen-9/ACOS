@@ -2,6 +2,7 @@ import { Suspense, useEffect, useState } from "react";
 import { Routes, Route } from "react-router-dom";
 import { LazyMotion, LayoutGroup, MotionConfig } from "framer-motion";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import AuthGate from "@/components/auth/AuthGate";
 import AppShell from "@/layouts/AppShell";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { PageSkeleton } from "@/components/ui/Skeleton";
@@ -93,15 +94,20 @@ export default function App() {
   if (!onboardingDone) {
     return (
       <ErrorBoundary>
-        <FirstRunWizard onComplete={() => setOnboardingDone(true)} />
+        {/* Auth (16.1, ADR-014) gates onboarding too — the wizard writes
+            tenant-owned data, so a session must exist first. */}
+        <AuthGate>
+          <FirstRunWizard onComplete={() => setOnboardingDone(true)} />
+        </AuthGate>
       </ErrorBoundary>
     );
   }
 
   return (
-    // `strict` enforces the `m.*` components (lean bundle); reducedMotion="user"
-    // is the global accessibility guard — framer drops transform/layout motion
-    // and keeps opacity when the OS asks for reduced motion.
+    <AuthGate>
+      {/* `strict` enforces the `m.*` components (lean bundle); reducedMotion="user"
+          is the global accessibility guard — framer drops transform/layout motion
+          and keeps opacity when the OS asks for reduced motion. */}
     <LazyMotion strict features={loadMotionFeatures}>
       <MotionConfig reducedMotion="user">
         <ErrorBoundary>
@@ -123,5 +129,6 @@ export default function App() {
         </ErrorBoundary>
       </MotionConfig>
     </LazyMotion>
+    </AuthGate>
   );
 }

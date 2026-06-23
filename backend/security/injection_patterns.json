@@ -1,0 +1,37 @@
+{
+  "version": "1",
+  "override_markers": [
+    "ignore previous instructions",
+    "ignore all previous",
+    "ignore the above",
+    "disregard previous",
+    "disregard the above",
+    "forget previous instructions",
+    "forget everything",
+    "new instructions:",
+    "you are now",
+    "from now on you",
+    "act as",
+    "pretend you are",
+    "do not follow",
+    "override your"
+  ],
+  "role_markers": [
+    "system:",
+    "assistant:",
+    "<|system|>",
+    "[system]",
+    "### system",
+    "you are a"
+  ],
+  "exfil_markers": [
+    "reveal the system prompt",
+    "print your instructions",
+    "repeat the prompt above",
+    "show your system prompt",
+    "send the data to",
+    "exfiltrate",
+    "leak the",
+    "email the contents"
+  ]
+}

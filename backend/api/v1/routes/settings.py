@@ -20,6 +20,7 @@ _EDITABLE_KEYS = {
     "ats_experience_weight",
     "ats_industry_weight",
     "ats_education_weight",
+    "audit_policy",  # 16.3 (ADR-016): "enforced" | "relaxed"
 }
 
 _FLOAT_KEYS = {
@@ -30,10 +31,17 @@ _FLOAT_KEYS = {
     "ats_education_weight",
 }
 _INT_KEYS = {"learning_trigger_count"}
+_ENUM_KEYS = {"audit_policy": {"enforced", "relaxed"}}
 
 
 def _validate_value(key: str, value: str) -> None:
-    if key in _FLOAT_KEYS:
+    if key in _ENUM_KEYS:
+        if value not in _ENUM_KEYS[key]:
+            raise HTTPException(
+                status_code=422,
+                detail=f"{key} must be one of {sorted(_ENUM_KEYS[key])}",
+            )
+    elif key in _FLOAT_KEYS:
         try:
             v = float(value)
         except ValueError:
