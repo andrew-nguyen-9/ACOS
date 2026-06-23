@@ -140,6 +140,42 @@ class TestPrioritizeRoute:
             assert key in row
 
 
+# ── POST /strategy/suggestion ─────────────────────────────────────────────────
+
+class TestSuggestionRoute:
+    _MOCK = {
+        "recommendation": "tailor",
+        "reason": "Good fit (65/100).",
+        "fit_score": 65.0,
+        "confidence": "strong_inference",
+        "missing_critical_skills": ["dbt"],
+        "risk_factors": [],
+        "explanation": "Moderate fit.",
+        "resume_template": "data_technical",
+        "resume_reason": "Data role detected.",
+        "cover_letter_tone": 0.5,
+        "cover_letter_tone_descriptor": "balanced, professional, confident",
+        "interview_probability": 0.45,
+        "interview_sample_size": 2,
+        "interview_confidence": "weak_inference",
+        "interview_category": "data_analytics",
+    }
+
+    def test_returns_composed_suggestion(self, client):
+        with patch("backend.api.v1.routes.strategy.ApplicationSuggestionEngine") as MockEng:
+            MockEng.return_value.suggest.return_value = self._MOCK
+            resp = client.post("/api/v1/strategy/suggestion", json={"jd_text": _JD})
+        assert resp.status_code == 200
+        data = resp.json()
+        for key in ("recommendation", "confidence", "resume_template", "interview_confidence"):
+            assert key in data
+        assert data["recommendation"] in ("apply", "tailor", "skip")
+
+    def test_short_jd_422(self, client):
+        resp = client.post("/api/v1/strategy/suggestion", json={"jd_text": "short"})
+        assert resp.status_code == 422
+
+
 # ── GET /strategy/skill-gaps ──────────────────────────────────────────────────
 
 class TestSkillGapsRoute:

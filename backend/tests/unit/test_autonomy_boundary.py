@@ -20,6 +20,7 @@ _BACKEND = Path(__file__).resolve().parents[2]
 # Agent-surface modules whose code must contain no outbound-action path.
 _SURFACES = [
     "services/strategy/application_strategy.py",
+    "services/strategy/application_suggestion.py",
     "api/v1/routes/strategy.py",
 ]
 

@@ -27,3 +27,22 @@ export interface ApplicationPriority {
   /** Server-decided; weak_inference rows are never marked (ADR-012 trap 3). */
   top_pick: boolean;
 }
+
+/** 15.2 — composed per-application suggestion. Mirrors models/strategy.py. */
+export interface ApplicationSuggestion {
+  recommendation: "apply" | "tailor" | "skip";
+  reason: string;
+  fit_score: number;
+  confidence: ConfidenceLevel;
+  missing_critical_skills: string[];
+  risk_factors: string[];
+  explanation: string;
+  resume_template: string;
+  resume_reason: string;
+  cover_letter_tone: number;
+  cover_letter_tone_descriptor: string;
+  interview_probability: number;
+  interview_sample_size: number;
+  interview_confidence: ConfidenceLevel;
+  interview_category: string;
+}

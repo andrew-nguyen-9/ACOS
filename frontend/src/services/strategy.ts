@@ -5,7 +5,11 @@
  * read/rank only — there is no submit/contact method here, by design (ADR-012).
  */
 import { apiFetch } from "./api";
-import type { ApplicationPriority, PrioritizeJob } from "@/types/strategy";
+import type {
+  ApplicationPriority,
+  ApplicationSuggestion,
+  PrioritizeJob,
+} from "@/types/strategy";
 
 export const strategyService = {
   // POST, not GET: pasted JDs can be many KB — a query param would hit the URL
@@ -14,5 +18,11 @@ export const strategyService = {
     apiFetch<ApplicationPriority[]>("/strategy/prioritize", {
       method: "POST",
       body: JSON.stringify({ jobs }),
+    }),
+
+  suggest: (jd_text: string) =>
+    apiFetch<ApplicationSuggestion>("/strategy/suggestion", {
+      method: "POST",
+      body: JSON.stringify({ jd_text }),
     }),
 };
