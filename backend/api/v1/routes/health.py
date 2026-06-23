@@ -1,14 +1,17 @@
 import logging
 import os
+from functools import lru_cache
+from pathlib import Path
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
-from sqlalchemy import text
+from sqlalchemy import select, text
 
 from backend.database import get_async_session
 from backend.config import get_settings
+from backend.models.optimization import PromptVersion
 from backend.services import integrity
 from backend.services.ollama_client import OllamaClient
 from backend.services.system_status import collect
@@ -16,6 +19,29 @@ from backend.services.system_status import collect
 router = APIRouter(prefix="/health", tags=["health"])
 
 _REQUIRED_MODELS = ["qwen3:8b", "nomic-embed-text"]
+
+
+@lru_cache
+def _migration_head() -> str:
+    """Alembic head from the migration *scripts*, not the DB's stamped rev.
+
+    The app provisions schema via Base.metadata.create_all (database.py), so the
+    DB never stamps alembic_version — the meaningful "what schema does this build
+    expect" answer is the script-directory head. Memoized: it can't change at
+    runtime. Returns "unknown" rather than raising if the migration scripts
+    aren't on disk (e.g. a packaged sidecar that didn't bundle them) — a metadata
+    field must never 500 the health endpoint.
+    """
+    try:
+        from alembic.config import Config
+        from alembic.script import ScriptDirectory
+
+        repo_root = Path(__file__).resolve().parents[4]
+        cfg = Config(str(repo_root / "alembic.ini"))
+        return ScriptDirectory.from_config(cfg).get_current_head() or "unknown"
+    except Exception:
+        logging.getLogger(__name__).debug("migration head unavailable", exc_info=True)
+        return "unknown"
 
 
 class _ChromaLiveness:
@@ -62,6 +88,36 @@ async def health(session: AsyncSession = Depends(get_async_session)) -> JSONResp
             "subsystems": subsystems,
         },
     )
+
+
+@router.get("/version")
+async def health_version(session: AsyncSession = Depends(get_async_session)) -> dict:
+    """The reproducibility tuple for this build (Phase 14.1).
+
+    One place answering "what exactly is this": app semver + model tags + active
+    prompt-versions + migration head. A reproducible (seed, inputs, prompt, model)
+    run is only verifiable against a pinned version surface.
+    """
+    settings = get_settings()
+
+    def _active_prompts(s: Session) -> list[dict]:
+        rows = s.execute(
+            select(PromptVersion.prompt_name, PromptVersion.version).where(
+                PromptVersion.is_active.is_(True)
+            )
+        ).all()
+        return [{"prompt_name": name, "version": ver} for name, ver in rows]
+
+    prompt_versions = await session.run_sync(_active_prompts)
+    return {
+        "app_version": settings.app_version,
+        "model": {
+            "generator": settings.default_model,
+            "embedder": settings.embedding_model,
+        },
+        "prompt_versions": prompt_versions,
+        "migration_head": _migration_head(),
+    }
 
 
 @router.get("/integrity")

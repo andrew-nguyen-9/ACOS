@@ -5,6 +5,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.models.base import Base, TimestampMixin, generate_uuid, utcnow
 from backend.models.tenant import TenantScopedMixin
+from backend.security.encryption import EncryptedText
 
 
 class Application(TenantScopedMixin, TimestampMixin, Base):
@@ -39,7 +40,9 @@ class Application(TenantScopedMixin, TimestampMixin, Base):
     source: Mapped[str | None] = mapped_column(String(20), nullable=True)
     recruiter_name: Mapped[str | None] = mapped_column(Text, nullable=True)
     recruiter_email: Mapped[str | None] = mapped_column(Text, nullable=True)
-    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # 14.3: free-text PII — opt-in encrypted at rest (EncryptedText is a Text
+    # passthrough when the flag is off, so the column/schema is unchanged).
+    notes: Mapped[str | None] = mapped_column(EncryptedText, nullable=True)
 
     timeline: Mapped[list[ApplicationTimeline]] = relationship(
         "ApplicationTimeline",

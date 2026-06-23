@@ -16,6 +16,7 @@ VALID_KINDS = {
     "interview_conversion",
     "embedding_drift",
     "prompt_perf",
+    "success_rate",  # 14.2: resume success rate (progress past rejection)
 }
 
 

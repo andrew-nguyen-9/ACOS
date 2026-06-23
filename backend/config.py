@@ -32,6 +32,12 @@ class Settings(BaseSettings):
     # because Ollama uses JSON-Schema `format`, not GBNF grammar files).
     enable_structured_output: bool = False
 
+    # 14.3 (ADR-013) — optional at-rest field encryption. OFF by default. Threat
+    # model is local-disk theft as defense-in-depth over FileVault, NOT a
+    # multi-user/network boundary. Needs the `cryptography` extra
+    # (requirements-encryption.txt) + ACOS_ENCRYPTION_KEY when enabled.
+    enable_encrypted_storage: bool = False
+
     # Learning
     learning_trigger_count: int = 5
 

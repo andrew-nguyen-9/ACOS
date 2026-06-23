@@ -55,15 +55,19 @@ class ATSScorer:
         resume_text: str,
         job_description: str,
         keywords: Mapping[str, object],
+        *,
+        seed: int | None = None,
     ) -> dict[str, object]:
         if self._ollama and self._ollama.is_available():
-            result = self._llm_score(resume_text, job_description)
+            result = self._llm_score(resume_text, job_description, seed=seed)
         else:
             result = self._keyword_score(resume_text, keywords)
         log_operation("ats_score", overall=result.get("overall_score", 0))
         return result
 
-    def _llm_score(self, resume_text: str, job_description: str) -> dict[str, object]:
+    def _llm_score(
+        self, resume_text: str, job_description: str, *, seed: int | None = None
+    ) -> dict[str, object]:
         try:
             prompt_data = self._loader.load("resume/score_ats")
             user = prompt_data["user_template"].format(
@@ -78,6 +82,7 @@ class ATSScorer:
                 system=prompt_data["system"],
                 output_format=fmt,
                 think=False if fmt else None,
+                seed=seed,
             )
             data = json.loads(raw)
             return {

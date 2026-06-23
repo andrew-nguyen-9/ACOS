@@ -1,0 +1,9 @@
+# Optional extra (Phase 14.3, ADR-013) — at-rest field encryption.
+# Base ACOS does NOT require this. Install only to enable
+# ACOS_ENABLE_ENCRYPTED_STORAGE=1 (see docs/SECURITY_DEPENDENCIES.md).
+#
+#   pip install -r requirements-encryption.txt
+#
+# Threat model: local-disk theft (defense-in-depth over FileVault). Not a
+# multi-user/network boundary.
+cryptography>=43,<46

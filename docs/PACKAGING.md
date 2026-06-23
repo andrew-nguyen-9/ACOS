@@ -75,7 +75,10 @@ record:
 4. Wizard: Ollama check → (pull a model if missing, 13.7) → upload a document (13.5) →
    Finish. ☐
 5. Core path: generate a résumé / ask the copilot — the sidecar responds. ☐
-6. **Cold-start (ms):** time from app launch to backend `/health` ready. Record the
+6. `GET /api/v1/health/version` returns the build's tuple — app semver, model tags,
+   active prompt-versions, migration head (14.1). Confirm `app_version` matches the
+   installed DMG's version. ☐
+7. **Cold-start (ms):** time from app launch to backend `/health` ready. Record the
    number here — it is the gate for reopening backlog item 12.9.3 (Nuitka) if it
    exceeds 400 ms:
 
@@ -86,6 +89,14 @@ record:
 Until these boxes are checked on real hardware, packaging is **configured and
 buildable but not release-verified** — stated honestly, like the 11.8 native-haptics
 note.
+
+> **14.1 status (2026-06-23):** the DMG release-verify owed from 13.8 is **not yet
+> executed** — this session has no signed-DMG build, release machine, or Apple cert,
+> so steps 1–7 (incl. the cold-start gate) remain open. The number is **not fabricated**
+> (CLAUDE.md #1); run this checklist on the release machine and fill the box, then —
+> if cold-start > 400 ms — open the 12.9.3/Nuitka backlog item. Until then the
+> reproducibility spine (version endpoint + seeded gen + reproducible ATS) is verified
+> by `pytest`; only the on-hardware install/cold-start is pending.
 
 ---
 
