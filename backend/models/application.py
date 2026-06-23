@@ -29,7 +29,8 @@ class Application(TenantScopedMixin, TimestampMixin, Base):
     company: Mapped[str] = mapped_column(Text, nullable=False)
     position: Mapped[str] = mapped_column(Text, nullable=False)
     industry: Mapped[str | None] = mapped_column(Text, nullable=True)
-    job_description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # 16.2 (ADR-015): sensitive free-text — opt-in encrypted at rest.
+    job_description: Mapped[str | None] = mapped_column(EncryptedText, nullable=True)
     job_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")
     date_applied: Mapped[str | None] = mapped_column(String(10), nullable=True)
@@ -38,9 +39,9 @@ class Application(TenantScopedMixin, TimestampMixin, Base):
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="USD")
     work_arrangement: Mapped[str | None] = mapped_column(String(10), nullable=True)
     source: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    recruiter_name: Mapped[str | None] = mapped_column(Text, nullable=True)
-    recruiter_email: Mapped[str | None] = mapped_column(Text, nullable=True)
-    # 14.3: free-text PII — opt-in encrypted at rest (EncryptedText is a Text
+    recruiter_name: Mapped[str | None] = mapped_column(EncryptedText, nullable=True)
+    recruiter_email: Mapped[str | None] = mapped_column(EncryptedText, nullable=True)
+    # 14.3/16.2: free-text PII — opt-in encrypted at rest (EncryptedText is a Text
     # passthrough when the flag is off, so the column/schema is unchanged).
     notes: Mapped[str | None] = mapped_column(EncryptedText, nullable=True)
 
@@ -68,7 +69,7 @@ class ApplicationTimeline(Base):
     event_type: Mapped[str] = mapped_column(String(30), nullable=False)
     from_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
     to_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    note: Mapped[str | None] = mapped_column(EncryptedText, nullable=True)  # 16.2
     event_date: Mapped[str] = mapped_column(String(32), nullable=False, default=utcnow)
     created_at: Mapped[str] = mapped_column(String(32), default=utcnow)
 

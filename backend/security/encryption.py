@@ -14,7 +14,7 @@ the maintained, reviewed primitive). No custom cipher.
 """
 from __future__ import annotations
 
-import os
+import json
 
 from sqlalchemy import Text
 from sqlalchemy.types import TypeDecorator
@@ -27,7 +27,11 @@ def encryption_enabled() -> bool:
 
 
 def _fernet():
-    """Build a Fernet from the env key, with clear errors when misconfigured."""
+    """Build a Fernet from the active data key, with clear errors when misconfigured.
+
+    16.2 (ADR-015): the key is the unlocked DEK from keymgmt (wrapped by passphrase
+    and Keychain), falling back to the 14.3 ``ACOS_ENCRYPTION_KEY`` env key.
+    """
     try:
         from cryptography.fernet import Fernet
     except ModuleNotFoundError as exc:  # pragma: no cover - env-dependent
@@ -35,12 +39,15 @@ def _fernet():
             "encrypted storage is enabled but `cryptography` is not installed; "
             "run `pip install -r requirements-encryption.txt`"
         ) from exc
-    key = os.environ.get("ACOS_ENCRYPTION_KEY")
+    from backend.security import keymgmt
+
+    key = keymgmt.get_active_key()
     if not key:
         raise RuntimeError(
-            "encrypted storage is enabled but ACOS_ENCRYPTION_KEY is not set"
+            "encrypted storage is enabled but no key is unlocked "
+            "(unlock via passphrase/Keychain or set ACOS_ENCRYPTION_KEY)"
         )
-    return Fernet(key.encode() if isinstance(key, str) else key)
+    return Fernet(key)
 
 
 class EncryptedText(TypeDecorator):
@@ -73,3 +80,33 @@ class EncryptedText(TypeDecorator):
             return _fernet().decrypt(value.encode()).decode()
         except Exception:
             return value  # legacy plaintext, or not a token — return unchanged
+
+
+class EncryptedJSON(TypeDecorator):
+    """Like EncryptedText but for a JSON column (e.g. ``Resume.content_json``).
+
+    OFF: stores plain JSON text (byte-identical to a JSON column). ON: stores a
+    Fernet token over the serialized JSON. A value that doesn't decrypt is parsed
+    as legacy plaintext JSON, so flipping the flag never bricks existing rows.
+    """
+
+    impl = Text
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return value
+        raw = json.dumps(value)
+        if not encryption_enabled():
+            return raw
+        return _fernet().encrypt(raw.encode()).decode()
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return value
+        if encryption_enabled():
+            try:
+                return json.loads(_fernet().decrypt(value.encode()).decode())
+            except Exception:
+                pass  # legacy plaintext JSON — fall through
+        return json.loads(value)
