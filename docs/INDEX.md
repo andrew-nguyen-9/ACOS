@@ -75,6 +75,7 @@ don't edit.
 | [ADR-009](adr/ADR-009-privacy-preserving-aggregation.md) | Privacy-preserving cross-tenant aggregation — k-anonymity, content-free, no network. |
 | [ADR-010](adr/ADR-010-autonomous-prompt-proposal-never-promote.md) | Autonomous prompt-proposal loop — propose-only, **never promotes** (human gate intact). |
 | [ADR-011](adr/ADR-011-background-auto-update-network-boundary.md) | Background auto-update — one signed, TLS-only, data-free network channel. |
+| [ADR-013](adr/ADR-013-plugin-ecosystem-cloud-scope.md) | Plugin/ecosystem/cloud scope — defer runtime-plugin engine, cloud sync, API exposure; opt-in at-rest encryption (off by default). |
 
 ---
 

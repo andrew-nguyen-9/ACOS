@@ -117,3 +117,24 @@ by ACOS code. Net runtime exposure on the target platform: none.
 **Ticket / revisit condition:** clear automatically when Tauri bumps its gtk/glib stack to
 `>= 0.20` (re-run `cargo update` then), or sooner if a Linux build target is ever added.
 Re-check on the next dependency triage pass.
+
+---
+
+## Phase 14.3 — consolidated security audit (2026-06-23)
+
+Reaffirmation pass over the existing trust boundaries (see ADR-013 for scope):
+
+- **File ingest:** all uploads flow through `backend/ingestion/security.py` — path
+  allowlist (`validate_path`), 50 MB size cap (`validate_size`), SHA-256 checksum,
+  and `sanitize_filename` (basename-only, strips traversal). No path bypasses it.
+- **asset:// scheme:** `frontend/src-tauri/src/lib.rs` `resolve_asset_path` canonicalizes
+  + `starts_with` the app data dir, symlink-safe, default-closed (13.8). CSP grants
+  `img-src 'self' asset:` only.
+- **No code execution on data:** grep confirms **no** `eval` / `exec` / `pickle` /
+  `os.system` / `subprocess` over parsed content or user input in backend app code.
+- **Optional at-rest encryption (new):** `backend/security/encryption.py` — opt-in Fernet
+  field encryption, OFF by default, key from `ACOS_ENCRYPTION_KEY`. Threat model is
+  local-disk theft (defense-in-depth over FileVault), **not** multi-user/network. Requires
+  the optional `requirements-encryption.txt` extra (`cryptography`); base install unaffected.
+
+`security-review` run at 14.3 close: see commit. No HIGH/MED findings carried.

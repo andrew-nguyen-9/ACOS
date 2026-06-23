@@ -1,5 +1,13 @@
 # ACOS Plugin Orchestration
 
+> **Scope note (ADR-013):** "Plugins" here means this **build-time Claude development
+> workflow** — the orchestration contract for *how features are developed*. ACOS has
+> **no runtime plugin engine** (no dynamic registry/lifecycle/permission sandbox); that
+> is deliberately deferred for a single-user local app. Runtime extension happens by
+> adding a typed **service module** under `backend/services/<domain>/` behind a route —
+> the boundary that already isolates every engine. See
+> [ADR-013](adr/ADR-013-plugin-ecosystem-cloud-scope.md).
+
 ## Philosophy
 
 Plugins are not optional. They encode engineering discipline that prevents the system from
