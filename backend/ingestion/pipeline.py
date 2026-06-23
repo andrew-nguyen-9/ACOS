@@ -67,6 +67,9 @@ class IngestionPipeline:
         """
         validated = security.validate_path(path, self._allowed)
         security.validate_size(validated)
+        # 16.5: refuse macros / embedded executables / PDF active content before
+        # the file is parsed or stored (UnsafeFileError → permanent ingest failure).
+        security.reject_active_content(validated)
         checksum = security.compute_checksum(validated)
 
         existing = self._doc_repo.get_by_checksum(checksum)

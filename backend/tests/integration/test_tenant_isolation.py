@@ -137,6 +137,35 @@ def test_lexical_search_scopes_fts_to_tenant(tmp_path, test_session):
     assert {h["id"] for h in hits} == {"d1"}
 
 
+def test_memory_is_tenant_isolated(test_session):
+    """16.5: agent memory (Memory) never bleeds across tenants — A cannot read B's."""
+    from backend.models.memory import Memory
+
+    ensure_tenant(test_session, "t1")
+    ensure_tenant(test_session, "t2")
+    set_session_tenant(test_session, "t2")
+    test_session.add(Memory(memory_type="long_term", content_json='{"x": "t2-secret"}'))
+    test_session.flush()
+
+    set_session_tenant(test_session, "t1")
+    # A query under t1 sees nothing of t2's memory (auto-filter, 12.14).
+    assert test_session.query(Memory).all() == []
+
+
+def test_cross_tenant_application_read_is_impossible(test_session):
+    """16.5 load-bearing: tenant A cannot read tenant B's application rows."""
+    from backend.models.application import Application
+
+    ensure_tenant(test_session, "t1")
+    ensure_tenant(test_session, "t2")
+    set_session_tenant(test_session, "t2")
+    test_session.add(Application(company="SecretCo", position="PM"))
+    test_session.flush()
+
+    set_session_tenant(test_session, "t1")
+    assert test_session.query(Application).all() == []  # zero leakage
+
+
 def test_tenant_migration_round_trip(tmp_path, monkeypatch):
     """I1: the schema mutation (nullable->backfill->NOT NULL+FK) runs only in prod —
     cover upgrade head + downgrade base on a temp DB."""
