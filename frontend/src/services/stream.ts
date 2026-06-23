@@ -65,3 +65,49 @@ export async function* streamSSE(
     reader.cancel().catch(() => {});
   }
 }
+
+/**
+ * GET an SSE endpoint and yield each `data: {json}` frame as a parsed object
+ * (Phase 13.7). Same `data: {…}\n\n` framing + chunk-boundary buffering as
+ * {@link streamSSE}, but for progress streams whose frames are arbitrary objects
+ * (status/completed/total) rather than token deltas. Aborting tears down the
+ * fetch, which cancels the underlying pull on the backend.
+ */
+export async function* streamProgress(
+  path: string,
+  signal?: AbortSignal
+): AsyncGenerator<Record<string, unknown>> {
+  const res = await fetch(`${BASE}${path}`, { signal });
+  if (!res.ok || !res.body) {
+    const text = res.ok ? "missing response body" : await res.text().catch(() => "");
+    throw new ApiError(res.status, text || res.statusText);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  try {
+    while (true) {
+      if (signal?.aborted) return;
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      let sep: number;
+      while ((sep = buffer.indexOf("\n\n")) !== -1) {
+        if (signal?.aborted) return;
+        const event = buffer.slice(0, sep).trim();
+        buffer = buffer.slice(sep + 2);
+        if (!event.startsWith("data:")) continue;
+        try {
+          yield JSON.parse(event.slice("data:".length).trim());
+        } catch {
+          continue;
+        }
+      }
+    }
+  } finally {
+    reader.cancel().catch(() => {});
+  }
+}

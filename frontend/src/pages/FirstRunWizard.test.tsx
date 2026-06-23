@@ -27,6 +27,18 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+test("degraded path: an unreachable Ollama does not hard-block onboarding", async () => {
+  apiFetch.mockResolvedValue({ available: false, missing_models: [], degraded: true });
+  render(<FirstRunWizard onComplete={() => {}} />);
+
+  fireEvent.click(screen.getByText("Begin Setup"));
+  // primary Continue stays gated, but a degraded escape hatch exists
+  fireEvent.click(await screen.findByTestId("continue-degraded"));
+  fireEvent.click(await screen.findByText("Finish Setup"));
+
+  await waitFor(() => expect(completeOnboarding).toHaveBeenCalledTimes(1));
+});
+
 test("a user who uploads nothing can still complete onboarding", async () => {
   render(<FirstRunWizard onComplete={() => {}} />);
 

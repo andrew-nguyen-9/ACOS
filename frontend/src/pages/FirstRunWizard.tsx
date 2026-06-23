@@ -2,6 +2,7 @@ import { useState } from "react";
 import { CheckCircle, Loader2, AlertTriangle, Zap } from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { UploadStep } from "@/components/onboarding/UploadStep";
+import { ModelPull } from "@/components/onboarding/ModelPull";
 import { apiFetch } from "@/services/api";
 import { updateSetting, completeOnboarding } from "@/services/settings";
 
@@ -110,11 +111,18 @@ export default function FirstRunWizard({ onComplete }: Props) {
                   )}
                   {ollamaStatus.available ? "Ollama is running" : "Ollama not found"}
                 </div>
-                {ollamaStatus.missing_models.length > 0 && (
-                  <div className="text-amber-400 text-sm">
-                    Missing models: {ollamaStatus.missing_models.join(", ")}
-                    <p className="text-neutral-500 text-xs mt-1">
-                      Run:{" "}
+                {ollamaStatus.available && ollamaStatus.missing_models.length > 0 && (
+                  <div className="flex flex-col gap-2 text-sm">
+                    <span className="text-amber-400">
+                      Missing model{ollamaStatus.missing_models.length > 1 ? "s" : ""}:{" "}
+                      {ollamaStatus.missing_models.join(", ")}
+                    </span>
+                    <ModelPull
+                      model={ollamaStatus.missing_models[0]}
+                      onDone={() => void checkOllama()}
+                    />
+                    <p className="text-neutral-500 text-xs">
+                      Or pull it yourself:{" "}
                       <code className="bg-neutral-800 px-1 rounded">
                         ollama pull {ollamaStatus.missing_models[0]}
                       </code>
@@ -140,6 +148,15 @@ export default function FirstRunWizard({ onComplete }: Props) {
                 {ollamaStatus?.available ? "Continue" : "Ollama Required"}
               </button>
             </div>
+            {ollamaStatus && !ollamaStatus.available && !checking && (
+              <button
+                onClick={() => setStep("profile")}
+                data-testid="continue-degraded"
+                className="text-neutral-400 hover:text-neutral-200 text-xs underline transition"
+              >
+                Continue without Ollama (degraded — AI features disabled until it's running)
+              </button>
+            )}
           </>
         )}
 
