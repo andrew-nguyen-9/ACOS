@@ -1,7 +1,7 @@
 # Phase 12.9 — Architecture Spikes: Findings
 
 **Date:** 2026-06-22 · **Branch:** `feat/phase-12-velocity-flywheel-multitenant`
-**Spec:** `docs/superpowers/plans/2026-06-22-phase-12-9-architecture-spikes.md`
+**Spec:** `docs/v1/plans/2026-06-22-phase-12-9-architecture-spikes.md`
 **Machine:** macOS-26.5.1-arm64 · Python 3.12.13 · Ollama live (qwen3:8b + nomic-embed-text)
 
 This doc records **all six** outcomes regardless of verdict (spec §4, §10). Each was gated by a

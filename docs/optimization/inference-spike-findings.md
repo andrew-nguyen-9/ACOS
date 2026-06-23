@@ -1,7 +1,7 @@
 # Phase 12.8 — Advanced Inference Spikes: Findings
 
 **Date:** 2026-06-22 · **Branch:** `feat/phase-12-velocity-flywheel-multitenant`
-**Ollama:** 0.30.10 · **Model:** qwen3:8b (16GB M1) · **Spec:** `docs/superpowers/plans/2026-06-22-phase-12-8-inference-spikes.md`
+**Ollama:** 0.30.10 · **Model:** qwen3:8b (16GB M1) · **Spec:** `docs/v1/plans/2026-06-22-phase-12-8-inference-spikes.md`
 
 This doc records **all three** spike outcomes regardless of accept/reject (spec §6, §10).
 Each spike was gated by a `context7` viability check **before** any code (the laziness ladder
