@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { DailyBriefing } from "@/components/briefing/DailyBriefing";
 import { fadeUp, scaleIn, staggerContainer } from "@/motion";
 import { apiFetch } from "@/services/api";
 import { applicationsService } from "@/services/applications";
@@ -103,6 +104,10 @@ export default function Dashboard() {
             </GlassCard>
           </m.div>
         ))}
+      </m.div>
+
+      <m.div variants={fadeUp}>
+        <DailyBriefing />
       </m.div>
 
       <m.div className="grid flex-1 grid-cols-[1fr_280px] gap-6" variants={fadeUp}>
