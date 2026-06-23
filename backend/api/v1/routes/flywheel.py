@@ -159,6 +159,21 @@ async def trial_prompt(body: TrialRequest, session: AsyncSession = Depends(get_a
         raise HTTPException(status_code=422, detail=str(exc))
 
 
+@router.post("/flywheel/prompt/auto-propose")
+async def auto_propose_prompts(session: AsyncSession = Depends(get_async_session)) -> dict:
+    """13.6 / ADR-010: run the autonomous proposal loop on demand.
+
+    Off the hot path (mirrors POST /maintenance/generate). Queues candidates for
+    underperforming prompts into the 13.4 review queue; NEVER promotes.
+    """
+    def _impl(s: Session) -> dict:
+        from backend.services.flywheel.evolution_loop import EvolutionLoop
+
+        return {"proposed": EvolutionLoop(s).run()}
+
+    return await session.run_sync(_impl)
+
+
 @router.post("/flywheel/prompt/promote")
 async def promote_prompt(body: PromoteRequest, session: AsyncSession = Depends(get_async_session)) -> dict:
     """Flip the active prompt pointer — requires explicit approval (audited)."""
