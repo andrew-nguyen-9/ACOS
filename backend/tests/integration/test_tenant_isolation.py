@@ -152,6 +152,19 @@ def test_memory_is_tenant_isolated(test_session):
     assert test_session.query(Memory).all() == []
 
 
+def test_no_shared_embeddings_across_tenants(tmp_path, test_session):
+    """18.6 alpha safe-mode: two tenants indexing IDENTICAL text get separate,
+    non-shared vectors — t1's retrieval never surfaces t2's embedding."""
+    mgr = ChromaManager(str(tmp_path))
+    _index_as(test_session, mgr, "e1", "t1", "identical resume text python sql")
+    _index_as(test_session, mgr, "e2", "t2", "identical resume text python sql")
+
+    set_session_tenant(test_session, "t1")
+    retriever = RAGRetriever(mgr, _FakeEmbedder(), session=test_session)
+    results = retriever.retrieve("python", ["acos_experiences"], top_k=10)
+    assert {r["id"] for r in results} == {"e1"}  # t2's identical-text vector excluded
+
+
 def test_cross_tenant_application_read_is_impossible(test_session):
     """16.5 load-bearing: tenant A cannot read tenant B's application rows."""
     from backend.models.application import Application
