@@ -47,3 +47,13 @@ def test_tailor_first_is_default_below_high_fit() -> None:
     assert _RECOMMENDATION["tailor"] == "tailor"
     assert _RECOMMENDATION["bridge"] == "tailor"
     assert _RECOMMENDATION["skip"] == "skip"
+
+
+def test_apply_gets_a_distinct_bolder_tone(test_session) -> None:
+    # The "apply" tone must clear the bold band so it reads differently from the
+    # balanced default (regression: 0.66 fell just under the 2/3 threshold).
+    engine = ApplicationSuggestionEngine(test_session)
+    apply_tone, apply_desc = engine._cl_tone("apply")
+    tailor_tone, tailor_desc = engine._cl_tone("tailor")
+    assert apply_tone > tailor_tone
+    assert apply_desc != tailor_desc

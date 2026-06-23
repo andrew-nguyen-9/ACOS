@@ -75,6 +75,7 @@ class ApplicationSuggestionEngine:
 
     def _cl_tone(self, recommendation: str) -> tuple[float, str]:
         # ponytail: a strong recommendation → a bolder letter; otherwise balanced.
-        # The 0..1 dial + descriptor band is the 11.9 RCL-003 contract.
-        tone = 0.66 if recommendation == "apply" else 0.5
+        # The 0..1 dial + descriptor band is the 11.9 RCL-003 contract; 0.7 clears
+        # the 2/3 "bold" threshold so "apply" actually reads as a distinct tone.
+        tone = 0.7 if recommendation == "apply" else 0.5
         return tone, tone_descriptor(tone)

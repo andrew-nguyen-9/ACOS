@@ -196,6 +196,23 @@ Response — resume JSON with confidence levels + ATS score
   signature verifies against the bundled public key. ACOS is therefore no longer
   *strictly* no-network, but every other operation remains fully local.
 
+## Controlled-autonomy agent layer (Phase 15)
+
+The Phase-15 "career agent" is **not a new engine tier** — it is a surface + orchestration
+layer over the Phase-9 strategy engines (`services/strategy/`), the questions/knowledge-graph
+stack, and the Phase-12 flywheel. Four surfaces — job prioritization, application suggestion,
+interview simulation, and the daily briefing — rank, recommend, generate, and simulate.
+
+The load-bearing constraint is **ADR-012**: the agent **recommends, it never acts**. There is
+no code path in any agent surface that submits an application, contacts a recruiter, or
+mutates an external system. The boundary is enforced *by absence* — `backend/tests/unit/
+test_autonomy_boundary.py` scans every agent-surface module and fails if an outbound-action
+symbol (HTTP POST to an external host, `submit_application`, `send_*`, …) appears. "Action"
+buttons in the UI (Apply, Tailor, Follow up) are internal state transitions only (mark CRM
+status, open the in-app tailor flow). Every recommendation carries its ADR-006 confidence and
+the evidence behind it; the briefing orchestrator runs off the hot path (the 13.6
+explicit-trigger seam), adding zero per-request latency.
+
 ## See Also
 
 - `docs/adr/` — Architecture Decision Records
