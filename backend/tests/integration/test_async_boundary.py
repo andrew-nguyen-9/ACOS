@@ -78,15 +78,20 @@ async def test_async_route_persists_through_real_stack(async_db):
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        # 16.1 (ADR-014): scoped routes need a real session. Enroll through the same
+        # async stack to get a bearer token (also exercises auth end to end).
+        token = (await ac.post("/api/v1/auth/enroll", json={"secret": "pw"})).json()["token"]
+        auth = {"Authorization": f"Bearer {token}"}
+
         created = await ac.post(
-            "/api/v1/applications", json={"company": "Acme", "position": "PM"}
+            "/api/v1/applications", json={"company": "Acme", "position": "PM"}, headers=auth
         )
         assert created.status_code == 201
         app_id = created.json()["id"]
 
         # A second request = a fresh session/transaction; only a real boundary
         # commit makes the row visible here.
-        fetched = await ac.get(f"/api/v1/applications/{app_id}")
+        fetched = await ac.get(f"/api/v1/applications/{app_id}", headers=auth)
         assert fetched.status_code == 200
         assert fetched.json()["company"] == "Acme"
 

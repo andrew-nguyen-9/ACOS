@@ -18,6 +18,7 @@ from backend.recovery import (
     maybe_enter_recovery,
 )
 from backend.api.v1.routes.application import router as application_router
+from backend.api.v1.routes.auth import router as auth_router
 from backend.api.v1.routes.backup import router as backup_router
 from backend.api.v1.routes.briefing import router as briefing_router
 from backend.api.v1.routes.copilot import router as copilot_router
@@ -92,6 +93,9 @@ def create_app() -> FastAPI:
     tenant_dep = [Depends(get_tenant_context)]
 
     app.include_router(health_router, prefix="/api/v1")
+    # Auth (16.1, ADR-014): unauthenticated by design — establishes the session that
+    # gates every tenant-scoped router below.
+    app.include_router(auth_router, prefix="/api/v1")
     app.include_router(ingestion_router, prefix="/api/v1", dependencies=tenant_dep)
     app.include_router(rag_router, prefix="/api/v1", dependencies=tenant_dep)
     app.include_router(resume_router, prefix="/api/v1", dependencies=tenant_dep)
