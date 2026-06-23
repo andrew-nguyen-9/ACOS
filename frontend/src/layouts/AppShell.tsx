@@ -9,6 +9,7 @@ import { warmRoute } from "@/services/prefetch";
 import MaterialBackground from "@/webgl/MaterialBackground";
 import CelebrationFallback from "@/components/CelebrationFallback";
 import { PageSkeleton } from "@/components/ui/Skeleton";
+import { UpdateBanner } from "@/components/UpdateBanner";
 import { useBackendReady } from "@/hooks/useBackendReady";
 
 // Material proxy (PERF-AC-002): a STATIC, pre-blurred aurora instead of a live
@@ -117,7 +118,14 @@ export default function AppShell({ children }: { children: ReactNode }) {
               </div>
             )}
             <div className="flex-1 overflow-auto">
-              {backend === "ready" ? children : <PageSkeleton />}
+              {backend === "ready" ? (
+                <>
+                  <UpdateBanner />
+                  {children}
+                </>
+              ) : (
+                <PageSkeleton />
+              )}
             </div>
           </main>
         </div>

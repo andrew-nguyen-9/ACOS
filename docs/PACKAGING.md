@@ -93,3 +93,28 @@ note.
 
 Deferred (roadmap backlog 13.8.1 / 13.8.2). Each needs its own bundle target + signing
 config; build only when explicitly requested.
+
+---
+
+## Auto-update (Phase 13.9 — ADR-011)
+
+The packaged app checks **one** signed update channel (the local-only default is
+overridden for updates only — see [ADR-011](./adr/ADR-011-background-auto-update-network-boundary.md)).
+
+1. **Generate the updater keypair once** (private key stays out-of-repo, never committed):
+   ```bash
+   cd frontend && npm run tauri signer generate -- -w ~/.tauri/acos-updater.key
+   ```
+2. Put the printed **public** key in `tauri.conf.json > plugins.updater.pubkey`
+   (replace `REPLACE_AT_RELEASE_WITH_TAURI_SIGNER_PUBKEY`).
+3. Sign builds by exporting the private key before `build_dmg.sh`:
+   ```bash
+   export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/acos-updater.key)"
+   export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="…"
+   ```
+4. Publish the generated `latest.json` manifest + signed artifacts to the update
+   endpoint (`https://releases.acos.app/...`, the single CSP-allowed origin).
+
+The updater verifies each artifact's signature against the bundled pubkey **before**
+applying; a tampered or unsigned artifact is rejected and the current version stays
+intact. No telemetry is sent — only the version-check GET and the artifact fetch.

@@ -24,6 +24,11 @@ fn mime_for(path: &std::path::Path) -> &'static str {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        // 13.9 (ADR-011): signed background auto-update + relaunch. The updater
+        // verifies each artifact's signature against the bundled pubkey before
+        // applying; a tampered/unsigned artifact is rejected.
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         // asset:// custom scheme (PERF-IPC-002): serve local files via memory read
         // instead of HTTP. Every path goes through resolve_asset_path, which
         // canonicalizes against the allowlisted app-data dir and rejects traversal.
