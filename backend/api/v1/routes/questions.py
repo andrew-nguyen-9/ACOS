@@ -15,6 +15,7 @@ from backend.rag.reranker import Reranker
 from backend.repositories.question import AnswerRepository, QuestionRepository
 from backend.services.ollama_client import OllamaClient
 from backend.services.prompt_loader import PromptLoader
+from backend.services.knowledge_graph.service import KnowledgeGraphService
 from backend.services.questions.generator import QuestionGenerator
 from backend.services.resume.evidence_selector import EvidenceSelector
 
@@ -30,6 +31,19 @@ class GenerateQuestionsRequest(BaseModel):
     industry: str = ""
     tech_stack: str = ""
     application_id: str | None = None
+    persona: str = "balanced"
+
+
+class FollowupsRequest(BaseModel):
+    question: str
+    answer_text: str
+    persona: str = "balanced"
+    max_followups: int = 3
+
+
+class EvaluateAnswerRequest(BaseModel):
+    answer_text: str
+    expected_node_ids: list[str] | None = None
 
 
 class GenerateAnswerRequest(BaseModel):
@@ -68,8 +82,41 @@ async def generate_questions(
                 industry=body.industry,
                 tech_stack=body.tech_stack,
                 application_id=body.application_id,
+                persona=body.persona,
             )
         }
+
+    return await session.run_sync(_impl)
+
+
+@router.post("/questions/followups")
+async def generate_followups(
+    body: FollowupsRequest, session: AsyncSession = Depends(get_async_session)
+) -> dict:
+    # 15.3 — simulate recruiter follow-ups probing the answer. Generate-only (ADR-012).
+    def _impl(s: Session) -> dict:
+        gen = _build_generator(get_settings(), s)
+        return {
+            "followups": gen.generate_followups(
+                question=body.question,
+                answer_text=body.answer_text,
+                persona=body.persona,
+                max_followups=body.max_followups,
+            )
+        }
+
+    return await session.run_sync(_impl)
+
+
+@router.post("/questions/evaluate")
+async def evaluate_answer(
+    body: EvaluateAnswerRequest, session: AsyncSession = Depends(get_async_session)
+) -> dict:
+    # 15.3 — KG-grounded answer eval: coverage + supporting node ids + confidence.
+    def _impl(s: Session) -> dict:
+        return KnowledgeGraphService(s).evaluate_answer(
+            body.answer_text, expected_node_ids=body.expected_node_ids
+        )
 
     return await session.run_sync(_impl)
 

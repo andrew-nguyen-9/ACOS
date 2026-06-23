@@ -22,6 +22,8 @@ _SURFACES = [
     "services/strategy/application_strategy.py",
     "services/strategy/application_suggestion.py",
     "api/v1/routes/strategy.py",
+    "services/questions/generator.py",
+    "api/v1/routes/questions.py",
 ]
 
 # Symbols/idioms that would constitute acting on an external system on the user's

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from sqlalchemy.orm import Session
 
 from backend.models.knowledge_graph import KnowledgeGraphEdge, KnowledgeGraphNode
@@ -7,6 +9,14 @@ from backend.repositories.knowledge_graph import (
     KnowledgeGraphEdgeRepository,
     KnowledgeGraphNodeRepository,
 )
+
+# 15.3 — node types the user's own evidence lives under; an answer is "grounded"
+# when it references these. Companies/applications/documents are context, not claims.
+_GROUNDING_NODE_TYPES = ("skill", "experience", "project")
+
+
+def _tokenize(text: str) -> set[str]:
+    return {w.lower() for w in re.findall(r"[a-zA-Z0-9#+]{2,}", text)}
 
 
 class KnowledgeGraphService:
@@ -60,6 +70,46 @@ class KnowledgeGraphService:
             weight=weight,
             properties=properties or {},
         )
+
+    def evaluate_answer(
+        self, answer_text: str, expected_node_ids: list[str] | None = None
+    ) -> dict:
+        """15.3 — score an interview answer by its grounding in the graph.
+
+        Coverage = fraction of the expected nodes whose label is referenced in
+        the answer; the result names exactly which nodes were and weren't covered
+        (ADR-006 — no bare score). Confidence reflects the evidence base: with
+        fewer than 3 grounding nodes (or none) the score is honestly weak, never
+        a fabricated certainty.
+        """
+        if expected_node_ids:
+            nodes = [n for n in (self._nodes.get(i) for i in expected_node_ids) if n]
+        else:
+            nodes = [
+                n for t in _GROUNDING_NODE_TYPES for n in self._nodes.get_by_type(t)
+            ]
+        answer_tokens = _tokenize(answer_text)
+        covered: list[str] = []
+        missing: list[str] = []
+        matched_labels: list[str] = []
+        for n in nodes:
+            if _tokenize(n.label) & answer_tokens:
+                covered.append(n.id)
+                matched_labels.append(n.label)
+            else:
+                missing.append(n.id)
+        total = len(nodes)
+        coverage = round(len(covered) / total, 3) if total else 0.0
+        # Heuristic grounding — never "verified"; thin evidence → weak.
+        confidence = "strong_inference" if total >= 3 else "weak_inference"
+        return {
+            "coverage": coverage,
+            "covered_node_ids": covered,
+            "missing_node_ids": missing,
+            "matched_labels": matched_labels,
+            "expected_count": total,
+            "confidence": confidence,
+        }
 
     def get_neighbors(
         self, node_id: str, edge_type: str | None = None

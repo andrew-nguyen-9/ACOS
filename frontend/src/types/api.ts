@@ -1,5 +1,15 @@
 export type ConfidenceLevel = "verified" | "strong_inference" | "weak_inference";
 
+/** 15.3 — KG-grounded interview answer evaluation. Mirrors KnowledgeGraphService. */
+export interface AnswerEvaluation {
+  coverage: number;
+  covered_node_ids: string[];
+  missing_node_ids: string[];
+  matched_labels: string[];
+  expected_count: number;
+  confidence: ConfidenceLevel;
+}
+
 export interface HealthResponse {
   status: string;
   db: string;

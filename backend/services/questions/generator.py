@@ -38,6 +38,27 @@ _VALID_LENGTHS = {"short", "medium", "long"}
 _VALID_CONFIDENCE = {"verified", "strong_inference", "weak_inference"}
 _VARIABLE_PATTERN = re.compile(r"\{\{(\w+)\}\}")
 
+# 15.3 — recruiter-behavior personas. A persona shifts the interviewer's voice
+# (tone/depth) without changing the engine; the descriptor is injected into the
+# generation system prompt. Unknown personas fall back to "balanced".
+_PERSONAS: dict[str, str] = {
+    "balanced": "a balanced, professional interviewer",
+    "supportive": "a warm, encouraging interviewer who puts candidates at ease",
+    "skeptical": "a skeptical, probing interviewer who challenges claims and presses for specifics",
+    "technical": "a deeply technical interviewer who drills into implementation details and trade-offs",
+}
+
+# Deterministic follow-ups when the LLM is unavailable — generic but honest probes.
+_FALLBACK_FOLLOWUPS = [
+    "Can you walk me through a specific example of that?",
+    "What was the measurable impact of that work?",
+    "What would you do differently if you faced that situation again?",
+]
+
+
+def _persona_desc(persona: str) -> str:
+    return _PERSONAS.get(persona, _PERSONAS["balanced"])
+
 _FALLBACK_QUESTIONS = [
     {
         "question_template": "Tell me about your experience relevant to {{position}}.",
@@ -64,7 +85,7 @@ _FALLBACK_QUESTIONS = [
 
 def _interpolate(template: str, variables: dict[str, str]) -> str:
     """Replace {{var}} placeholders with values from variables dict."""
-    def replace(m: re.Match) -> str:
+    def replace(m: re.Match[str]) -> str:
         return variables.get(m.group(1), m.group(0))
 
     return _VARIABLE_PATTERN.sub(replace, template)
@@ -91,6 +112,7 @@ class QuestionGenerator:
         industry: str = "",
         tech_stack: str = "",
         application_id: str | None = None,
+        persona: str = "balanced",
     ) -> list[dict]:
         variables = {
             "company": company,
@@ -98,7 +120,7 @@ class QuestionGenerator:
             "industry": industry,
             "tech_stack": tech_stack,
         }
-        raw = self._llm_generate_questions(job_description, variables)
+        raw = self._llm_generate_questions(job_description, variables, persona)
         q_repo = QuestionRepository(self._session)
         results = []
         for item in raw:
@@ -187,8 +209,47 @@ class QuestionGenerator:
             "diff_summary": answer.diff_summary,
         }
 
+    def generate_followups(
+        self,
+        question: str,
+        answer_text: str,
+        persona: str = "balanced",
+        max_followups: int = 3,
+    ) -> list[str]:
+        """15.3 — generate follow-up questions probing the candidate's answer.
+
+        Simulation is generate-only (ADR-012): the recruiter is modelled locally,
+        no external call. Falls back to deterministic probes when Ollama is down.
+        """
+        if not answer_text.strip():
+            return []
+        if not self._ollama or not self._ollama.is_available():
+            return _FALLBACK_FOLLOWUPS[:max_followups]
+        try:
+            prompt_data = self._loader.load("questions/followup")
+            user_prompt = prompt_data["user_template"].format(
+                question=question, answer=answer_text, max_followups=max_followups
+            )
+            system = f"{prompt_data['system']}\nAdopt the voice of {_persona_desc(persona)}."
+            raw = self._ollama.generate(
+                model="qwen3:8b",
+                prompt=user_prompt,
+                system=system,
+                temperature=0.5,
+                think=False,
+            )
+            match = re.search(r"\[.*\]", raw, re.DOTALL)
+            if match:
+                items = json.loads(match.group())
+                followups = [str(x).strip() for x in items if str(x).strip()]
+                if followups:
+                    return followups[:max_followups]
+        except Exception:
+            logger.exception("LLM follow-up generation failed; using fallback")
+        return _FALLBACK_FOLLOWUPS[:max_followups]
+
     def _llm_generate_questions(
-        self, job_description: str, variables: dict[str, str]
+        self, job_description: str, variables: dict[str, str], persona: str = "balanced"
     ) -> list[dict]:
         if not self._ollama or not self._ollama.is_available():
             return _FALLBACK_QUESTIONS
@@ -201,11 +262,13 @@ class QuestionGenerator:
                 industry=variables.get("industry", ""),
                 tech_stack=variables.get("tech_stack", ""),
             )
+            # Recruiter persona shifts the voice via the system prompt (15.3).
+            system = f"{prompt_data['system']}\nAdopt the voice of {_persona_desc(persona)}."
             fmt = _QUESTIONS_SCHEMA if get_settings().enable_structured_output else None
             raw = self._ollama.generate(
                 model="qwen3:8b",
                 prompt=user_prompt,
-                system=prompt_data["system"],
+                system=system,
                 temperature=0.4,
                 output_format=fmt,
                 think=False if fmt else None,
