@@ -201,28 +201,56 @@ Implement Phase 13.4 — the human-in-the-loop gate for prompt evolution: list c
 A/B trial results, **approve-to-promote** or rollback, with an audit trail. **Extend `OptimizationPage.tsx`.**
 This is the destination 13.6's automation feeds — build it FIRST.
 
-PRECONDITION: 13.0. 12.13 `prompt_evolution.py` + the four POST routes (propose/trial/promote/rollback) exist;
-promotion is approval-gated server-side (`approved_by` required). Confirm each POST's request/response + how a
-candidate's rationale links its triggering signals (12.10 explain).
+⚠️ **NOT a pure-frontend segment (unlike 13.1–13.3).** The flywheel exposes only the FOUR *mutation* POSTs
+(`prompt/{propose,trial,promote,rollback}`) — **there is no read route and no service read method** for
+listing candidates/versions or the audit lineage (verified: no `@router.get` for prompt, no `list/history`
+on `prompt_evolution.py`). A review *queue* needs the read side, so you MUST add it:
+- service: a read method on `PromptEvolutionService` (e.g. `versions(prompt_name)` → active + candidates from
+  `PromptVersion`, lineage via `parent_version`/`is_active`/`change_rationale`; audit from those + `ABExperiment`).
+- route: `GET /flywheel/prompt/versions?prompt_name=…` returning that shape (small param → GET is fine, no 414).
+- **backend test REQUIRED** — this adds backend behavior (not a transport flip), so unit-test the service read +
+  a route test (use the 12 `client`/`test_session` seam). Then extend `services/flywheel.ts` + `types/flywheel.ts`
+  with the read fn/shape (the four mutation fns + `PromptVersion`/`TrialResult` types already exist from 13.0).
 
-Read first (STOP at the four route contracts + OptimizationPage structure): (1) roadmap. (2) `routes/flywheel.py`
-prompt/* routes. (3) `frontend/src/pages/OptimizationPage.tsx` + `services/optimization.ts`. (4) SKIM
-`backend/services/flywheel/prompt_evolution.py` for the candidate/active/audit fields the UI displays.
+PRECONDITION: 13.0 + the new read route above. 12.13 `prompt_evolution.py` exists; promote is approval-gated
+server-side — `PromoteRequest.approved_by: str` (required), `RollbackRequest.approved_by: str = "user"`.
+`ProposeRequest` = `{prompt_name, proposed_content, signal_ids[], rationale, expected_impact}`.
 
-Order: brainstorm (confirm: a review queue of candidates with rationale + signal links + trial deltas; an
-explicit Approve action that sends `approved_by`; a one-click Rollback; an audit list — all over existing
-routes, no new endpoint) → ADR skip → TDD (vitest: promote disabled until an approver is set; approve sends
-`approved_by`; rollback calls rollback; audit renders transitions) → implement → verify.
+Read first (STOP at the route contracts + OptimizationPage structure): (1) roadmap. (2) `routes/flywheel.py`
+prompt/* routes + request models. (3) `frontend/src/pages/OptimizationPage.tsx` + `services/optimization.ts`
+(page IA + existing fetch/error pattern — note any e2e there that asserts no console errors). (4)
+`backend/services/flywheel/prompt_evolution.py` + `backend/models/optimization.py` (`PromptVersion` L68 /
+`ABExperiment` L84) for the candidate/active/audit fields the read returns.
+
+Order: brainstorm (confirm: ONE new read route + a review queue of candidates with rationale + signal links +
+trial deltas; explicit Approve sends `approved_by`; one-click Rollback; audit list — mutations over the existing
+POSTs) → ADR skip (consumes ADR-010's gate, doesn't define it; 13.6 ratifies ADR-010) → TDD (backend: service
+read + route test FIRST; then vitest: promote disabled until an approver is set; approve sends `approved_by`;
+rollback calls rollback; audit renders transitions) → implement → verify (backend + vitest + live perf gate).
 
 Traps: (1) **Approval is a deliberate human act** — promote is impossible without an explicit approver in the
-UI (mirror the server gate; never auto-fill). (2) **Incumbent visibility** — the active prompt is clearly
-marked; candidates are clearly "not live." (3) **Explainable** — each candidate shows the signals that
-triggered it (reuse the route's rationale/explain refs); no unexplained proposal. (4) **Reversible** — rollback
-is one action and visibly restores the prior active version. (5) destructive-action confirm on promote/rollback.
+UI (mirror the server gate; never auto-fill `approved_by`). (2) **Incumbent visibility** — the active prompt
+(`is_active`) is clearly marked; candidates are clearly "not live." (3) **Explainable** — each candidate shows
+the `signal_ids`/`rationale` that triggered it; no unexplained proposal. (4) **Reversible** — rollback is one
+action and visibly restores the prior active version. (5) destructive-action confirm on promote/rollback.
 
-Files: EDIT `OptimizationPage.tsx` (+ review/approval section), maybe `components/optimization/PromptReview.tsx`,
-vitest + e2e `optimization-prompt-review`. Def-of-done: candidate queue + rationale/signal links + approval-gated
-promote + one-click rollback + audit view, perf gate passed, vitest green, commit.
+Files: NEW backend read route in `routes/flywheel.py` + read method in `prompt_evolution.py` + backend tests;
+EDIT `OptimizationPage.tsx` (+ review/approval section), maybe `components/optimization/PromptReview.tsx`, EDIT
+`services/flywheel.ts` + `types/flywheel.ts`, vitest + e2e `optimization-prompt-review`. Def-of-done: read
+route + candidate queue + rationale/signal links + approval-gated promote + one-click rollback + audit view,
+backend tests green, perf gate passed, vitest green, commit.
+
+**Carried forward from 13.3 (known state — do NOT re-investigate inside 13.4):**
+- **A shared page can gate its whole body on one fetch.** `LearningPage.tsx:138` early-returns an `EmptyState`
+  when `template_rankings` is empty, unmounting the entire right column. Any e2e that needs a section ON a
+  shared page must mock that page's gating fetch with non-empty data first. Check `OptimizationPage` for the
+  same pattern before writing the e2e.
+- **Adding a self-fetching section to a shared page breaks sibling e2e that assert no console errors.** The
+  section's `.catch(console.error)` logs on every visit to that page; specs with `expect(errors).toEqual([])`
+  then fail. When you add the prompt-read fetch to `OptimizationPage`, mock it in *every* existing spec that
+  visits the page (13.3 had to add a `global/roi` mock to `learning-roi.spec.ts`).
+- **`frontend/e2e/kinematics.spec.ts:72` fails pre-existing** (waits on a `Harvard Classic` template-row span;
+  confirmed failing without 13.3's changes). Not yours — don't chase it.
 
 ---
 
