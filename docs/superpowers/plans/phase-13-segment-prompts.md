@@ -48,7 +48,7 @@ Phase ends at **13.11 (close-out)** — no 13.12. Map + rationale: `phase-13-roa
   golden paths. **Perf gate (BLOCKING where there's interaction):** 60fps, 0 long-tasks, CLS ≈ 0, entry ≤
   80.8 kB gz, Off tier usable — verify live via chrome-devtools, paste the result. CSP unchanged (except 13.9).
 - **Backend surface you build on (Phase 12, all shipped):** routes in `backend/api/v1/routes/flywheel.py` —
-  `GET /flywheel/skills/roi`, `GET /flywheel/strategy`, `GET /flywheel/global/roi`,
+  `GET /flywheel/skills/roi`, `POST /flywheel/strategy` (body `{target_jd}` — JD too large for a query param, 13.2), `GET /flywheel/global/roi`,
   `POST /flywheel/prompt/{propose,trial,promote,rollback}`. Services in `backend/services/flywheel/`:
   `skill_roi.py`, `strategy.py`, `global_patterns.py`, `prompt_evolution.py`, `feedback.py`,
   `anonymization.py`. **Confirm each route's response shape from the route file before wiring a component to
@@ -148,31 +148,50 @@ commit.
 
 ## 13.3 — Global-Pattern Suggestions Surface
 
-Implement Phase 13.3 — surface `GET /flywheel/global/roi` as re-personalized, confidence-tagged suggestions.
-**Extend `LearningPage.tsx`** (alongside 13.1's ROI section). Honors ADR-009: global never overrides local.
+Implement Phase 13.3 — surface `GET /flywheel/global/roi` as re-personalized, confidence-tagged SUGGESTIONS in
+**`LearningPage.tsx`** (alongside 13.1's ROI section). ADR-009: global informs, never overrides local.
+**Today's primary demoable state is dormant** (k<5 → suppressed) — build that path first, k≥5 second.
 
-PRECONDITION: 13.1 (LearningPage ROI section + client). With < 5 local profiles the route is k-anonymity
-suppressed → this surface is **dormant by design** today; build the dormant empty-state path as the primary
-demoable state.
+PRECONDITION: 13.1 (LearningPage ROI section + `services/flywheel.ts`). Route stays GET — params are small
+(`metric` only, no 414 risk, unlike 13.2's strategy which went POST). Response: `{ metric, rankings: GlobalRoi[] }`;
+`rankings` is `[]` when k-anonymity suppresses every candidate. Each row is aggregate-only — `tenant_count` is a
+COUNT, never ids.
 
-Read first (STOP at the global route shape + ADR-009 §5): (1) roadmap. (2) `services/flywheel.ts` +
-`components/shared/DormantEmptyState.tsx` (13.0). (3) `routes/flywheel.py` global/roi response (+ the
-suppressed shape). (4) `docs/adr/ADR-009-privacy-preserving-aggregation.md` §1/§5 (read-aggregates-not-rows;
-global = suggestion only, re-personalized + confidence-tagged).
+Read first (STOP at the route shape + ADR-009 §1/§5): (1) `routes/flywheel.py` `get_global_roi` (the
+`{metric, rankings}` shape + empty case). (2) `services/flywheel.ts` `getGlobalRoi` + `types/flywheel.ts`
+`GlobalRoiResponse`/`GlobalRoi` — 13.0 already typed these; reuse, don't redefine. (3)
+`components/ui/DormantEmptyState.tsx` + `components/ui/ConfidenceBadge.tsx` — the 13.0 primitives. **They live
+in `components/ui/`, NOT `components/shared/`** (the older 13.0 prose above says `shared/`; trust the
+filesystem). (4) `pages/LearningPage.tsx` — where the suggestions section slots beside 13.1's. (5)
+`docs/adr/ADR-009-privacy-preserving-aggregation.md` §1/§5.
 
-Order: brainstorm (confirm: render global patterns as SUGGESTIONS re-framed against the tenant's own evidence
-+ confidence; under k<5 show the dormant empty-state explaining "needs ≥5 profiles," not an error) → ADR skip
-(consumes ADR-009) → TDD (vitest: k<5 → dormant state; k≥5 mock → suggestions render with `tenant_count` +
-confidence, framed as suggestions not directives) → implement → verify.
+Order: brainstorm (confirm: a global-suggestions section IN LearningPage — k<5 → `DormantEmptyState` "needs ≥5
+profiles"; k≥5 → rows of skill + `tenant_count` + ConfidenceBadge, copy framed as "consider," re-personalized
+against the tenant's own evidence) → ADR skip (consumes ADR-009) → TDD (vitest: `rankings:[]` → dormant;
+populated mock → suggestion rows with count + confidence, no directive "you must" copy) → implement → verify
+(vitest + live perf gate paste).
 
-Traps: (1) **Global ≠ override** — copy + affordances frame these as suggestions to consider, re-personalized;
-never "you must." (2) **Dormant is normal** — k<5 suppression is the expected current state; the empty-state is
-informative, not a failure. (3) **No re-identification leakage** — render only the allowlisted abstract fields
-the route returns (`tenant_count` is a count, never ids); don't infer or display membership.
+Traps: (1) **Global ≠ override** — copy/affordances say "consider," re-personalized; never directive. (2)
+**Dormant is normal, not an error** — `rankings:[]` (k<5) renders the 13.0 `DormantEmptyState`; don't hand-roll
+a second empty-state. (3) **No re-identification** — render only the route's allowlisted aggregate fields;
+`tenant_count` is a count, never membership/ids. (4) ponytail: plain list (the global set is tiny); virtualize
+only if measured.
 
-Files: EDIT `LearningPage.tsx` (+global suggestions section), vitest + e2e `learning-global`. Def-of-done:
-suggestions surface with re-personalization + confidence + working dormant state, no re-id leakage, perf gate
-passed, vitest green, commit.
+Files: EDIT `LearningPage.tsx` (+global section), maybe NEW `components/learning/GlobalSuggestions.tsx` if the
+page is already large, vitest + e2e `learning-global`. Def-of-done: re-personalized confidence-tagged
+suggestions + working dormant state, no re-id leakage, perf gate passed (paste), vitest green, commit.
+
+**Carried forward from 13.2 (known state — do NOT re-investigate or "fix" inside 13.3):**
+- **`/flywheel/strategy` has no backend route test.** 13.2 changed only transport (GET→POST body); no logic
+  changed and none existed before. `recommend()` is service-tested, and the frontend transport test
+  (`flywheel.test.ts`) pins the request contract. Add a backend route test when the route gains *behavior*
+  (validation, branching) — not for the transport flip.
+- **`frontend/e2e/resume.spec.ts` fails wholesale — pre-existing, not 13.2.** It predates the onboarding gate
+  and never mocks it. The new `resume-strategy.spec.ts` mocks the gate itself (`settings/onboarding` +
+  `health/ollama`) — copy that pattern when touching resume e2e. Repair `resume.spec.ts` only if a segment
+  actually needs it.
+- **`frontend/coverage/` is an untracked, un-ignored generated dir.** Left as-is (not 13.2's to commit). It's
+  vitest coverage output; if it ever gets staged, add it to `.gitignore` rather than commit.
 
 ---
 
