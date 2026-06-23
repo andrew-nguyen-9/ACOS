@@ -22,6 +22,7 @@ from backend.services.resume.evidence_selector import EvidenceSelector
 from backend.services.resume.generator import ResumeGenerator
 from backend.services.resume.templates import TEMPLATE_NAMES
 from backend.services.profile.contact_loader import default_contact_path, load_contact
+from backend.services import audit
 
 router = APIRouter(tags=["resume"])
 
@@ -117,7 +118,9 @@ def _build_deps(settings: Settings, session: Session) -> tuple[ResumeGenerator, 
 
 
 @router.post("/resume/analyze-ats")
-def analyze_ats(body: ATSRequest) -> dict[str, object]:
+async def analyze_ats(
+    body: ATSRequest, session: AsyncSession = Depends(get_async_session)
+) -> dict[str, object]:
     settings = get_settings()
     ollama = OllamaClient(base_url=settings.ollama_base_url)  # type: ignore[union-attr]
     loader = PromptLoader()
@@ -125,6 +128,14 @@ def analyze_ats(body: ATSRequest) -> dict[str, object]:
     scorer = ATSScorer(ollama, loader)
     keywords = extractor.extract(body.job_description)
     score = scorer.score(body.resume_text, body.job_description, keywords)
+    # 16.3 (ADR-016): audit the ATS scoring action — digests + score, no bodies.
+    await session.run_sync(
+        lambda s: audit.safe_record(s, "ats_score", {
+            "jd_digest": audit.digest(body.job_description),
+            "resume_digest": audit.digest(body.resume_text),
+            "overall_score": (score or {}).get("overall_score") if isinstance(score, dict) else None,
+        })
+    )
     return {"keywords": keywords, "ats_score": score}
 
 
@@ -148,6 +159,12 @@ async def generate_resume(
         )
         _emit_ats_metric(s, result, body.template_name)
         _emit_skill_signals(s, result, body.application_id)
+        # 16.3 (ADR-016): audit the generation — digests + metadata, no bodies.
+        audit.safe_record(s, "generation", {
+            "kind": "resume", "template": body.template_name,
+            "jd_digest": audit.digest(body.job_description),
+            "ats_score": result.get("ats_score", {}).get("overall_score"),
+        })
         return result
 
     try:

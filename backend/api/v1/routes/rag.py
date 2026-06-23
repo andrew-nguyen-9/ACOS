@@ -15,6 +15,7 @@ from backend.rag.reranker import Reranker
 from backend.services.observability.metrics import MetricsStore
 from backend.services.ollama_client import OllamaClient
 from backend.services.rag.service import RAGService
+from backend.services import audit
 
 router = APIRouter(tags=["rag"])
 
@@ -48,6 +49,11 @@ async def rag_query(body: QueryRequest, session: AsyncSession = Depends(get_asyn
         )
         result = svc.query(body.query, intent=body.intent)
         _emit_retrieval_metric(s, result)
+        # 16.3 (ADR-016): audit the retrieval — query digest + count, no bodies.
+        audit.safe_record(s, "retrieval", {
+            "query_digest": audit.digest(body.query),
+            "intent": body.intent,
+        })
         return result
 
     return await session.run_sync(_impl)

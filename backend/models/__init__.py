@@ -2,6 +2,7 @@
 from backend.models.base import Base, TimestampMixin, generate_uuid, utcnow
 from backend.models.tenant import Tenant, TenantScopedMixin
 from backend.models.auth import AuthCredential, AuthSession
+from backend.models.audit import AuditLog
 from backend.models.experience import Experience, ExperienceBullet
 from backend.models.project import Project
 from backend.models.skill import Skill, SkillEvidence, experience_skills_table, project_skills_table
@@ -42,6 +43,7 @@ __all__ = [
     "TenantScopedMixin",
     "AuthCredential",
     "AuthSession",
+    "AuditLog",
     "Experience",
     "ExperienceBullet",
     "Project",

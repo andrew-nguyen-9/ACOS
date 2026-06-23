@@ -21,6 +21,7 @@ from backend.services.copilot.engine import CopilotEngine
 from backend.services.ollama_client import OllamaClient, Operation
 from backend.services.rag.service import RAG_MODEL, RAG_SYSTEM, RAGService
 from backend.services.tokens import count_tokens
+from backend.services import audit
 
 router = APIRouter(tags=["copilot"])
 
@@ -67,7 +68,12 @@ async def copilot_chat(
 ) -> dict:
     def _impl(s: Session) -> dict:
         engine = _build_copilot(s)
-        return engine.chat(body.message, conversation_history=body.conversation_history)
+        result = engine.chat(body.message, conversation_history=body.conversation_history)
+        # 16.3 (ADR-016): audit the generation — message digest, no bodies.
+        audit.safe_record(s, "generation", {
+            "kind": "copilot", "message_digest": audit.digest(body.message),
+        })
+        return result
 
     return await session.run_sync(_impl)
 

@@ -12,6 +12,7 @@ from backend.repositories.optimization import (
 from backend.services.optimization.applier import Applier, ApprovalRequired
 from backend.services.optimization.recommender import Recommender
 from backend.services.optimization.loop import LearningLoop
+from backend.services import audit
 
 router = APIRouter(tags=["optimization"])
 
@@ -53,6 +54,8 @@ async def list_proposals(
 async def generate_proposals(session: AsyncSession = Depends(get_async_session)) -> dict:
     def _impl(s: Session) -> dict:
         created = Recommender(s).generate_proposals()
+        # 16.3 (ADR-016): audit the optimization recommendation — counts, no bodies.
+        audit.safe_record(s, "optimization", {"created": len(created)})
         return {"created": len(created), "proposal_ids": [p.id for p in created]}
 
     return await session.run_sync(_impl)
