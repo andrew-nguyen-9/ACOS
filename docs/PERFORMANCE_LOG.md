@@ -576,3 +576,28 @@ recording — negligible, no new query. No external telemetry (kept).
 By construction the dashboard fetches once on mount and renders three static cards (no
 canvas, no animation loop, no virtualized list), so it adds no long-task risk; run the
 Phase 11 perf trace on the Learning page at release to confirm the 60fps/0-long-task gate.
+
+## Phase 15 — controlled-autonomy agent surfaces (2026-06-23)
+
+**Entry bundle (measured via `npm run build`, gzip):**
+
+| Build | Entry chunk (gz) | Note |
+|-------|------------------|------|
+| Phase 14 base (`73776a5`) | **83.67 kB** | already over the Phase-11 ≤80.8 kB budget |
+| Phase 15 HEAD | **83.74 kB** | **+0.07 kB** vs base |
+
+Phase 15's four surfaces (JobPrioritization, ApplicationSuggestion, InterviewAnswerEval,
+DailyBriefing + their services/types) are imported by already-lazy route pages, so they
+**code-split into the route chunks, not the entry bundle** — hence the +0.07 kB is noise.
+
+**Honest budget status:** the entry bundle exceeds the historical ≤80.8 kB Phase-11 budget,
+but that breach **predates Phase 15** (it was 83.67 kB at the Phase-14 merge). Phase 15 is
+bundle-neutral. The breach is tracked as Phase-14 follow-up; Phase 15 did not introduce it
+and does not move the needle.
+
+**Live FE perf gate (job-rank / suggestion / interview-sim / briefing): NOT RUN in-session**
+— same environment limitation as 14.1/14.2. By construction these surfaces are static DOM
+(textareas, cards, lists, a modal) with **no new WebGL context, animation loop, or
+virtualized list**, and the 11.9 interview panel is reused unchanged (no second audio
+context). Run the Phase-11 chrome-devtools trace at release to confirm 60fps / 0 long-tasks
+/ CLS≈0 on the new surfaces.

@@ -9,6 +9,8 @@ from sqlalchemy.orm import Session
 
 from backend.database import get_async_session as get_db
 from backend.models.strategy import (
+    ApplicationPriority,
+    ApplicationSuggestion,
     EnrichCorpusRequest,
     OutcomeReport,
     PrioritizeRequest,
@@ -16,8 +18,10 @@ from backend.models.strategy import (
     RoleFitRequest,
     RoleFitScore,
     ResumeStrategyRecommendation,
+    SuggestionRequest,
 )
 from backend.services.strategy.application_strategy import ApplicationStrategyEngine
+from backend.services.strategy.application_suggestion import ApplicationSuggestionEngine
 from backend.services.strategy.career_path_simulator import CareerPathSimulator
 from backend.services.strategy.corpus_scraper import CorpusScraper
 from backend.services.strategy.outcome_learner import OutcomeLearner
@@ -39,9 +43,15 @@ async def career_paths(db: AsyncSession = Depends(get_db)) -> list[dict]:
     return await db.run_sync(lambda s: CareerPathSimulator(s).simulate_all())
 
 
-@router.post("/strategy/prioritize")
+@router.post("/strategy/prioritize", response_model=list[ApplicationPriority])
 async def prioritize(req: PrioritizeRequest, db: AsyncSession = Depends(get_db)) -> list[dict]:
     return await db.run_sync(lambda s: ApplicationStrategyEngine(s).prioritize(req.jobs))
+
+
+@router.post("/strategy/suggestion", response_model=ApplicationSuggestion)
+async def suggestion(req: SuggestionRequest, db: AsyncSession = Depends(get_db)) -> dict:
+    # Recommend-only (ADR-012): composes fit + resume + tone + interview outlook.
+    return await db.run_sync(lambda s: ApplicationSuggestionEngine(s).suggest(req.jd_text))
 
 
 @router.get("/strategy/skill-gaps")

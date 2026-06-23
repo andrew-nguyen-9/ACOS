@@ -1,5 +1,14 @@
 # Phase 14–15 — Hardening / Deployment Readiness · Controlled Autonomous Agent (Roadmap)
 
+> **STATUS (2026-06-23): SHIPPED.** Phase 14 (14.1/14.2/14.3) merged to `main` via PR #11.
+> Phase 15 shipped on `feat/phase-15-controlled-autonomy-agent`: 15.1 job-rank + **ADR-012**
+> (`d43cde8`), 15.2 suggestion (`c7fb00e`), 15.3 interview sim (`755241b`), 15.4 briefing
+> (`be8ae9c`), close-out (docs + ADR-012/013 ratified + autonomy/security audit). Autonomy
+> boundary enforced by `test_autonomy_boundary.py` across all 5 agent surfaces. Deferred
+> items below remain deferred (runtime-plugin engine, cloud, API exposure, Win/Linux pkg,
+> authn, auto-apply/outreach — **never**, ADR-012). Entry-bundle 80.8 kB breach predates
+> Phase 15 (Phase-14 condition); see `docs/PERFORMANCE_LOG.md`.
+
 **Branch:** `feat/phase-14-15-hardening-and-agent` (cut off `main` after Phase 13 merged — it is,
 `b77e143`, PR #10).
 **Predecessor:** Phases 0–13 shipped. The strategy/career engines (**Phase 9**), the flywheel +

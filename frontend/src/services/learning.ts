@@ -1,5 +1,5 @@
 import { apiFetch } from "./api";
-import type { GeneratedQuestion, LearningOutcome } from "@/types/api";
+import type { AnswerEvaluation, GeneratedQuestion, LearningOutcome } from "@/types/api";
 
 export interface TemplateRanking {
   template_name: string;
@@ -16,7 +16,7 @@ export interface AtsVsOutcome {
 
 export const learningService = {
   // Used by InterviewPrepPage
-  generateQuestions: (req: { application_id: string; job_description: string }) =>
+  generateQuestions: (req: { application_id: string; job_description: string; persona?: string }) =>
     apiFetch<{ questions: GeneratedQuestion[] }>("/questions/generate", {
       method: "POST",
       body: JSON.stringify(req),
@@ -25,6 +25,18 @@ export const learningService = {
     apiFetch<{ recorded: boolean }>("/learning/outcome", {
       method: "POST",
       body: JSON.stringify(outcome),
+    }),
+
+  // 15.3 — interview simulation deepening. Generate-only (ADR-012).
+  getFollowups: (req: { question: string; answer_text: string; persona?: string; max_followups?: number }) =>
+    apiFetch<{ followups: string[] }>("/questions/followups", {
+      method: "POST",
+      body: JSON.stringify(req),
+    }),
+  evaluateAnswer: (req: { answer_text: string; expected_node_ids?: string[] }) =>
+    apiFetch<AnswerEvaluation>("/questions/evaluate", {
+      method: "POST",
+      body: JSON.stringify(req),
     }),
 
   // Used by LearningPage

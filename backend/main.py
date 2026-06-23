@@ -19,6 +19,7 @@ from backend.recovery import (
 )
 from backend.api.v1.routes.application import router as application_router
 from backend.api.v1.routes.backup import router as backup_router
+from backend.api.v1.routes.briefing import router as briefing_router
 from backend.api.v1.routes.copilot import router as copilot_router
 from backend.api.v1.routes.flywheel import router as flywheel_router
 from backend.api.v1.routes.cover_letter import router as cover_letter_router
@@ -105,6 +106,7 @@ def create_app() -> FastAPI:
     app.include_router(optimization_router, prefix="/api/v1", dependencies=tenant_dep)
     app.include_router(settings_router, prefix="/api/v1")
     app.include_router(strategy_router, prefix="/api/v1", dependencies=tenant_dep)
+    app.include_router(briefing_router, prefix="/api/v1", dependencies=tenant_dep)
     app.include_router(maintenance_router, prefix="/api/v1")
     app.include_router(backup_router, prefix="/api/v1")
     app.include_router(flywheel_router, prefix="/api/v1", dependencies=tenant_dep)

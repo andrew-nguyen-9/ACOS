@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState, useTransition, type Dispatch, type SetStateAction } from "react";
+import { useNavigate } from "react-router-dom";
 import { AnimatePresence, m } from "framer-motion";
-import { Plus, Briefcase, Search, Filter, Clock3, AlertTriangle } from "lucide-react";
+import { Plus, Briefcase, Search, Filter, Clock3, AlertTriangle, ListChecks, X } from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { JobPrioritization } from "@/components/strategy/JobPrioritization";
+import { ApplicationSuggestion } from "@/components/strategy/ApplicationSuggestion";
 import { PageSkeleton } from "@/components/ui/Skeleton";
 import { VirtualList } from "@/components/ui/VirtualList";
 import { useDeferredLoading } from "@/hooks/useDeferredLoading";
@@ -117,10 +120,13 @@ function AddApplicationModal({
   );
 }
 
-function ApplicationRow({ app }: { app: Application }) {
+function ApplicationRow({ app, onOpen }: { app: Application; onOpen: (app: Application) => void }) {
   const cfg = STATUS_CONFIG[app.status] ?? STATUS_CONFIG.saved;
   return (
-    <GlassCard className="mb-2 p-4 hover:bg-white/[0.03] transition-colors cursor-default">
+    <GlassCard
+      onClick={() => onOpen(app)}
+      className="mb-2 p-4 hover:bg-white/[0.03] transition-colors cursor-pointer"
+    >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="size-10 rounded-xl bg-white/[0.06] flex items-center justify-center flex-shrink-0">
@@ -144,6 +150,53 @@ function ApplicationRow({ app }: { app: Application }) {
         </div>
       </div>
     </GlassCard>
+  );
+}
+
+function ApplicationDetailSheet({
+  app,
+  onClose,
+  onApplied,
+  onTailor,
+}: {
+  app: Application;
+  onClose: () => void;
+  onApplied: (updated: Application) => void;
+  onTailor: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <m.div
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
+      onClick={onClose}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <m.div
+        className="bg-neutral-900 border border-white/10 rounded-2xl p-6 w-[480px] max-h-[85vh] overflow-auto shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+        initial={{ opacity: 0, y: 24, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1, transition: springs.snappy }}
+        exit={{ opacity: 0, y: 24, scale: 0.97 }}
+      >
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h2 className="font-semibold text-neutral-50 text-lg">{app.role}</h2>
+            <p className="text-[#a1a1a1] text-xs">{app.company}</p>
+          </div>
+          <button onClick={onClose} className="text-neutral-500 hover:text-neutral-300 transition-colors">
+            <X className="size-5" />
+          </button>
+        </div>
+        <ApplicationSuggestion app={app} onApplied={onApplied} onTailor={onTailor} />
+      </m.div>
+    </m.div>
   );
 }
 
@@ -187,6 +240,13 @@ function ApplicationsView({
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [showAdd, setShowAdd] = useState(false);
+  const [showPrioritize, setShowPrioritize] = useState(false);
+  const [selected, setSelected] = useState<Application | null>(null);
+  const navigate = useNavigate();
+  // Saved JDs already tracked on applications — feed the prioritization surface.
+  const savedJds = applications
+    .map((a) => a.job_description)
+    .filter((jd): jd is string => Boolean(jd && jd.trim()));
   // ASP-003: filtering a large list is the heavy update — keep typing/clicks
   // responsive by marking the derived-list recompute as a transition.
   const [, startTransition] = useTransition();
@@ -224,6 +284,17 @@ function ApplicationsView({
             onAdd={(app) => setApplications((prev) => [app, ...prev])}
           />
         )}
+        {selected && (
+          <ApplicationDetailSheet
+            app={selected}
+            onClose={() => setSelected(null)}
+            onApplied={(updated) => {
+              setApplications((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+              setSelected(updated);
+            }}
+            onTailor={() => navigate("/resumes")}
+          />
+        )}
       </AnimatePresence>
 
       {/* Scroll progress (KMP-002) — scaleX only, compositor-driven. */}
@@ -247,14 +318,29 @@ function ApplicationsView({
             <h1 className="font-semibold text-neutral-50 text-2xl tracking-tight">Applications</h1>
             <p className="text-[#a1a1a1] text-sm mt-1">Career CRM — {applications.length} tracked applications</p>
           </div>
-          <button
-            onClick={() => setShowAdd(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#4c8dff] text-white text-sm font-semibold hover:opacity-90 transition-opacity"
-          >
-            <Plus className="size-4" />
-            Add Application
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowPrioritize((v) => !v)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${showPrioritize ? "bg-[#4c8dff]/15 text-[#4c8dff]" : "bg-white/[0.06] text-[#a1a1a1] hover:bg-white/[0.1]"}`}
+            >
+              <ListChecks className="size-4" />
+              Prioritize jobs
+            </button>
+            <button
+              onClick={() => setShowAdd(true)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#4c8dff] text-white text-sm font-semibold hover:opacity-90 transition-opacity"
+            >
+              <Plus className="size-4" />
+              Add Application
+            </button>
+          </div>
         </m.div>
+
+        {showPrioritize && (
+          <GlassCard className="p-5">
+            <JobPrioritization savedJds={savedJds} />
+          </GlassCard>
+        )}
 
         <div className="grid grid-cols-5 gap-3">
           {STATUS_OPTIONS.map((s) => {
@@ -308,7 +394,7 @@ function ApplicationsView({
             scrollRef={scrollRef}
             estimateSize={80}
             getKey={(app) => app.id}
-            renderItem={(app) => <ApplicationRow app={app} />}
+            renderItem={(app) => <ApplicationRow app={app} onOpen={setSelected} />}
           />
         )}
       </div>

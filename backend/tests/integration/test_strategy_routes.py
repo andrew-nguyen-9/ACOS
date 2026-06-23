@@ -93,7 +93,12 @@ class TestPrioritizeRoute:
     def test_returns_list(self, client):
         with patch("backend.api.v1.routes.strategy.ApplicationStrategyEngine") as MockEng:
             MockEng.return_value.prioritize.return_value = [
-                {"job_id": "j1", "jd_snippet": "...", "priority": "tailor", "reason": "ok", "fit_score": 65.0}
+                {
+                    "job_id": "j1", "jd_snippet": "...", "priority": "tailor",
+                    "reason": "ok", "fit_score": 65.0, "confidence": "strong_inference",
+                    "missing_critical_skills": [], "risk_factors": [],
+                    "explanation": "Moderate fit.", "top_pick": False,
+                }
             ]
             resp = client.post(
                 "/api/v1/strategy/prioritize",
@@ -107,6 +112,68 @@ class TestPrioritizeRoute:
             MockEng.return_value.prioritize.return_value = []
             resp = client.post("/api/v1/strategy/prioritize", json={"jobs": []})
         assert resp.status_code == 200
+
+    def test_response_carries_confidence_and_evidence(self, client):
+        # ADR-012: no bare numbers — each ranked row carries confidence + evidence.
+        with patch("backend.api.v1.routes.strategy.ApplicationStrategyEngine") as MockEng:
+            MockEng.return_value.prioritize.return_value = [
+                {
+                    "job_id": "j1",
+                    "jd_snippet": "...",
+                    "priority": "tailor",
+                    "reason": "ok",
+                    "fit_score": 65.0,
+                    "confidence": "strong_inference",
+                    "missing_critical_skills": ["dbt"],
+                    "risk_factors": [],
+                    "explanation": "Moderate fit.",
+                    "top_pick": True,
+                }
+            ]
+            resp = client.post(
+                "/api/v1/strategy/prioritize",
+                json={"jobs": [{"job_id": "j1", "jd_text": _JD}]},
+            )
+        assert resp.status_code == 200
+        row = resp.json()[0]
+        for key in ("confidence", "missing_critical_skills", "explanation", "top_pick"):
+            assert key in row
+
+
+# ── POST /strategy/suggestion ─────────────────────────────────────────────────
+
+class TestSuggestionRoute:
+    _MOCK = {
+        "recommendation": "tailor",
+        "reason": "Good fit (65/100).",
+        "fit_score": 65.0,
+        "confidence": "strong_inference",
+        "missing_critical_skills": ["dbt"],
+        "risk_factors": [],
+        "explanation": "Moderate fit.",
+        "resume_template": "data_technical",
+        "resume_reason": "Data role detected.",
+        "cover_letter_tone": 0.5,
+        "cover_letter_tone_descriptor": "balanced, professional, confident",
+        "interview_probability": 0.45,
+        "interview_sample_size": 2,
+        "interview_confidence": "weak_inference",
+        "interview_category": "data_analytics",
+    }
+
+    def test_returns_composed_suggestion(self, client):
+        with patch("backend.api.v1.routes.strategy.ApplicationSuggestionEngine") as MockEng:
+            MockEng.return_value.suggest.return_value = self._MOCK
+            resp = client.post("/api/v1/strategy/suggestion", json={"jd_text": _JD})
+        assert resp.status_code == 200
+        data = resp.json()
+        for key in ("recommendation", "confidence", "resume_template", "interview_confidence"):
+            assert key in data
+        assert data["recommendation"] in ("apply", "tailor", "skip")
+
+    def test_short_jd_422(self, client):
+        resp = client.post("/api/v1/strategy/suggestion", json={"jd_text": "short"})
+        assert resp.status_code == 422
 
 
 # ── GET /strategy/skill-gaps ──────────────────────────────────────────────────

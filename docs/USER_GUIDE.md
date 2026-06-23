@@ -305,6 +305,35 @@ when macOS *Reduce Motion* is enabled — accessibility always wins over spectac
 **Backup, recovery & maintenance** run only on your explicit request — ACOS never performs
 destructive maintenance on its own (see Troubleshooting for the recovery/backup commands).
 
+## Career Agent (Phase 15)
+
+ACOS acts as a **controlled-autonomy career agent**: it ranks, recommends, generates, and
+simulates — **but it never acts on your behalf**. There is no auto-apply and no recruiter
+outreach; every outbound action stays yours (ADR-012). Every recommendation, probability,
+and score is shown with its confidence (`verified` / `strong` / `weak`) and the evidence
+behind it — never a bare number.
+
+- **Job prioritization** — on the *Applications* page, click **Prioritize jobs**, paste one
+  or more job descriptions (separate multiple with a line of `---`), and get a server-ranked
+  list: each job tagged with a recommendation, a fit estimate, its confidence, and the
+  missing skills behind it. Low-confidence (thin-evidence) rows are de-emphasized and never
+  flagged as a "top pick".
+- **Application suggestion (Apply / Skip / Tailor)** — click any application to open its
+  detail sheet. ACOS recommends Apply, Skip, or Tailor-First, with the suggested resume
+  version, cover-letter tone, and interview outlook — each explained and confidence-tagged.
+  *Tailor-First* is the safe default whenever fit is anything short of strong. The buttons
+  are internal only: **Mark as applied** updates your CRM status; **Tailor in Resume
+  Builder** opens the in-app flow. Nothing is ever submitted to a job board.
+- **Interview simulation** — *Interview Prep* lets you pick a **recruiter style**
+  (balanced / supportive / skeptical / technical) that shapes the questions, type an answer
+  to get a **knowledge-graph-grounded evaluation** (which of your real evidence the answer
+  did and didn't cover, confidence-tagged), and receive **follow-up questions** that probe
+  your answer — all simulated locally.
+- **Daily briefing** — the *Dashboard* shows a briefing composed from your data: jobs to
+  apply to, skill gaps, resume adjustments, ATS opportunities, and follow-ups due, each
+  aligned to your career goal. Jobs that don't fit your goal are flagged *off-goal*. A new
+  account with no data sees honest empty sections — never invented jobs or gaps.
+
 ## See Also
 
 - [Architecture Overview](ARCHITECTURE_OVERVIEW.md) — how the system is built

@@ -19,6 +19,24 @@ from backend.services.strategy.role_fit_scorer import RoleFitScorer
 
 logger = logging.getLogger(__name__)
 
+_APPLY_WORTHY = {"prioritize", "tailor"}
+
+
+def _mark_top_pick(rows: list[dict]) -> list[dict]:
+    """Mark the single best apply-worthy, non-low-n row as the top pick.
+
+    ADR-012 trap 3: low-n (``weak_inference``) estimates are excluded from
+    "top pick" emphasis so the user is never nudged hard on thin evidence. Rows
+    are already sorted by fit descending, so the first eligible one wins.
+    """
+    for r in rows:
+        r["top_pick"] = False
+    for r in rows:
+        if r["confidence"] != "weak_inference" and r["priority"] in _APPLY_WORTHY:
+            r["top_pick"] = True
+            break
+    return rows
+
 
 class ApplicationStrategyEngine:
     def __init__(self, session: Session) -> None:
@@ -43,10 +61,16 @@ class ApplicationStrategyEngine:
                     "priority": action,
                     "reason": reason,
                     "fit_score": score,
+                    # ADR-012/006: carry the estimate's confidence + the evidence it
+                    # came from — the surface never shows a bare number.
+                    "confidence": fit["confidence"],
+                    "missing_critical_skills": fit["missing_critical_skills"],
+                    "risk_factors": fit["risk_factors"],
+                    "explanation": fit["explanation"],
                 }
             )
         results.sort(key=lambda r: r["fit_score"], reverse=True)
-        return results
+        return _mark_top_pick(results)
 
     def _decide(self, score: float, missing: int, fit: dict) -> tuple[str, str]:
         if score >= 75 and missing <= 1:

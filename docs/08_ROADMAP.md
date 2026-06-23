@@ -471,6 +471,40 @@ deferred-authn note is now load-bearing.
 
 ---
 
+## Phase 14–15 outcomes — hardening + controlled-autonomy agent (2026-06-23)
+
+Phase 14 (merged, PR #11) hardened the deployment/versioning/observability/security
+spine. Phase 15 turned ACOS into a **controlled-autonomy career agent** by surfacing the
+existing Phase-9 strategy engines — **it recommends, it never acts** (ADR-012).
+
+| Segment | Outcome | Status |
+|---------|---------|--------|
+| 14.1 | Versioning & reproducibility spine (`/health/version`, seeded gen, `VERSIONING.md`) | Shipped — DMG release-verify still owed (13.8) |
+| 14.2 | Observability & drift dashboard (success-rate/ATS/embedding drift, off-hot-path) | Shipped |
+| 14.3 | Security audit + optional encrypted storage (Fernet, off by default) + ADR-013 | Shipped |
+| 15.1 | **Controlled-autonomy boundary (ADR-012)** + job prioritization surface (ranked, explained, confidence-tagged) | Shipped |
+| 15.2 | Application suggestion (Apply/Skip/Tailor + resume version + CL tone + interview outlook) | Shipped — **internal actions only, no auto-submit** |
+| 15.3 | Interview simulation deepening (recruiter personas + answer follow-ups + KG-grounded eval) | Shipped — generate-only |
+| 15.4 | Daily briefing + goal alignment (off-hot-path orchestrator, recommend-only) | Shipped |
+
+**The autonomy boundary is the headline (ADR-012):** the agent may rank / recommend /
+generate / simulate; it has **no code path** that submits an application, contacts a
+recruiter, or mutates an external system. Enforced by absence — `test_autonomy_boundary.py`
+scans every agent surface and fails if an outbound-action symbol appears. No auto-apply,
+no recruiter outreach — ever, by decision.
+
+**Perf (honest):** Phase 15's surfaces are code-split into their lazy route chunks; the
+entry bundle moved **+0.07 kB gz** (83.67 → 83.74 kB gz). The entry already exceeded the
+Phase-11 ≤80.8 kB budget **as of Phase 14** — that breach predates Phase 15 and is tracked
+for follow-up; Phase 15 is bundle-neutral.
+
+**Deferred (recorded, not dropped):** runtime plugin engine, cloud sync, public
+API-exposure / third-party / job-board / external-ATS net integrations, Windows/Linux
+packaging, real authentication, and **auto-apply / recruiter outreach (hard product
+boundary, ADR-012 — never)**. The four VOID 12.9 optimization-backlog items stay VOID.
+
+---
+
 ## Backlog (Post-Phase-11)
 
 ### Deferred optimizations (Phases 13–18)

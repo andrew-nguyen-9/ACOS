@@ -134,3 +134,39 @@ def test_list_answers_for_question(client):
 def test_list_answers_question_not_found(client):
     resp = client.get("/api/v1/questions/doesnotexist/answers")
     assert resp.status_code == 404
+
+
+# ── 15.3 — interview simulation deepening ─────────────────────────────────────
+
+def test_generate_questions_accepts_persona(client):
+    resp = client.post(
+        "/api/v1/questions/generate",
+        json={"job_description": "Python engineer needed", "persona": "skeptical"},
+    )
+    assert resp.status_code == 200
+    assert len(resp.json()["questions"]) > 0
+
+
+def test_followups_route_returns_list(client):
+    # Ollama mocked unavailable (autouse) → deterministic fallback follow-ups.
+    resp = client.post(
+        "/api/v1/questions/followups",
+        json={"question": "Tell me about a project.", "answer_text": "I led a migration.", "max_followups": 2},
+    )
+    assert resp.status_code == 200
+    followups = resp.json()["followups"]
+    assert isinstance(followups, list)
+    assert len(followups) == 2
+
+
+def test_evaluate_route_grounds_in_kg(client):
+    # Empty graph → honest zero coverage + weak confidence, never a fabricated score.
+    resp = client.post(
+        "/api/v1/questions/evaluate",
+        json={"answer_text": "I built ETL pipelines in Python."},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["coverage"] == 0.0
+    assert data["confidence"] == "weak_inference"
+    assert "covered_node_ids" in data

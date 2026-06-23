@@ -4,6 +4,7 @@ import { GlassCard } from "@/components/ui/GlassCard";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { CadenceMeter } from "@/components/interview/CadenceMeter";
+import { InterviewAnswerEval } from "@/components/interview/InterviewAnswerEval";
 import { learningService } from "@/services/learning";
 import { applicationsService } from "@/services/applications";
 import {
@@ -30,6 +31,7 @@ const PANEL = [
 export default function InterviewPrepPage() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [selectedAppId, setSelectedAppId] = useState<string>("");
+  const [persona, setPersona] = useState<string>("balanced");
   const [questions, setQuestions] = useState<GeneratedQuestion[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -88,6 +90,7 @@ export default function InterviewPrepPage() {
       const res = await learningService.generateQuestions({
         application_id: selectedAppId,
         job_description: selectedApplication?.job_description ?? "",
+        persona,
       });
       setQuestions(res.questions ?? []);
       setCurrentIdx(0);
@@ -141,6 +144,19 @@ export default function InterviewPrepPage() {
               {applications.map((a) => (
                 <option key={a.id} value={a.id}>{a.role} at {a.company}</option>
               ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-[#a1a1a1] mb-1.5">Recruiter style</label>
+            <select
+              value={persona}
+              onChange={(e) => setPersona(e.target.value)}
+              className="bg-white/[0.04] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-neutral-200 focus:outline-none focus:border-[#4c8dff]/40 transition-colors"
+            >
+              <option value="balanced">Balanced</option>
+              <option value="supportive">Supportive</option>
+              <option value="skeptical">Skeptical</option>
+              <option value="technical">Technical</option>
             </select>
           </div>
           <button
@@ -233,6 +249,8 @@ export default function InterviewPrepPage() {
                 Show guidance
               </button>
             )}
+            {/* 15.3 — practice an answer, get KG-grounded eval + recruiter follow-ups. */}
+            <InterviewAnswerEval questionText={current.question_text} persona={persona} />
           </GlassCard>
 
           <div className="flex gap-3">

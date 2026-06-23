@@ -38,6 +38,40 @@ class ApplicationPriority(BaseModel):
     priority: JobPriorityAction
     reason: str
     fit_score: float
+    # 15.1 enrichment (ADR-006/012): the ranked estimate carries its confidence +
+    # the evidence it derived from; top_pick is server-decided, weak rows excluded.
+    confidence: ConfidenceTier
+    missing_critical_skills: list[str]
+    risk_factors: list[str]
+    explanation: str
+    top_pick: bool
+
+
+class ApplicationSuggestion(BaseModel):
+    """15.2 — composed Apply/Skip/Tailor recommendation. Recommend-only (ADR-012).
+
+    Every section is explained + confidence-tagged; the action the user takes is
+    internal (mark status / open the tailor flow), never an external submit.
+    """
+    recommendation: Literal["apply", "tailor", "skip"]
+    reason: str
+    fit_score: float
+    confidence: ConfidenceTier
+    missing_critical_skills: list[str]
+    risk_factors: list[str]
+    explanation: str
+    resume_template: str
+    resume_reason: str
+    cover_letter_tone: float
+    cover_letter_tone_descriptor: str
+    interview_probability: float
+    interview_sample_size: int
+    interview_confidence: ConfidenceTier
+    interview_category: str
+
+
+class SuggestionRequest(BaseModel):
+    jd_text: str = Field(..., min_length=50)
 
 
 class SkillGapItem(BaseModel):
