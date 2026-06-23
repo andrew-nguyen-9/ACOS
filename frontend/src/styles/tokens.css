@@ -71,6 +71,16 @@
   --elevation-panel: 0 24px 80px rgb(0 0 0 / 0.18);
 }
 
+/* Brand logo blend (per design): screen on the dark default so the icon's
+   square melts into the glass; invert as well on light so it stays legible. */
+.app-logo {
+  mix-blend-mode: screen;
+}
+:root[data-theme="light"] .app-logo {
+  mix-blend-mode: screen;
+  filter: invert(1);
+}
+
 /* Display-P3 widens accent + confidence on capable displays. The sRGB values
    above remain the fallback on non-P3 screens. */
 @supports (color: color(display-p3 1 1 1)) {
