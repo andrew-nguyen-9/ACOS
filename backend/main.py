@@ -19,6 +19,7 @@ from backend.recovery import (
 )
 from backend.api.v1.routes.application import router as application_router
 from backend.api.v1.routes.auth import router as auth_router
+from backend.api.v1.routes.bridge import bridge_router, pairing_router
 from backend.api.v1.routes.backup import router as backup_router
 from backend.api.v1.routes.briefing import router as briefing_router
 from backend.api.v1.routes.copilot import router as copilot_router
@@ -107,6 +108,11 @@ def create_app() -> FastAPI:
             "tauri://localhost",       # Tauri v2 production (macOS)
             "https://tauri.localhost", # Tauri v2 production (Windows)
         ],
+        # 17.1 (ADR-019): allow the paired browser extension to reach the loopback
+        # bridge. The sideloaded extension id isn't known ahead of time, so the
+        # scheme is matched by regex; the one-time X-Bridge-Token is the actual
+        # access gate (default-closed), not the origin.
+        allow_origin_regex=r"^(chrome-extension|moz-extension)://.*$",
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -120,6 +126,10 @@ def create_app() -> FastAPI:
     # Auth (16.1, ADR-014): unauthenticated by design — establishes the session that
     # gates every tenant-scoped router below.
     app.include_router(auth_router, prefix="/api/v1")
+    # Bridge (17.1, ADR-019): pairing-token mint is authed (tenant-scoped); ping +
+    # capture are gated by X-Bridge-Token (the paired extension), not a bearer session.
+    app.include_router(pairing_router, prefix="/api/v1")  # tenant dep declared on the router
+    app.include_router(bridge_router, prefix="/api/v1")
     app.include_router(ingestion_router, prefix="/api/v1", dependencies=tenant_dep)
     app.include_router(rag_router, prefix="/api/v1", dependencies=tenant_dep)
     app.include_router(resume_router, prefix="/api/v1", dependencies=tenant_dep)

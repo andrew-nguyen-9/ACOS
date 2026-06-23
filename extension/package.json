@@ -1,0 +1,14 @@
+{
+  "name": "acos-extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "ACOS browser extension (MV3) — job capture into the local ACOS backend.",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0"
+  }
+}

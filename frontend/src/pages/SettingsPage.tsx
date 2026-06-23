@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Settings, Save, Sparkles } from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { getSettings, updateSetting } from "@/services/settings";
+import { generatePairingToken } from "@/services/bridge";
 import {
   getEffectPreference,
   setEffectPreference,
@@ -14,6 +15,53 @@ const EFFECT_TIERS: { value: EffectTier; label: string; hint: string }[] = [
   { value: "reduced", label: "Reduced", hint: "Lighter material, no cursor effects" },
   { value: "off", label: "Off", hint: "Static background — lowest power" },
 ];
+
+/** Phase 17 (ADR-019): optional browser-extension pairing. Mints a one-time token
+ * the user pastes into the ACOS extension once. Extension install is optional —
+ * the app works without it. */
+function ExtensionPairing() {
+  const [token, setToken] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function pair() {
+    setBusy(true);
+    try {
+      setToken(await generatePairingToken());
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <GlassCard className="p-6 flex flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <Settings className="size-4 text-neutral-500" />
+        <span className="text-neutral-400 text-xs font-medium uppercase tracking-wider">
+          Browser extension (optional)
+        </span>
+      </div>
+      <p className="text-neutral-500 text-xs">
+        Install the ACOS Job Capture extension (sideload), then pair it once with the
+        token below. Capture is explicit-click only and creates a draft you review —
+        nothing is submitted anywhere.
+      </p>
+      <div className="flex gap-2 items-center">
+        <button
+          onClick={pair}
+          disabled={busy}
+          className="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm rounded-lg transition disabled:opacity-50"
+        >
+          {busy ? "Generating…" : "Generate pairing token"}
+        </button>
+        {token && (
+          <code className="text-xs text-green-400 bg-neutral-900 px-2 py-1 rounded select-all break-all">
+            {token}
+          </code>
+        )}
+      </div>
+    </GlassCard>
+  );
+}
 
 function VisualEffectsControl() {
   const [pref, setPref] = useState<EffectTier>(getEffectPreference);
@@ -136,6 +184,8 @@ export default function SettingsPage() {
       )}
 
       <VisualEffectsControl />
+
+      <ExtensionPairing />
 
       <GlassCard className="p-6 flex flex-col gap-5">
         {Object.entries(EDITABLE_LABELS).map(([key, label]) => (

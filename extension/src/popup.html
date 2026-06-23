@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body { width: 280px; font: 13px -apple-system, system-ui, sans-serif; padding: 14px; background: #09090b; color: #fff; }
+      h1 { font-size: 14px; margin: 0 0 10px; }
+      button { width: 100%; padding: 8px; border: 0; border-radius: 6px; background: #fff; color: #000; font-weight: 600; cursor: pointer; }
+      button:disabled { opacity: .4; }
+      input { width: 100%; box-sizing: border-box; padding: 6px; margin: 8px 0; border-radius: 6px; border: 1px solid #333; background: #18181b; color: #fff; }
+      .status { margin-top: 10px; font-size: 12px; color: #a1a1aa; min-height: 16px; }
+      .pair { margin-top: 12px; border-top: 1px solid #27272a; padding-top: 10px; }
+      .err { color: #f87171; }
+      .ok { color: #4ade80; }
+    </style>
+  </head>
+  <body>
+    <h1>ACOS Job Capture</h1>
+    <button id="capture">Capture this job</button>
+    <div class="status" id="status"></div>
+    <div class="pair">
+      <label for="token" style="font-size:12px;color:#a1a1aa">Pairing token (from ACOS Settings)</label>
+      <input id="token" type="password" placeholder="Paste once to pair" />
+      <button id="pair">Pair</button>
+    </div>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>
