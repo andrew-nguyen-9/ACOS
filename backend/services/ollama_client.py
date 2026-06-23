@@ -51,12 +51,17 @@ def build_options(
     max_tokens: int | None = None,
     prompt_tokens: int | None = None,
     num_thread: int = DEFAULT_NUM_THREAD,
+    seed: int | None = None,
 ) -> dict:
     """Assemble the Ollama ``options`` payload with a calibrated context window.
 
     When ``prompt_tokens`` is known, size ``num_ctx`` to demand (prompt + answer
     headroom), rounded up to a 2048 bucket and clamped to ``[2048, cap]`` — a
     short retrieval reserves 2048 of KV cache instead of the full 4096.
+
+    ``seed`` (14.1): when set, Ollama reproduces the same output for a fixed
+    (seed, prompt, model, options) tuple. Never injected by default — an unset
+    seed leaves generation free-running.
     """
     cap = _NUM_CTX_CAP.get(operation, 4096)
     if prompt_tokens is None:
@@ -68,6 +73,8 @@ def build_options(
     opts: dict = {"temperature": temperature, "num_ctx": num_ctx, "num_thread": num_thread}
     if max_tokens is not None:
         opts["num_predict"] = max_tokens
+    if seed is not None:
+        opts["seed"] = seed
     return opts
 
 
@@ -104,6 +111,7 @@ class OllamaClient:
         prompt_tokens: int | None = None,
         think: bool | None = None,
         output_format: dict | None = None,
+        seed: int | None = None,
     ) -> str:
         payload: dict = {
             "model": model,
@@ -115,6 +123,7 @@ class OllamaClient:
                 max_tokens=max_tokens,
                 prompt_tokens=prompt_tokens,
                 num_thread=self._num_thread,
+                seed=seed,
             ),
             "keep_alive": self._keep_alive,
         }
@@ -147,6 +156,7 @@ class OllamaClient:
         prompt_tokens: int | None = None,
         think: bool | None = None,
         output_format: dict | None = None,
+        seed: int | None = None,
     ) -> AsyncIterator[str]:
         """Yield token deltas from Ollama's streaming /api/generate (stream=True).
 
@@ -165,6 +175,7 @@ class OllamaClient:
                 max_tokens=max_tokens,
                 prompt_tokens=prompt_tokens,
                 num_thread=self._num_thread,
+                seed=seed,
             ),
             "keep_alive": self._keep_alive,
         }

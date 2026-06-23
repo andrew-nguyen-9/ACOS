@@ -1,5 +1,17 @@
 # ACOS Development Roadmap
 
+> **Status (2026-06-23): Phases 0–13 complete.** Next: Phase 14–15 (see
+> [`superpowers/plans/phase-14-15-roadmap.md`](superpowers/plans/phase-14-15-roadmap.md)).
+>
+> **⚠️ Numbering caveat.** Phases 0–8 below describe the *original* feature-build order
+> (mirrors [`../IMPLEMENTATION_ORDER.md`](../IMPLEMENTATION_ORDER.md): DB → ingestion → … →
+> Copilot). Actual execution diverged and **renumbered** from Phase 8 onward (e.g. actual
+> Phase 8 = controlled-autonomous optimization, 11 = frontend, 12 = velocity/flywheel/
+> multi-tenant, 13 = surfacing/onboarding/packaging). The **canonical per-phase ledger** is
+> `docs/superpowers/plans/` (phases 0–10 in `plans/archive/`) plus the "Phase 11+" /
+> "Phase 13 outcomes" sections at the end of this file and `MEMORY.md`. Treat the early
+> headers here as historical intent, the late sections + plans as what shipped.
+
 ## Guiding Principle
 
 Build vertically, not horizontally. Each phase must produce a working, testable vertical
@@ -7,7 +19,7 @@ slice of the system. No phase begins until the prior phase's acceptance criteria
 
 ---
 
-## Phase 0: Bootstrap (Current)
+## Phase 0: Bootstrap
 
 **Goal:** Establish project structure, documentation, schema, and architectural contracts
 before any business logic is written.

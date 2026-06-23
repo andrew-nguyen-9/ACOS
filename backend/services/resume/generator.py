@@ -77,6 +77,7 @@ class ResumeGenerator:
         company: str = "",
         job_title: str = "",
         strategy: dict | None = None,
+        seed: int | None = None,
     ) -> dict:
         # Step 1: validate template
         template = get_template(template_name)
@@ -115,7 +116,7 @@ class ResumeGenerator:
         # Step 6: build content via LLM or rule-based
         content_json: dict = self._build_content(
             job_description, template_name, keywords, rewritten,
-            company=company, job_title=job_title,
+            company=company, job_title=job_title, seed=seed,
         )
 
         # Step 6b: self-correction pass (compress over-length, dedup, flag hallucinations)
@@ -135,7 +136,9 @@ class ResumeGenerator:
 
         # Step 9: ATS score
         resume_text: str = self._content_to_text(content_json)
-        ats_score: dict = self._ats_scorer.score(resume_text, job_description, keywords)
+        ats_score: dict = self._ats_scorer.score(
+            resume_text, job_description, keywords, seed=seed
+        )
 
         # Step 10: build context + embed in content_json for DB storage
         # (avoids a schema migration; CL route reconstructs via content_json["_resume_context"])
@@ -294,11 +297,12 @@ class ResumeGenerator:
         evidence: list[dict],
         company: str = "",
         job_title: str = "",
+        seed: int | None = None,
     ) -> dict:
         if self._ollama and self._ollama.is_available():
             return self._llm_build(
                 job_description, template_name, keywords, evidence,
-                company=company, job_title=job_title,
+                company=company, job_title=job_title, seed=seed,
             )
         return self._rule_based_build(template_name, evidence)
 
@@ -310,6 +314,7 @@ class ResumeGenerator:
         evidence: list[dict],
         company: str = "",
         job_title: str = "",
+        seed: int | None = None,
     ) -> dict:
         try:
             prompt_data: dict = self._loader.load("resume/generate")
@@ -343,6 +348,7 @@ class ResumeGenerator:
                 prompt=user_prompt,
                 temperature=0.2,
                 system=prompt_data["system"],
+                seed=seed,
             )
             content: dict = json.loads(raw)
             return _normalize_confidence(content)

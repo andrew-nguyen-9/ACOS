@@ -1,3 +1,13 @@
+# Implementation Order
+
+The original fixed feature-build order. **All 14 items below are complete** (delivered across
+phases 0–10; see `docs/08_ROADMAP.md`). CLAUDE.md references this file for the "no phase begins
+until the prior passes" rule — that rule still holds for current work, but the *current* phase
+ledger is the roadmaps, not this list.
+
+> **Current / next work:** `docs/superpowers/plans/phase-14-15-roadmap.md`
+> **Per-phase history:** `docs/superpowers/plans/` (phases 0–10 under `plans/archive/`).
+
 1. Database & Knowledge Graph
 2. Document Ingestion
 3. ChromaDB + Embeddings

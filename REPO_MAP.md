@@ -78,9 +78,12 @@ ACOS/
 ├── docs/                      ← All documentation   [see docs/INDEX.md]
 │   ├── 01_… 09_…              Core specs (vision, architecture, schema, prompts, RAG…)
 │   ├── *_GUIDE / *_SETUP      Operational guides
-│   ├── adr/                   Architecture Decision Records (ADR-001 … 007)
+│   ├── optimization/          Perf/inference/architecture spike findings + deferred backlog
+│   ├── assets/                Doc images
+│   ├── adr/                   Architecture Decision Records (ADR-001 … 011)
 │   └── superpowers/
 │       ├── plans/             One implementation plan per build phase
+│       │   └── archive/       Plans for completed phases 0–10
 │       └── specs/             Design specs from brainstorming (as needed)
 │
 ├── examples/                  Sample resumes / job descriptions / cover letters

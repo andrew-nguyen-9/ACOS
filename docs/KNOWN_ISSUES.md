@@ -1,5 +1,11 @@
 # Known Issues
 
+> **Historical (Phase 8.1 era).** The entries below were filed during the resume/cover-letter
+> engine revamp and predate Phases 9–13. Several were addressed by later phases (8.2 layout
+> work, 10 intelligence layer, 13 surfacing). They are kept for traceability; verify against
+> current code before acting. Live decisions/regressions are tracked in `docs/DECISIONS.md` and
+> the phase plans, not here.
+
 | ID | Area | Description | Priority | Status |
 |----|------|-------------|----------|--------|
 | KI-001 | Layout | Line estimation is heuristic (88 chars/line). True measurement requires DOCX→PDF (Phase 8.2). | Medium | Open |

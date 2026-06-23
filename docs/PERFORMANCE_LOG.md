@@ -543,3 +543,19 @@ runner skips cleanly (exit 0) without `OLLAMA_LIVE`.
 **Deferred-opt reopen check (theme 7):** no condition fired → 12.9.1 / 12.9.2 / 12.9.3 /
 12.9.5a all stay VOID (see `deferred-optimization-backlog.md` §Phase 13.10 re-baseline).
 12.9.3 (Nuitka) awaits the 13.8 release-machine cold-start number.
+
+---
+
+## Phase 14.1 — versioning & reproducibility spine (2026-06-23)
+
+No runtime hot-path touched — `seed` threads through `build_options`/`OllamaClient`/
+`ResumeGenerator` only when explicitly passed (unset by default), and `/health/version`
+is an on-demand endpoint (alembic head memoized). No per-request cost added; no perf
+bench re-run needed.
+
+**DMG release-verify + cold-start (owed from 13.8): NOT YET RUN.** This session has no
+signed-DMG build, release machine, or Apple cert, so the install / first-run-wizard /
+cold-start checklist in [`PACKAGING.md`](./PACKAGING.md#release-verification-run-on-the-release-machine)
+stays open. The cold-start number is **not fabricated** (CLAUDE.md #1). When run on the
+release machine: record the ms there; if it exceeds **400 ms**, that reopens backlog
+item **12.9.3 (Nuitka)** — it is a backlog note, not a 14.1 build.
