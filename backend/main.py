@@ -87,8 +87,7 @@ def create_app() -> FastAPI:
 
     # Tenant-scoped routers carry the TenantContext dependency (12.14, ADR-008): an
     # explicit per-route contract on top of the session-boundary guard. System /
-    # operational routers (health, settings, maintenance, backup, observability) are
-    # tenant-free.
+    # operational routers (health, settings, maintenance, backup) are tenant-free.
     tenant_dep = [Depends(get_tenant_context)]
 
     app.include_router(health_router, prefix="/api/v1")
@@ -99,7 +98,9 @@ def create_app() -> FastAPI:
     app.include_router(questions_router, prefix="/api/v1", dependencies=tenant_dep)
     app.include_router(application_router, prefix="/api/v1", dependencies=tenant_dep)
     app.include_router(learning_router, prefix="/api/v1", dependencies=tenant_dep)
-    app.include_router(observability_router, prefix="/api/v1")
+    # tenant-scoped: 14.2 drift/snapshot writes a tenant-owned Metric, so the
+    # session needs an active tenant (reads stay scoped to it too).
+    app.include_router(observability_router, prefix="/api/v1", dependencies=tenant_dep)
     app.include_router(copilot_router, prefix="/api/v1", dependencies=tenant_dep)
     app.include_router(optimization_router, prefix="/api/v1", dependencies=tenant_dep)
     app.include_router(settings_router, prefix="/api/v1")

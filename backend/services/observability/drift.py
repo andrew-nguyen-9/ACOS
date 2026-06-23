@@ -11,8 +11,10 @@ from __future__ import annotations
 
 import math
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from backend.models.outcome import OutcomeSignal
 from backend.models.system_config import SystemConfig
 from backend.services.observability.metrics import VALID_KINDS, MetricsStore
 
@@ -24,7 +26,38 @@ _DEFAULT_THRESHOLDS: dict[str, float] = {
     "interview_conversion": 0.15,
     "embedding_drift": 0.2,
     "prompt_perf": 0.15,
+    "success_rate": 0.15,
 }
+
+# 14.2: an application "succeeded" once it progressed past a rejection / silence.
+# A response (phone screen onward) is the signal the resume cleared the first gate.
+_POSITIVE_OUTCOMES = {"phone_screen", "interview", "final_round", "offer", "accepted"}
+
+
+def resume_success_rate(signal_types: list[str]) -> float | None:
+    """Fraction of outcomes that progressed past rejection / no-response.
+
+    Returns None on no data — a rate with no denominator is fabricated (ADR-006).
+    """
+    if not signal_types:
+        return None
+    positive = sum(1 for s in signal_types if s in _POSITIVE_OUTCOMES)
+    return positive / len(signal_types)
+
+
+def drift_confidence(samples: int) -> str | None:
+    """ADR-006 confidence band for a drift figure, by sample count.
+
+    0–1 samples → None (dormant; can't drift). Thin data is de-emphasized, never
+    presented as a confident number.
+    """
+    if samples < 2:
+        return None
+    if samples < 5:
+        return "weak_inference"
+    if samples < 15:
+        return "strong_inference"
+    return "verified"
 
 
 def _mean(values: list[float]) -> float:
@@ -67,8 +100,12 @@ class DriftDetector:
     def report(self, window: int = 5) -> list[dict]:
         out: list[dict] = []
         for kind in sorted(VALID_KINDS):
-            values = [m.value for m in self._store.series(kind)]
+            samples = self._store.series(kind)
+            values = [m.value for m in samples]
             threshold = self._threshold(kind)
+            # baseline is versioned (14.1): which build produced the first sample
+            # this is drifting *from*. Best-effort from the sample's meta.
+            baseline_version = samples[0].meta_json.get("app_version") if samples else None
             if len(values) < 2:
                 out.append({
                     "kind": kind,
@@ -78,6 +115,8 @@ class DriftDetector:
                     "threshold": threshold,
                     "drifting": False,
                     "samples": len(values),
+                    "confidence": drift_confidence(len(values)),
+                    "baseline_version": baseline_version,
                 })
                 continue
             baseline = _mean(values[:window])
@@ -91,5 +130,34 @@ class DriftDetector:
                 "threshold": threshold,
                 "drifting": abs(delta) > threshold,
                 "samples": len(values),
+                "confidence": drift_confidence(len(values)),
+                "baseline_version": baseline_version,
             })
         return out
+
+
+class DriftSnapshot:
+    """Off-hot-path recorder: take a versioned drift sample from current data.
+
+    Triggered by an explicit endpoint (like the 13.6 evolution loop), never per
+    request. Records the resume success rate now; ats_score / embedding_drift are
+    already sampled at their own events.
+
+    # ponytail: single-tenant local app (ADR-008) — counts all outcomes rather
+    # than tenant-filtering; add a tenant filter if a shared deploy ever lands.
+    """
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+        self._store = MetricsStore(session)
+
+    def record(self, app_version: str) -> dict:
+        signal_types = list(
+            self._session.scalars(select(OutcomeSignal.signal_type)).all()
+        )
+        rate = resume_success_rate(signal_types)
+        recorded: list[str] = []
+        if rate is not None:
+            self._store.record("success_rate", rate, {"app_version": app_version})
+            recorded.append("success_rate")
+        return {"recorded": recorded, "success_rate": rate, "outcomes": len(signal_types)}

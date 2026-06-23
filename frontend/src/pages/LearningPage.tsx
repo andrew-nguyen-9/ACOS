@@ -24,6 +24,7 @@ import { learningService, type TemplateRanking, type AtsVsOutcome } from "@/serv
 import { applicationsService } from "@/services/applications";
 import { SkillRoiSection } from "@/components/learning/SkillRoiSection";
 import { GlobalSuggestions } from "@/components/learning/GlobalSuggestions";
+import { DriftDashboard } from "@/components/observability/DriftDashboard";
 import type { Application } from "@/types/api";
 
 // ── Rank badge styles ─────────────────────────────────────────────────────────
@@ -372,6 +373,9 @@ export default function LearningPage() {
 
           {/* Skill ROI (Phase 13.1) */}
           <SkillRoiSection />
+
+          {/* Drift & health (Phase 14.2) — local-only drift over observability series */}
+          <DriftDashboard />
 
           {/* Global patterns (Phase 13.3) — cross-tenant suggestions, ADR-009 */}
           <GlobalSuggestions />

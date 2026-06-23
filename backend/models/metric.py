@@ -18,7 +18,7 @@ class Metric(TenantScopedMixin, Base):
     __table_args__ = (
         CheckConstraint(
             "kind IN ('retrieval_quality','ats_score','interview_conversion',"
-            "'embedding_drift','prompt_perf')",
+            "'embedding_drift','prompt_perf','success_rate')",
             name="ck_metric_kind",
         ),
     )

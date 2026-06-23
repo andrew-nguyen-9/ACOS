@@ -559,3 +559,20 @@ cold-start checklist in [`PACKAGING.md`](./PACKAGING.md#release-verification-run
 stays open. The cold-start number is **not fabricated** (CLAUDE.md #1). When run on the
 release machine: record the ms there; if it exceeds **400 ms**, that reopens backlog
 item **12.9.3 (Nuitka)** — it is a backlog note, not a 14.1 build.
+
+---
+
+## Phase 14.2 — observability & drift dashboard (2026-06-23)
+
+**Off-hot-path (trap 1) — verified by design, no new scheduler.** Drift is computed
+on *read* of `GET /observability/drift` (a rolling-window mean, not per-request) and
+the versioned sample is recorded by an explicit `POST /observability/drift/snapshot`
+(mirrors `POST /flywheel/evolution-loop`). The only per-request addition is one extra
+dict key (`app_version`, from lru-cached settings) on the already-existing ats_score
+recording — negligible, no new query. No external telemetry (kept).
+
+**Live FE perf gate (dashboard page): NOT RUN in-session** — same honest limitation as
+14.1's DMG: this environment can't drive the packaged Tauri app under chrome-devtools.
+By construction the dashboard fetches once on mount and renders three static cards (no
+canvas, no animation loop, no virtualized list), so it adds no long-task risk; run the
+Phase 11 perf trace on the Learning page at release to confirm the 60fps/0-long-task gate.

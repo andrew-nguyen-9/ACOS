@@ -36,7 +36,11 @@ def _emit_ats_metric(session: Session, result: dict, template: str) -> None:
     try:
         score = result.get("ats_score", {}).get("overall_score")
         if score is not None:
-            metric = MetricsStore(session).record("ats_score", float(score), {"template": template})
+            metric = MetricsStore(session).record(
+                "ats_score",
+                float(score),
+                {"template": template, "app_version": get_settings().app_version},
+            )
             # 12.10 flywheel emit: source-link the ATS score to its metric row.
             record_signal(
                 session,
