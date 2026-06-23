@@ -1,7 +1,7 @@
 import { type ReactNode, useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import { m } from "framer-motion";
-import { BriefcaseBusiness, AlertTriangle } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { springs } from "@/motion";
 import { ROUTES } from "@/routes";
@@ -9,6 +9,7 @@ import { warmRoute } from "@/services/prefetch";
 import MaterialBackground from "@/webgl/MaterialBackground";
 import CelebrationFallback from "@/components/CelebrationFallback";
 import { PageSkeleton } from "@/components/ui/Skeleton";
+import { UpdateBanner } from "@/components/UpdateBanner";
 import { useBackendReady } from "@/hooks/useBackendReady";
 
 // Material proxy (PERF-AC-002): a STATIC, pre-blurred aurora instead of a live
@@ -76,9 +77,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
         <div className="flex w-full overflow-hidden rounded-3xl border border-[var(--glass-border)] bg-[var(--glass-bg)] shadow-panel">
           <aside className="flex w-60 flex-shrink-0 flex-col border-r border-[var(--glass-border)] bg-white/[0.04] px-4 py-6">
             <div className="mb-8 flex items-center gap-3 px-2">
-              <div className="flex size-10 items-center justify-center rounded-xl bg-neutral-200/[0.15] shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_10px_30px_rgb(var(--accent-rgb)/0.20)]">
-                <BriefcaseBusiness className="size-5 text-neutral-200" />
-              </div>
+              {/* Brand logo. `app-logo` applies mix-blend screen (dark) +
+                  invert on light theme — see tokens.css. */}
+              <img src="/app-logo.png" alt="ACOS" className="app-logo size-10 rounded-xl" />
               <div className="leading-tight">
                 <div className="font-display text-[15px] font-semibold tracking-[-0.64px] text-neutral-50">ACOS</div>
                 <div className="text-[11px] text-[var(--fg-muted)]">Career OS</div>
@@ -117,7 +118,14 @@ export default function AppShell({ children }: { children: ReactNode }) {
               </div>
             )}
             <div className="flex-1 overflow-auto">
-              {backend === "ready" ? children : <PageSkeleton />}
+              {backend === "ready" ? (
+                <>
+                  <UpdateBanner />
+                  {children}
+                </>
+              ) : (
+                <PageSkeleton />
+              )}
             </div>
           </main>
         </div>

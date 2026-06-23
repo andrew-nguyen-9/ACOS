@@ -388,9 +388,39 @@ If generation is slow or Ollama is offline, the text won't change — check
 
 ---
 
+## Onboarding: Model Pull / Document Upload (Phase 13.5 / 13.7)
+
+**The wizard's "Download model" button does nothing / errors**
+Ollama must be running and reachable for the pull to start. If it's unreachable the pull
+shows an inline error — use *Continue without Ollama* to finish onboarding in degraded
+mode, start Ollama, then re-check. You can also pull manually: `ollama pull qwen3:8b`.
+
+**Uploaded a résumé but no skills appear**
+Extraction runs in the background; the summary refreshes when each file reaches a terminal
+state. A file that fails (unsupported type / too large) is shown inline and skipped — the
+others still process. The upload step is optional; you can skip it and add documents later.
+
+**Career-Voice shows a "Synthetic" label**
+Expected until you upload your own writing — the starter voice is a template, never
+presented as your history. Upload cover letters to derive a real one.
+
+## Auto-Update (packaged app, Phase 13.9)
+
+**No update banner appears**
+The updater only runs in the packaged DMG app (not `npm run dev` / the web build), and
+only when the configured endpoint advertises a newer signed version. A failed check is
+silent by design and never disrupts the app.
+
+**"Update & Relaunch" fails or reports a signature error**
+The update is rejected unless its signature verifies against the bundled public key — a
+tampered or unsigned artifact will not install, and your current version stays intact
+(safe by design). Retry later; if it persists, the published artifact or signing key is
+misconfigured (see [`PACKAGING.md`](PACKAGING.md)).
+
 ## See Also
 
 - [User Guide](USER_GUIDE.md) — end-to-end usage walkthrough
 - [Model Setup Guide](MODEL_SETUP.md) — Ollama installation and model management
+- [Packaging](PACKAGING.md) — DMG build, signing, external-Ollama contract, auto-update
 - [Data Import Guide](DATA_IMPORT.md) — importing professional history
 - [Architecture Overview](ARCHITECTURE_OVERVIEW.md) — system internals

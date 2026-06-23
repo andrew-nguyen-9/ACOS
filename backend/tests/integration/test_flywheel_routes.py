@@ -32,3 +32,46 @@ def test_skills_roi_endpoint_returns_ranked_recommended(client, test_session):
 def test_skills_roi_endpoint_rejects_unknown_metric(client):
     resp = client.get("/api/v1/flywheel/skills/roi?metric=bogus")
     assert resp.status_code == 422
+
+
+def test_auto_propose_queues_candidate_without_promoting(client, test_session):
+    """13.6: the autonomous loop queues a candidate; the active pointer is unchanged."""
+    from backend.repositories.optimization import PromptVersionRepository
+    from backend.services.flywheel.feedback import FeedbackEngine
+    from backend.services.prompts.registry import PromptRegistry
+
+    PromptRegistry(test_session).deploy("resume/extract_keywords", "system: v1", version="v1")
+    eng = FeedbackEngine(test_session)
+    for i in range(6):
+        eng.record_signal(entity_type="prompt", entity_id="resume/extract_keywords",
+                          signal_type="prompt_quality", value=0.2,
+                          source={"table": "generations", "ids": [f"g{i}"]})
+    test_session.flush()
+
+    resp = client.post("/api/v1/flywheel/prompt/auto-propose")
+    assert resp.status_code == 200
+    proposed = resp.json()["proposed"]
+    assert len(proposed) == 1
+    assert proposed[0]["prompt_name"] == "resume/extract_keywords"
+    # never promotes: incumbent still active
+    assert PromptVersionRepository(test_session).get_active("resume/extract_keywords").version == "v1"
+
+
+def test_prompt_versions_endpoint_returns_lineage(client, test_session):
+    """13.4: GET read side backing the prompt-review queue."""
+    from backend.services.flywheel.prompt_evolution import PromptEvolutionService
+    from backend.services.prompts.registry import PromptRegistry
+
+    PromptRegistry(test_session).deploy("resume/extract_keywords", "system: v1", version="v1")
+    PromptEvolutionService(test_session).propose(
+        "resume/extract_keywords", "system: v2", signal_ids=["sigZ"],
+        rationale="v1 weak", expected_impact="lift",
+    )
+
+    resp = client.get("/api/v1/flywheel/prompt/versions?prompt_name=resume/extract_keywords")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["prompt_name"] == "resume/extract_keywords"
+    assert data["active_version"] == "v1"               # candidate did NOT auto-activate
+    assert [v["version"] for v in data["versions"]] == ["v1", "v2"]
+    assert any("sigZ" in (v["change_rationale"] or "") for v in data["versions"])

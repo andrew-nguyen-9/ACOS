@@ -189,7 +189,12 @@ Response — resume JSON with confidence levels + ATS score
 - Filenames with `..` or `/` are rejected (see `backend/utils/sanitize_filename.py`)
 - File size cap: 10 MB for local files, 50 KB for GitHub README URLs (OOM prevention)
 - No plaintext secrets; Ollama connection requires no authentication (localhost only)
-- No data is transmitted to any external service during operation
+- No career data is transmitted to any external service during operation. **One
+  deliberate exception (Phase 13.9, ADR-011):** the packaged app's signed auto-updater
+  makes a single TLS call — a version check + signature-verified update download. No
+  telemetry, no identity, no user data; the update artifact is rejected unless its
+  signature verifies against the bundled public key. ACOS is therefore no longer
+  *strictly* no-network, but every other operation remains fully local.
 
 ## See Also
 

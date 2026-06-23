@@ -7,7 +7,10 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { ConfidenceBadge } from "@/components/ui/ConfidenceBadge";
 import { EvidencePanel, type EvidenceItem } from "@/components/shared/EvidencePanel";
 import { BulletXRay } from "@/components/resume/BulletXRay";
+import { StrategyHints } from "@/components/resume/StrategyHints";
 import { resumeService } from "@/services/resume";
+import { flywheelService } from "@/services/flywheel";
+import type { StrategyRecommendation } from "@/types/flywheel";
 import { emitCelebrate } from "@/lib/celebrate";
 import * as haptics from "@/lib/haptics";
 
@@ -30,15 +33,22 @@ export default function ResumePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ResumeGenerateResponse | null>(null);
+  // 13.2: optional, non-blocking strategy hints. Null until/unless the side
+  // fetch returns; if it fails the editor is byte-identical (TRAP 1).
+  const [strategy, setStrategy] = useState<StrategyRecommendation | null>(null);
 
   const generate = async () => {
     if (!jd.trim()) return;
     setLoading(true);
     setError(null);
+    setStrategy(null);
     try {
       const res = await resumeService.generate({ job_description: jd, template_name: template });
       setResult(res);
       haptics.success();
+      // Fire-and-forget: hints advise, they never gate generation. A failure
+      // (or absent flywheel data) simply leaves the hint surface unrendered.
+      void flywheelService.getStrategy(jd).then(setStrategy).catch(() => {});
       // Celebrate when the result clears the ATS milestone (HVP-001). The words
       // dispersed are the matched keywords + skills — the doc's actual words.
       if (res.ats_score.overall_score >= MILESTONE_ATS) {
@@ -226,6 +236,7 @@ export default function ResumePage() {
         </div>
 
         <div className="flex flex-col gap-4">
+          <StrategyHints rec={strategy} />
           <EvidencePanel
             items={
               result

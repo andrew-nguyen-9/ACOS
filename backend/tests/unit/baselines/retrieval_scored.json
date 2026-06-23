@@ -1,0 +1,7 @@
+{
+  "source": "FTS5 lexical, frozen Phase 13.10",
+  "recall_at_k": 1.0,
+  "mrr": 1.0,
+  "k": 3,
+  "n": 6
+}

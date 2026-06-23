@@ -127,6 +127,16 @@ every vector is the `default` tenant, so there is no isolation gap in practice.
 made multi-user, this header becomes a direct cross-tenant IDOR and **must** be gated
 behind the future authentication layer.
 
+**Re-recorded at Phase 13.11 (still deferred — and now load-bearing).** Phase 13.9
+(ADR-011) added a single outbound network channel (the signed auto-updater). That channel
+is **outbound-only, unauthenticated, and carries no tenant data** — it opens no inbound
+listener, so it does **not** turn `X-Tenant-Id` into a reachable IDOR. Authentication
+therefore remains correctly deferred. But the no-network assumption this design leaned on
+is no longer absolute, so the boundary is now explicit: authn stays deferred **only while
+the sole network path is this outbound, data-free update GET**. Any inbound network
+surface (multi-user, remote API, a listener beyond localhost) reopens this immediately and
+makes authn a hard prerequisite.
+
 ---
 
 ## Alternatives considered

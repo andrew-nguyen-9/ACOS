@@ -5,6 +5,7 @@ import {
   type Proposal, type OptimizationLog,
 } from "@/services/optimization";
 import { ApiError } from "@/services/api";
+import { PromptReview } from "@/components/optimization/PromptReview";
 
 const CONFIDENCE_STYLE: Record<string, string> = {
   verified: "bg-green-500/15 text-green-300",
@@ -147,6 +148,10 @@ export default function OptimizationPage() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div className="pt-2 border-t border-white/10">
+        <PromptReview />
       </div>
     </div>
   );

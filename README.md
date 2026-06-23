@@ -4,8 +4,13 @@ A **local-first** desktop application that helps you generate tailored resumes, 
 letters, and interview answers from your real career history — and continuously learns
 from application outcomes to improve over time.
 
-Everything runs on your machine. No data leaves your computer, and after setup the app
-works without any cloud AI service or API key.
+Everything runs on your machine. No career data ever leaves your computer, and after
+setup the app works without any cloud AI service or API key.
+
+> **One deliberate network exception (Phase 13.9):** the packaged app checks a single
+> signed update channel over TLS — a version check plus the signature-verified update
+> download, nothing else (no telemetry, no identity, no career data). See
+> [`docs/adr/ADR-011-background-auto-update-network-boundary.md`](docs/adr/ADR-011-background-auto-update-network-boundary.md).
 
 > **New here?** Start with [`REPO_MAP.md`](REPO_MAP.md) for the directory layout and
 > [`docs/INDEX.md`](docs/INDEX.md) for the full documentation map.

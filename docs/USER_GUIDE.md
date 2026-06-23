@@ -25,12 +25,35 @@ All data stays on your machine. No cloud APIs are required.
 
 1. Open ACOS from your Applications folder (or from the DMG).
 2. The first-run wizard guides you through:
-   - Ollama connectivity check (`GET /api/v1/health/ollama`)
+   - Ollama connectivity check (`GET /api/v1/health/ollama`). If a required model is
+     missing, you can **download it from the wizard** with live progress (Phase 13.7) —
+     consent-gated, never silent. If Ollama is unreachable you can still *Continue without
+     Ollama* into a clearly-degraded mode rather than being blocked.
    - Model selection (default: `qwen3:8b`)
    - GitHub username (optional, for future integrations)
+   - **Build your profile (optional, Phase 13.5):** upload résumés / cover letters / job
+     history. ACOS extracts your skills (with confidence levels) and your *Career-Voice*
+     locally and shows a summary. A starter Career-Voice is clearly labeled **Synthetic**
+     until you upload your own writing — it is never presented as your history. This step
+     is skippable; you can add documents anytime.
 3. After setup, the main dashboard opens.
 
 If the wizard gets stuck on the Ollama check, see [Troubleshooting](TROUBLESHOOTING.md).
+
+### Surfaced intelligence (Phase 13.1–13.4)
+
+The Learning page surfaces **skill ROI** and **global-pattern suggestions** (advisory,
+k-anonymous — they inform, they never override your own judgement). The résumé editor
+shows non-blocking **strategy hints** for a target job description. The Optimization page
+hosts the **prompt-review queue**: candidate prompt versions (some auto-proposed by the
+13.6 loop) that a human approves or rejects — nothing is promoted automatically.
+
+### Updates (packaged app, Phase 13.9)
+
+The installed app checks a single signed update channel. When an update is available, a
+banner shows the new version and release notes; you click **Update & Relaunch** to apply
+it. The update is signature-verified before it installs, and a failed/tampered update
+leaves your current version untouched. No other data is sent.
 
 ## Ingesting Documents
 

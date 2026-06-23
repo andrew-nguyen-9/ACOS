@@ -12,6 +12,7 @@ _GENERATE_PATH = "/api/generate"
 _EMBED_PATH = "/api/embeddings"
 _EMBED_BATCH_PATH = "/api/embed"  # plural-response batch endpoint (distinct from /api/embeddings)
 _TAGS_PATH = "/api/tags"
+_PULL_PATH = "/api/pull"
 
 # 12.5 calibration defaults. num_thread pins to the M1 performance-core count;
 # keep_alive holds the generator warm to avoid idle-unload cold starts.
@@ -191,6 +192,28 @@ class OllamaClient:
                         continue
                     if delta:
                         yield delta
+
+    async def pull_stream(self, model: str) -> AsyncIterator[dict]:
+        """Yield progress dicts from Ollama's streaming POST /api/pull.
+
+        Each line is ``{"status": ..., "completed"?: int, "total"?: int}``. Blank
+        keep-alive and malformed lines are skipped, never raised — one bad chunk
+        must not abort a multi-GB download. No read timeout: a pull is long-lived;
+        the caller cancels by stopping iteration (httpx closes the socket).
+        """
+        async with httpx.AsyncClient(timeout=None) as client:
+            async with client.stream(
+                "POST", f"{self._base_url}{_PULL_PATH}", json={"name": model, "stream": True}
+            ) as resp:
+                resp.raise_for_status()
+                async for line in resp.aiter_lines():
+                    if not line.strip():
+                        continue
+                    try:
+                        yield json.loads(line)
+                    except json.JSONDecodeError:
+                        logger.debug("pull_stream: skipping malformed line")
+                        continue
 
     def embed(self, model: str, text: str) -> list[float]:
         resp = httpx.post(

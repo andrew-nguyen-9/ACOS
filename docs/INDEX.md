@@ -55,6 +55,10 @@ don't edit.
 | [ADR-005](adr/ADR-005-tauri-react-frontend.md) | Tauri + React + TypeScript for the desktop frontend. |
 | [ADR-006](adr/ADR-006-evidence-confidence-system.md) | Evidence-based confidence system for all generated content. |
 | [ADR-007](adr/ADR-007-fastapi-backend.md) | FastAPI as the backend framework. |
+| [ADR-008](adr/ADR-008-multi-tenant-isolation.md) | Session-layer multi-tenant isolation (`X-Tenant-Id` unauthenticated selector; authn deferred). |
+| [ADR-009](adr/ADR-009-privacy-preserving-aggregation.md) | Privacy-preserving cross-tenant aggregation — k-anonymity, content-free, no network. |
+| [ADR-010](adr/ADR-010-autonomous-prompt-proposal-never-promote.md) | Autonomous prompt-proposal loop — propose-only, **never promotes** (human gate intact). |
+| [ADR-011](adr/ADR-011-background-auto-update-network-boundary.md) | Background auto-update — one signed, TLS-only, data-free network channel. |
 
 ---
 

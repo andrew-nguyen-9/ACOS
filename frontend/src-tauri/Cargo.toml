@@ -19,6 +19,10 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-shell = "2"
+# 13.9 background auto-update (ADR-011): the updater verifies the minisign signature
+# against the bundled pubkey before applying; process plugin enables relaunch.
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 

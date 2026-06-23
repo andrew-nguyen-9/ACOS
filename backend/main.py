@@ -27,6 +27,8 @@ from backend.api.v1.routes.ingestion import router as ingestion_router
 from backend.api.v1.routes.learning import router as learning_router
 from backend.api.v1.routes.maintenance import router as maintenance_router
 from backend.api.v1.routes.observability import router as observability_router
+from backend.api.v1.routes.onboarding import router as onboarding_router
+from backend.api.v1.routes.ollama import router as ollama_router
 from backend.api.v1.routes.questions import router as questions_router
 from backend.api.v1.routes.rag import router as rag_router
 from backend.api.v1.routes.resume import router as resume_router
@@ -105,6 +107,8 @@ def create_app() -> FastAPI:
     app.include_router(maintenance_router, prefix="/api/v1")
     app.include_router(backup_router, prefix="/api/v1")
     app.include_router(flywheel_router, prefix="/api/v1", dependencies=tenant_dep)
+    app.include_router(onboarding_router, prefix="/api/v1", dependencies=tenant_dep)
+    app.include_router(ollama_router, prefix="/api/v1")
 
     return app
 

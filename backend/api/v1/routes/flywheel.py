@@ -69,18 +69,26 @@ async def get_skill_roi(
         raise HTTPException(status_code=422, detail=str(exc))
 
 
-@router.get("/flywheel/strategy")
+class StrategyRequest(BaseModel):
+    target_jd: str
+
+
+@router.post("/flywheel/strategy")
 async def get_strategy(
-    target_jd: str,
+    req: StrategyRequest,
     session: AsyncSession = Depends(get_async_session),
 ) -> dict:
-    """Per-tenant resume structure + ATS strategy for a target job description."""
+    """Per-tenant resume structure + ATS strategy for a target job description.
+
+    POST, not GET: a pasted JD can be many KB, which would blow the URL/header
+    limit as a query param (414). It travels in the request body instead.
+    """
     settings = get_settings()
 
     def _impl(s: Session) -> dict:
         ollama = OllamaClient(base_url=settings.ollama_base_url)
         extractor = KeywordExtractor(ollama, PromptLoader())
-        keywords = extractor.extract(target_jd)
+        keywords = extractor.extract(req.target_jd)
         rec = recommend(s, keywords=keywords, tenant_id=get_session_tenant(s))
         return asdict(rec)
 
@@ -106,6 +114,20 @@ def _version_dict(v) -> dict:
     return {"id": v.id, "prompt_name": v.prompt_name, "version": v.version,
             "is_active": v.is_active, "parent_version": v.parent_version,
             "change_rationale": v.change_rationale}
+
+
+@router.get("/flywheel/prompt/versions")
+async def get_prompt_versions(
+    prompt_name: str,
+    session: AsyncSession = Depends(get_async_session),
+) -> dict:
+    """Read side backing the review queue: lineage (active + candidates) + audit + trial deltas.
+
+    GET is fine — ``prompt_name`` is a short identifier, not a multi-KB body (no 414 risk).
+    """
+    return await session.run_sync(
+        lambda s: PromptEvolutionService(s).versions(prompt_name)
+    )
 
 
 @router.post("/flywheel/prompt/propose")
@@ -135,6 +157,21 @@ async def trial_prompt(body: TrialRequest, session: AsyncSession = Depends(get_a
         return await session.run_sync(_impl)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
+
+
+@router.post("/flywheel/prompt/auto-propose")
+async def auto_propose_prompts(session: AsyncSession = Depends(get_async_session)) -> dict:
+    """13.6 / ADR-010: run the autonomous proposal loop on demand.
+
+    Off the hot path (mirrors POST /maintenance/generate). Queues candidates for
+    underperforming prompts into the 13.4 review queue; NEVER promotes.
+    """
+    def _impl(s: Session) -> dict:
+        from backend.services.flywheel.evolution_loop import EvolutionLoop
+
+        return {"proposed": EvolutionLoop(s).run()}
+
+    return await session.run_sync(_impl)
 
 
 @router.post("/flywheel/prompt/promote")
