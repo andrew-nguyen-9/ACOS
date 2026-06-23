@@ -23,6 +23,7 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { learningService, type TemplateRanking, type AtsVsOutcome } from "@/services/learning";
 import { applicationsService } from "@/services/applications";
 import { SkillRoiSection } from "@/components/learning/SkillRoiSection";
+import { GlobalSuggestions } from "@/components/learning/GlobalSuggestions";
 import type { Application } from "@/types/api";
 
 // ── Rank badge styles ─────────────────────────────────────────────────────────
@@ -371,6 +372,9 @@ export default function LearningPage() {
 
           {/* Skill ROI (Phase 13.1) */}
           <SkillRoiSection />
+
+          {/* Global patterns (Phase 13.3) — cross-tenant suggestions, ADR-009 */}
+          <GlobalSuggestions />
 
           {/* Recent Learning Insights */}
           <div className="shadow-[0_14px_40px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.05)] rounded-3xl bg-neutral-900 border border-white/10 p-6 flex flex-col gap-4">

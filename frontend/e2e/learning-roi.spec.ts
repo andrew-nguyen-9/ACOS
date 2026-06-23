@@ -21,6 +21,9 @@ test.describe("Skill ROI (Phase 13.1)", () => {
       ],
       recommended: ["python"],
     }));
+    // The Learning page also mounts GlobalSuggestions (13.3), which fetches this;
+    // mock it dormant so an unmocked call can't log a console error here.
+    await page.route("**/api/v1/flywheel/global/roi**", json({ metric: "interview_lift", rankings: [] }));
   });
 
   test("renders ranked, recommended-emphasized, explainable ROI rows", async ({ page }) => {
