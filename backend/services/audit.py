@@ -19,7 +19,7 @@ from backend.models.audit import AuditLog
 from backend.models.base import utcnow
 from backend.services.tenancy import require_session_tenant
 
-OP_TYPES = {"generation", "retrieval", "ats_score", "optimization"}
+OP_TYPES = {"generation", "retrieval", "ats_score", "optimization", "injection"}
 GENESIS = "0" * 64
 
 

@@ -6,6 +6,7 @@ from backend.observability import log_operation
 from backend.services.ollama_client import Operation
 from backend.services.rag import lexical
 from backend.services.tokens import count_tokens
+from backend.security import injection
 
 logger = logging.getLogger(__name__)
 
@@ -157,7 +158,9 @@ class RAGService:
             }
 
         # Fixed instructions first, dynamic context last (prefix-cache stability).
-        prompt = f"{RAG_INSTRUCTIONS}Question: {query}\n\nEvidence:\n{context}"
+        # 16.4 (ADR-017): fence retrieved (untrusted) evidence as data — the
+        # always-on backstop that limits blast radius even if detection missed.
+        prompt = f"{RAG_INSTRUCTIONS}Question: {query}\n\nEvidence:\n{injection.fence(context)}"
         return prompt, {
             "response": "",
             "evidence": evidence,

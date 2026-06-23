@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     # (requirements-encryption.txt) + ACOS_ENCRYPTION_KEY when enabled.
     enable_encrypted_storage: bool = False
 
+    # 16.4 (ADR-017) — opt-in local-LLM injection screen (escalation only). OFF by
+    # default; the heuristic/denylist layer + assembly fencing run unconditionally.
+    enable_injection_llm_screen: bool = False
+
     # Learning
     learning_trigger_count: int = 5
 

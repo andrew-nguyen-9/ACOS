@@ -13,6 +13,7 @@ from backend.ingestion.entity_extractor import EntityExtractor
 from backend.ingestion.errors import PermanentError, TransientError
 from backend.ingestion.normalizer import normalize
 from backend.ingestion.retry import retry
+from backend.security import injection
 from backend.models.document import Document
 from backend.models.ingestion_failure import IngestionFailure
 from backend.observability import log_operation
@@ -83,6 +84,10 @@ class IngestionPipeline:
         module = importlib.import_module(module_name)
         raw_text = module.parse(validated)
         text = normalize(raw_text)
+        # 16.4 (ADR-017): ingestion-time injection checkpoint — screen before the
+        # text is ever embedded or stored; high-confidence injections raise (caught
+        # by ingest_safe → permanent failure), flagged text is sanitized + audited.
+        text = injection.screen(self._session, text, source="ingestion")
 
         file_type = _FILE_TYPE_MAP[suffix]
         file_size = validated.stat().st_size
