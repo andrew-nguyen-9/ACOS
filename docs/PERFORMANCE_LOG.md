@@ -521,3 +521,25 @@ segment-time measurements stand and are cited in the sections above.
 **Budgets:** no new request-path work landed in 12.10–12.16 (read-side flywheel compute
 + an indexed `tenant_id` predicate). The tenant filter is a single indexed column
 predicate; isolation adds no per-request regression beyond that index lookup.
+
+---
+
+## Phase 13.10 — verification debt + re-baseline (2026-06-23)
+
+**Scored golden-set retrieval (8b, no Ollama):** recall@3 = **1.0**, MRR = **1.0** over
+the frozen 12-doc lexical corpus (FTS5). Baseline frozen to
+`backend/tests/unit/baselines/retrieval_scored.json`; `test_golden_retrieval_scored.py`
+regresses future retrieval changes against it.
+
+**k-anonymity demo (8c, no Ollama):** `test_global_aggregation_demo.py` — synthetic
+5-profile fixture emits the shared pattern (tenant_count=5, strong_inference); 4-profile
+suppresses it. Exercises the 12.15/13.3 aggregation path end-to-end, test-only/in-memory.
+
+**Live-Ollama benches (8a):** `scripts/perf/live_bench_runner.py` re-runs TTFT +
+structured-output against live Ollama (`OLLAMA_LIVE=1`). **Not run at close-out** — this
+environment has no live Ollama; the segment-time numbers (12.4/12.5/12.8) stand. The
+runner skips cleanly (exit 0) without `OLLAMA_LIVE`.
+
+**Deferred-opt reopen check (theme 7):** no condition fired → 12.9.1 / 12.9.2 / 12.9.3 /
+12.9.5a all stay VOID (see `deferred-optimization-backlog.md` §Phase 13.10 re-baseline).
+12.9.3 (Nuitka) awaits the 13.8 release-machine cold-start number.
