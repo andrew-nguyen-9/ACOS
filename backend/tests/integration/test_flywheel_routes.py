@@ -32,3 +32,23 @@ def test_skills_roi_endpoint_returns_ranked_recommended(client, test_session):
 def test_skills_roi_endpoint_rejects_unknown_metric(client):
     resp = client.get("/api/v1/flywheel/skills/roi?metric=bogus")
     assert resp.status_code == 422
+
+
+def test_prompt_versions_endpoint_returns_lineage(client, test_session):
+    """13.4: GET read side backing the prompt-review queue."""
+    from backend.services.flywheel.prompt_evolution import PromptEvolutionService
+    from backend.services.prompts.registry import PromptRegistry
+
+    PromptRegistry(test_session).deploy("resume/extract_keywords", "system: v1", version="v1")
+    PromptEvolutionService(test_session).propose(
+        "resume/extract_keywords", "system: v2", signal_ids=["sigZ"],
+        rationale="v1 weak", expected_impact="lift",
+    )
+
+    resp = client.get("/api/v1/flywheel/prompt/versions?prompt_name=resume/extract_keywords")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["prompt_name"] == "resume/extract_keywords"
+    assert data["active_version"] == "v1"               # candidate did NOT auto-activate
+    assert [v["version"] for v in data["versions"]] == ["v1", "v2"]
+    assert any("sigZ" in (v["change_rationale"] or "") for v in data["versions"])

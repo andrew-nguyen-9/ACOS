@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from backend.models.optimization import PromptVersion
 from backend.repositories.optimization import (
+    ABExperimentRepository,
     OptimizationLogRepository,
     PromptVersionRepository,
 )
@@ -113,6 +114,53 @@ class PromptEvolutionService:
         self._repo.activate(prior.id)
         self._audit("reverted", prompt_name, active.version, prior.version, approved_by)
         return prior
+
+    def versions(self, prompt_name: str) -> dict:
+        """Read side for the review queue: lineage + audit trail + trial deltas (no mutation).
+
+        Signal links live inline in each candidate's ``change_rationale`` (set at propose
+        time), so explainability needs no extra column. Audit = the OptimizationLog rows
+        this prompt's transitions already write; trial deltas reuse the A/B harness.
+        """
+        rows = self._repo.list_for_prompt(prompt_name)
+        active = self._repo.get_active(prompt_name)
+        audit = sorted(
+            (l for l in self._log.list() if l.target_parameter == prompt_name),
+            key=lambda l: l.created_at,
+        )
+        ab = ABTestingService(self._session)
+        experiments = [
+            {**ab.comparison(e.id), "name": e.name, "status": e.status}
+            for e in ABExperimentRepository(self._session).list_by_name(
+                f"prompt-evolution:{prompt_name}"
+            )
+        ]
+        return {
+            "prompt_name": prompt_name,
+            "active_version": active.version if active else None,
+            "versions": [
+                {
+                    "id": v.id,
+                    "version": v.version,
+                    "is_active": v.is_active,
+                    "parent_version": v.parent_version,
+                    "change_rationale": v.change_rationale,
+                    "created_at": v.created_at,
+                }
+                for v in rows
+            ],
+            "audit": [
+                {
+                    "action": l.action,
+                    "old_value": l.old_value,
+                    "new_value": l.new_value,
+                    "actor": l.actor,
+                    "created_at": l.created_at,
+                }
+                for l in audit
+            ],
+            "experiments": experiments,
+        }
 
     def _get_version(self, prompt_name: str, version: str) -> PromptVersion:
         for row in self._repo.list_for_prompt(prompt_name):

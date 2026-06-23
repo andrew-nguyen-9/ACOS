@@ -78,6 +78,35 @@ def test_promote_with_approval_flips_pointer_and_audits(test_session):
     assert applied[-1].old_value == "v1" and applied[-1].new_value == "v2"
 
 
+def test_versions_returns_lineage_active_audit_and_trials(test_session):
+    """13.4 read side: the review queue's data source — lineage + audit + trial deltas."""
+    _deploy_incumbent(test_session)
+    svc = PromptEvolutionService(test_session)
+    svc.propose("resume/extract_keywords", "system: v2", signal_ids=["sigA", "sigB"],
+                rationale="v1 underperforms", expected_impact="lift")
+    svc.trial("resume/extract_keywords", "v2")          # A/B candidate vs active v1
+    svc.promote("resume/extract_keywords", "v2", approved_by="andrew")
+
+    data = svc.versions("resume/extract_keywords")
+    assert data["prompt_name"] == "resume/extract_keywords"
+    assert data["active_version"] == "v2"
+    assert [v["version"] for v in data["versions"]] == ["v1", "v2"]
+
+    v2 = next(v for v in data["versions"] if v["version"] == "v2")
+    assert v2["is_active"] is True
+    assert v2["parent_version"] == "v1"
+    assert "sigA" in v2["change_rationale"]             # signal links inline (explainable)
+
+    applied = [a for a in data["audit"] if a["action"] == "applied"]
+    assert applied[-1]["actor"] == "andrew"
+    assert applied[-1]["old_value"] == "v1" and applied[-1]["new_value"] == "v2"
+
+    # the trial surfaces as an experiment with both variant versions (deltas)
+    assert data["experiments"], "trial should surface as an experiment"
+    versions_in_exp = {var["version"] for var in data["experiments"][0]["variants"]}
+    assert versions_in_exp == {"v1", "v2"}
+
+
 def test_rollback_restores_prior_active_in_one_call(test_session):
     _deploy_incumbent(test_session)
     svc = PromptEvolutionService(test_session)

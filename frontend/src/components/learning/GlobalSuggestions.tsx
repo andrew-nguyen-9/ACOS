@@ -3,6 +3,7 @@ import { Globe } from "lucide-react";
 import { ConfidenceBadge } from "@/components/ui/ConfidenceBadge";
 import { DormantEmptyState } from "@/components/ui/DormantEmptyState";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { fmtRoi } from "@/lib/utils";
 import { flywheelService } from "@/services/flywheel";
 import type { GlobalRoiResponse } from "@/types/flywheel";
 
@@ -16,21 +17,23 @@ import type { GlobalRoiResponse } from "@/types/flywheel";
  * contributor. Under k-anonymity (k<5) the route returns `rankings: []`; that is
  * the dormant-by-design state today, not an error.
  */
-function fmtRoi(roi: number): string {
-  return `${roi >= 0 ? "+" : ""}${roi.toFixed(2)}`;
-}
-
 // ponytail: self-contained fetch — request-per-view is fine (see flywheel.ts),
 // matches SkillRoiSection; no shared store until a measured re-fetch problem.
 export function GlobalSuggestions() {
   const [data, setData] = useState<GlobalRoiResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     flywheelService
       .getGlobalRoi()
       .then(setData)
-      .catch(console.error)
+      .catch((e) => {
+        // A real fetch failure is NOT k-anonymity dormancy — keep them distinct
+        // so a server outage never masquerades as the privacy floor.
+        console.error(e);
+        setFailed(true);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -61,16 +64,27 @@ export function GlobalSuggestions() {
         <div className="flex items-center justify-center py-8">
           <LoadingSpinner label="Loading global patterns…" />
         </div>
+      ) : failed ? (
+        <p
+          data-testid="global-error"
+          className="text-amber-300/90 text-[12px] leading-relaxed"
+        >
+          Couldn’t load global patterns. This is a temporary error — try again
+          shortly.
+        </p>
       ) : rankings.length === 0 ? (
         <DormantEmptyState description="Cross-tenant patterns appear once at least five profiles share enough signals (privacy floor)." />
       ) : (
         <div className="flex flex-col gap-3">
           {rankings.map((row) => {
             const tenants = `${row.tenant_count} tenant${row.tenant_count === 1 ? "" : "s"}`;
+            // Rows are keyed (industry, skill): the same skill can repeat across
+            // industries, so skill alone would collide.
+            const rowKey = `${row.industry}-${row.skill}`;
             return (
               <div
-                key={row.skill}
-                data-testid={`global-row-${row.skill}`}
+                key={rowKey}
+                data-testid={`global-row-${rowKey}`}
                 className="rounded-2xl border border-white/10 bg-white/[0.02] p-3 flex items-center gap-3"
               >
                 <span

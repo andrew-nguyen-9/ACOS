@@ -73,6 +73,56 @@ export interface TrialResult {
   status: string;
 }
 
+// --- 13.4 read side: GET /flywheel/prompt/versions (review queue) ---
+
+/** One version in a prompt's lineage. `change_rationale` carries the rationale
+ *  AND the motivating signal ids inline ("…| signals: a,b") — the explainability. */
+export interface PromptVersionDetail {
+  id: string;
+  version: string;
+  is_active: boolean;
+  parent_version: string | null;
+  change_rationale: string | null;
+  created_at: string;
+}
+
+/** One audited transition (promote/rollback) for a prompt. */
+export interface PromptAuditEntry {
+  action: string;
+  old_value: string | null;
+  new_value: string | null;
+  actor: string;
+  created_at: string;
+}
+
+/** One A/B variant's outcome (ABTestingService.comparison). */
+export interface PromptTrialVariant {
+  id: string;
+  label: string;
+  prompt_name: string | null;
+  version: string | null;
+  impressions: number;
+  conversions: number;
+  conversion_rate: number;
+}
+
+/** One trial (A/B experiment) comparing a candidate against the incumbent. */
+export interface PromptExperiment {
+  experiment_id: string;
+  name: string;
+  status: string;
+  variants: PromptTrialVariant[];
+}
+
+/** GET /flywheel/prompt/versions */
+export interface PromptVersionsResponse {
+  prompt_name: string;
+  active_version: string | null;
+  versions: PromptVersionDetail[];
+  audit: PromptAuditEntry[];
+  experiments: PromptExperiment[];
+}
+
 // --- request bodies (mirror the Pydantic models; optional = has a server default) ---
 
 export interface ProposeRequest {

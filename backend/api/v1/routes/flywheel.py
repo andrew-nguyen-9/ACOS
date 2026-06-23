@@ -116,6 +116,20 @@ def _version_dict(v) -> dict:
             "change_rationale": v.change_rationale}
 
 
+@router.get("/flywheel/prompt/versions")
+async def get_prompt_versions(
+    prompt_name: str,
+    session: AsyncSession = Depends(get_async_session),
+) -> dict:
+    """Read side backing the review queue: lineage (active + candidates) + audit + trial deltas.
+
+    GET is fine — ``prompt_name`` is a short identifier, not a multi-KB body (no 414 risk).
+    """
+    return await session.run_sync(
+        lambda s: PromptEvolutionService(s).versions(prompt_name)
+    )
+
+
 @router.post("/flywheel/prompt/propose")
 async def propose_prompt(body: ProposeRequest, session: AsyncSession = Depends(get_async_session)) -> dict:
     """Create a candidate prompt version (inactive) with a signal-linked rationale."""

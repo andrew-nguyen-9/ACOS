@@ -12,6 +12,7 @@ import type {
   ProposeRequest,
   PromoteRequest,
   PromptVersion,
+  PromptVersionsResponse,
   RollbackRequest,
   SkillRoiResponse,
   StrategyRecommendation,
@@ -43,6 +44,10 @@ export const flywheelService = {
 
   getGlobalRoi: (opts: { metric?: string } = {}) =>
     apiFetch<GlobalRoiResponse>(`/flywheel/global/roi${qs(opts)}`),
+
+  // Read side for the prompt-review queue: lineage + audit + trial deltas.
+  getPromptVersions: (prompt_name: string) =>
+    apiFetch<PromptVersionsResponse>(`/flywheel/prompt/versions${qs({ prompt_name })}`),
 
   proposePrompt: (body: ProposeRequest) =>
     post<PromptVersion>("/flywheel/prompt/propose", body),

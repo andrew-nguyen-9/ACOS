@@ -48,7 +48,7 @@ test("each row carries its tenant COUNT and confidence, framed as a suggestion n
   getGlobalRoi.mockResolvedValue(RESPONSE);
   render(<GlobalSuggestions />);
 
-  const row = await screen.findByTestId("global-row-kubernetes");
+  const row = await screen.findByTestId("global-row-technology-kubernetes");
   // tenant_count is an aggregate count, never ids (no re-identification, ADR-009).
   expect(within(row).getByText(/12 tenants/i)).toBeTruthy();
   expect(within(row).getByText(/strong/i)).toBeTruthy();
@@ -67,7 +67,32 @@ test("a single contributing tenant is described without leaking which one", asyn
   } satisfies GlobalRoiResponse);
   render(<GlobalSuggestions />);
 
-  const row = await screen.findByTestId("global-row-sql");
+  const row = await screen.findByTestId("global-row-finance-sql");
   // Singular grammar, still only a count — no tenant identity.
   expect(within(row).getByText(/1 tenant\b/i)).toBeTruthy();
+});
+
+test("the same skill across two industries does not collide (keyed on industry+skill)", async () => {
+  // global/roi returns rows for all industries of a metric — python repeats.
+  getGlobalRoi.mockResolvedValue({
+    metric: "interview_lift",
+    rankings: [
+      { industry: "technology", skill: "python", roi: 0.5, tenant_count: 9, confidence: "strong_inference" },
+      { industry: "finance", skill: "python", roi: 0.3, tenant_count: 6, confidence: "weak_inference" },
+    ],
+  } satisfies GlobalRoiResponse);
+  render(<GlobalSuggestions />);
+
+  // Both rows resolve to distinct nodes — a skill-only key would throw "multiple elements".
+  expect(await screen.findByTestId("global-row-technology-python")).toBeTruthy();
+  expect(screen.getByTestId("global-row-finance-python")).toBeTruthy();
+});
+
+test("a real fetch error is distinct from k-anonymity dormancy", async () => {
+  getGlobalRoi.mockRejectedValue(new Error("500"));
+  render(<GlobalSuggestions />);
+
+  // Shows the error affordance, NOT the "needs ≥5 profiles" dormant copy.
+  await waitFor(() => expect(screen.getByTestId("global-error")).toBeTruthy());
+  expect(screen.queryByText(/appear once|share enough signals/i)).toBeNull();
 });

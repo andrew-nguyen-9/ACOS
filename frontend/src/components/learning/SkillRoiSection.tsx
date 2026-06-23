@@ -3,7 +3,7 @@ import { ChevronDown, Target } from "lucide-react";
 import { ConfidenceBadge } from "@/components/ui/ConfidenceBadge";
 import { DormantEmptyState } from "@/components/ui/DormantEmptyState";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
-import { cn } from "@/lib/utils";
+import { cn, fmtRoi } from "@/lib/utils";
 import { flywheelService } from "@/services/flywheel";
 import type { SkillRoiResponse } from "@/types/flywheel";
 
@@ -15,9 +15,6 @@ import type { SkillRoiResponse } from "@/types/flywheel";
  * never re-derived from roi/confidence locally — so a thin-data row can't be
  * promoted client-side past the backend's n/confidence gate (ADR-006).
  */
-function fmtRoi(roi: number): string {
-  return `${roi >= 0 ? "+" : ""}${roi.toFixed(2)}`;
-}
 
 // ponytail: self-contained fetch — request-per-view is fine (see flywheel.ts),
 // no shared store until a measured re-fetch problem appears.

@@ -85,6 +85,15 @@ class ABExperimentRepository(BaseRepository[ABExperiment]):
             ).all()
         )
 
+    def list_by_name(self, name: str) -> list[ABExperiment]:
+        return list(
+            self.session.scalars(
+                select(ABExperiment)
+                .where(ABExperiment.name == name)
+                .order_by(ABExperiment.created_at.asc())
+            ).all()
+        )
+
 
 class ABVariantRepository(BaseRepository[ABVariant]):
     def __init__(self, session: Session) -> None:
