@@ -194,7 +194,7 @@ the dev loop runs under four cooperating tools. Each segment follows this loop.
 
 **Per-segment loop:**
 
-1. Open the single segment spec (`docs/superpowers/plans/2026-06-22-phase-12-N-*.md`) — self-contained, minimal archaeology.
+1. Open the single segment spec (`docs/v1/plans/2026-06-22-phase-12-N-*.md`) — self-contained, minimal archaeology.
 2. Confirm the prior segment's Definition of Done is met.
 3. TDD: write the failing test first, then the minimum code (Ponytail ladder).
 4. Run the perf harness **before and after**; attach the delta to the PR (`docs/PERFORMANCE_LOG.md`).

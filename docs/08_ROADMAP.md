@@ -325,7 +325,7 @@ backend/prompts/ats/analyze.yaml
 
 **Plugins required:** `context7` (ChromaDB, FastAPI), `compound-engineering:ce-performance-reviewer`, `ralph-loop`
 
-**Plan:** `docs/superpowers/plans/2026-06-21-phase-10-intelligence-layer-upgrade.md`
+**Plan:** `docs/v1/plans/2026-06-21-phase-10-intelligence-layer-upgrade.md`
 
 **Modules:**
 1. Query Understanding — extract role_type, seniority, skills, 3 query vectors from JD
@@ -353,7 +353,7 @@ backend/prompts/ats/analyze.yaml
 **Status:** ✅ **DONE** (2026-06-22). Delivered as an expanded two-track phase —
 **backend production hardening (11.0–11.4)** + **showcase-grade frontend revamp
 (11.5–11.9)** — under one shared, performance-gated constraint. Segment specs live in
-`docs/superpowers/plans/2026-06-21-phase-11-*`; the index is `…-phase-11-roadmap.md`.
+`docs/v1/plans/2026-06-21-phase-11-*`; the index is `…-phase-11-roadmap.md`.
 
 **Goal:** Production desktop UI for all engines.
 

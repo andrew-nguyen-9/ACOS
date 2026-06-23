@@ -2,7 +2,7 @@
 
 Tracks ACOS performance baselines and per-segment regression checks. Phase 11.0
 built the harness; every later segment **appends a row** proving it did not
-regress (budget = baseline + 10%, see `docs/superpowers/plans/2026-06-21-phase-11-roadmap.md`).
+regress (budget = baseline + 10%, see `docs/v1/plans/2026-06-21-phase-11-roadmap.md`).
 
 Numbers are machine-dependent — compare **deltas on the same machine**, not
 absolutes. Baseline machine: `macOS-26.5.1-arm64` (Apple Silicon), Python 3.12.13.

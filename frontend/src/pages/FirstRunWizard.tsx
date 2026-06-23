@@ -190,7 +190,7 @@ export default function FirstRunWizard({ onComplete }: Props) {
                   type="text"
                   value={github}
                   onChange={(e) => setGithub(e.target.value)}
-                  placeholder="andrew-nguyen-9"
+                  placeholder="your-github-username"
                   className="bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2 text-neutral-100 text-sm focus:outline-none focus:border-indigo-500"
                 />
               </div>

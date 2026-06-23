@@ -1,7 +1,7 @@
 # Deferred Optimization Backlog (Phase 12.9 → Phases 13–18)
 
 **Source of truth for verdicts + numbers:** `docs/optimization/architecture-spike-findings.md`
-**Ledger:** `docs/superpowers/plans/2026-06-22-phase-12-9-implementation-speculative.md` §B (all rows VOID).
+**Ledger:** `docs/v1/plans/2026-06-22-phase-12-9-implementation-speculative.md` §B (all rows VOID).
 **Status:** none adopted in Phase 12. Production stack (HTTP-JSON · Chroma · PyInstaller · FastAPI) unchanged.
 
 Phase 12.9 measured six architecture candidates and deferred/rejected all six (0 adopts). This file is the
