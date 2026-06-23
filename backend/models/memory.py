@@ -4,9 +4,10 @@ from sqlalchemy import String, Text, Float, CheckConstraint, Index
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.models.base import Base, generate_uuid, utcnow
+from backend.models.tenant import TenantScopedMixin
 
 
-class Memory(Base):
+class Memory(TenantScopedMixin, Base):
     """Persistent context memory for the Phase 10 intelligence layer.
 
     Stores what worked across applications: long-term outcome signals, plus

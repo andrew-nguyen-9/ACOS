@@ -1,5 +1,6 @@
 # Import all models so SQLAlchemy registers them before create_all() is called.
 from backend.models.base import Base, TimestampMixin, generate_uuid, utcnow
+from backend.models.tenant import Tenant, TenantScopedMixin
 from backend.models.experience import Experience, ExperienceBullet
 from backend.models.project import Project
 from backend.models.skill import Skill, SkillEvidence, experience_skills_table, project_skills_table
@@ -19,6 +20,7 @@ from backend.models.system_config import SystemConfig
 from backend.models.memory import Memory
 from backend.models.maintenance import MaintenanceSuggestion, MaintenanceAudit
 from backend.models.signal import Signal
+from backend.models.global_pattern import GlobalPattern
 
 # Phase 12.7: the FTS5 lexical table is a virtual table (not a model), so
 # create_all() can't build it. The app bootstraps schema via create_all (not
@@ -35,6 +37,8 @@ __all__ = [
     "TimestampMixin",
     "generate_uuid",
     "utcnow",
+    "Tenant",
+    "TenantScopedMixin",
     "Experience",
     "ExperienceBullet",
     "Project",
@@ -67,4 +71,5 @@ __all__ = [
     "MaintenanceSuggestion",
     "MaintenanceAudit",
     "Signal",
+    "GlobalPattern",
 ]

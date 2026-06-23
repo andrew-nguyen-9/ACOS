@@ -22,6 +22,8 @@ def session() -> Session:
     Base.metadata.create_all(engine)
     SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
     s = SessionLocal()
+    from backend.services.tenancy import ensure_default_tenant, set_session_tenant
+    set_session_tenant(s, ensure_default_tenant(s))
     yield s
     s.close()
 

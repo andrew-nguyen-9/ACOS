@@ -105,9 +105,21 @@ def reset_engine() -> None:
     )
 
 
+def _bind_default_tenant(session: Session) -> None:
+    """12.14: bind the default tenant on the session so no query runs unscoped.
+
+    Pure session.info write (no DB) — the default tenant *row* is seeded at startup
+    (``seed_system_config``); a per-route TenantContext may override to another profile.
+    """
+    from backend.services.tenancy import DEFAULT_TENANT_ID, set_session_tenant
+
+    set_session_tenant(session, DEFAULT_TENANT_ID)
+
+
 def get_session() -> Generator[Session, None, None]:
     """FastAPI dependency that yields a database session per request."""
     with SessionLocal() as session:
+        _bind_default_tenant(session)
         try:
             yield session
             session.commit()
@@ -119,6 +131,7 @@ def get_session() -> Generator[Session, None, None]:
 async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
     """FastAPI dependency that yields an async session per request (12.2)."""
     async with AsyncSessionLocal() as session:
+        await session.run_sync(_bind_default_tenant)
         try:
             yield session
             await session.commit()
@@ -130,6 +143,9 @@ async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
 def seed_system_config(session: Session) -> None:
     """Insert default system_config rows if they don't exist."""
     from backend.models.system_config import SystemConfig
+    from backend.services.tenancy import ensure_default_tenant
+
+    ensure_default_tenant(session)  # 12.14: the default local profile (FK target)
 
     defaults = [
         ("default_model", "qwen3:8b", "Default Ollama model for generation"),

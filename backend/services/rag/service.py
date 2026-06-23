@@ -101,7 +101,12 @@ class RAGService:
         # if Chroma also failed, lexical hits still beat the LIKE-scan fallback.
         if self._session is not None:
             try:
-                lex = lexical.search(self._session, query, doc_types, k=10)
+                from backend.services.tenancy import get_session_tenant
+
+                lex = lexical.search(
+                    self._session, query, doc_types, k=10,
+                    tenant_id=get_session_tenant(self._session),
+                )
                 raw_results = lexical.fuse(raw_results, lex)
             except Exception as exc:
                 logger.warning("build_prompt: lexical leg failed: %s", exc)

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from backend.models.base import utcnow
 from backend.models.memory import Memory
 from backend.repositories.base import BaseRepository
+from backend.services.tenancy import require_session_tenant
 
 
 class MemoryRepository(BaseRepository[Memory]):
@@ -40,10 +41,18 @@ class MemoryRepository(BaseRepository[Memory]):
         return list(self.session.scalars(stmt).all())
 
     def prune_expired(self) -> int:
-        """Delete all memories whose expires_at is in the past. Returns count removed."""
+        """Delete this tenant's expired memories. Returns count removed.
+
+        Bulk DML bypasses the ORM tenant auto-filter (SELECT-only), so the tenant
+        predicate is applied explicitly here — a prune must never reach across tenants.
+        """
         now = utcnow()
         result = self.session.execute(
-            delete(Memory).where(Memory.expires_at.is_not(None), Memory.expires_at < now)
+            delete(Memory).where(
+                Memory.tenant_id == require_session_tenant(self.session),
+                Memory.expires_at.is_not(None),
+                Memory.expires_at < now,
+            )
         )
         self.session.flush()
         return result.rowcount

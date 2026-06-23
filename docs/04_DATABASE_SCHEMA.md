@@ -554,6 +554,77 @@ INSERT INTO system_config (key, value, description) VALUES
 
 ---
 
+### signals (Phase 12.10)
+
+Normalized feedback-loop events the flywheel (12.11 ROI, 12.13 prompt evolution)
+consumes. Every signal traces to its source record(s) via `source_json` (no orphan
+signals). `tenant_id` made NOT NULL + FK in 12.14.
+
+```sql
+CREATE TABLE IF NOT EXISTS signals (
+    id           TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+    tenant_id    TEXT NOT NULL REFERENCES tenants(id),   -- 12.14
+    entity_type  TEXT NOT NULL,            -- 'application' | 'skill' | 'template'
+    entity_id    TEXT NOT NULL,
+    signal_type  TEXT NOT NULL,            -- 'skill_used' | 'ats_score' | outcome ladder
+    value        REAL NOT NULL,
+    weight       REAL NOT NULL DEFAULT 1.0,
+    source_json  JSON NOT NULL,            -- {"table": ..., "ids": [...]}
+    created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX ix_signals_tenant_id ON signals(tenant_id);
+CREATE INDEX idx_signals_entity ON signals(entity_type, entity_id);
+```
+
+---
+
+### tenants (Phase 12.14)
+
+Local career profiles (ADR-008: one DB, enforced `tenant_id`, no auth). 12.14 adds a
+NOT NULL `tenant_id` FK to `tenants(id)` on every tenant-owned table (experiences,
+projects, skills, applications, resumes, writing_profiles, questions, answers,
+documents, generation_logs, knowledge_graph_nodes, knowledge_graph_edges,
+outcome_signals, metrics, memory, signals); existing rows backfilled to a `default`
+tenant. System/template/optimization tables stay shared.
+
+```sql
+CREATE TABLE IF NOT EXISTS tenants (
+    id         TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+    name       TEXT NOT NULL DEFAULT 'default',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+INSERT INTO tenants (id, name) VALUES ('default', 'default');
+```
+
+---
+
+### global_patterns (Phase 12.15)
+
+Content-free cross-tenant aggregate store (ADR-009). Abstract fields + a tenant COUNT
+only — **no** `tenant_id`, no raw text, no embeddings. Populated only through the
+k-anonymity gate (k ≥ 5 contributing tenants).
+
+```sql
+CREATE TABLE IF NOT EXISTS global_patterns (
+    id            TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+    pattern_type  TEXT NOT NULL,           -- 'skill_roi'
+    industry      TEXT NOT NULL,
+    key           TEXT NOT NULL,           -- abstract label (skill / section)
+    value         REAL NOT NULL,           -- aggregate (e.g. mean ROI)
+    metric        TEXT NOT NULL DEFAULT 'interview_lift',
+    tenant_count  INTEGER NOT NULL,        -- count, never ids
+    confidence    TEXT NOT NULL DEFAULT 'strong_inference',
+    created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX idx_global_patterns_lookup ON global_patterns(pattern_type, industry);
+```
+
+> Phase 12.13 (adaptive prompt evolution) adds no new table — it extends the existing
+> `prompt_versions` (11.2) with candidate rows + an `is_active` pointer, audited via
+> `optimization_logs`.
+
+---
+
 ## Outcome Signal Weights
 
 | Signal       | Weight |

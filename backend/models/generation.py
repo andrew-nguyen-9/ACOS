@@ -4,9 +4,10 @@ from sqlalchemy import String, Text, Integer, Boolean, CheckConstraint, ForeignK
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.models.base import Base, generate_uuid, utcnow
+from backend.models.tenant import TenantScopedMixin
 
 
-class GenerationLog(Base):
+class GenerationLog(TenantScopedMixin, Base):
     __tablename__ = "generation_logs"
     __table_args__ = (
         CheckConstraint(

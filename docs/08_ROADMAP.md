@@ -389,6 +389,37 @@ backend/prompts/ats/analyze.yaml
 - Auto-update scaffold
 - Release notes
 
+> **Note:** Phase 12 pivoted from packaging to a Velocity / Flywheel / Multi-Tenant
+> program (packaging moves to a later phase). Outcomes below.
+
+### Phase 12 (Velocity / Flywheel / Multi-Tenant) — segment outcomes
+
+**Shipped**
+- 12.0–12.7 — velocity track: perf harness, SQLite pragmas, async runtime, cold-start,
+  SSE streaming + cancellation, Ollama calibration, RAG throughput (consolidated Chroma +
+  background ingest), FTS5 lexical leg (rank-bm25 dropped).
+- 12.8 Spike A — Ollama structured output (`format`=JSON-Schema), flagged default-off.
+- 12.10 — local feedback-loop engine (signals + rollups + explain).
+- 12.11 — skill ROI engine (effect-size + n + ADR-006 confidence; explainable; golden).
+- 12.14 — tenant isolation framework (one DB, enforced `tenant_id`, central guard across
+  SQLite/Chroma/FTS5; **ADR-008**).
+- 12.12 — resume strategy intelligence (ROI + signals + JD → personalized, evidence-grounded recs).
+- 12.13 — adaptive prompt evolution (versioned, reversible, approval-gated; extends 11.2).
+- 12.15 — privacy-preserving global aggregation (k-anonymity gate, content-free store; **ADR-009**).
+
+**Deferred / rejected (documented, not dropped)**
+- 12.8 Spikes B (logit_bias) + C (speculative decoding) — NO-GO; absent from Ollama API
+  (see `docs/optimization/inference-spike-findings.md`).
+- 12.9 — six architecture spikes, **all defer/reject, 0 adopts** → production stack
+  unchanged (see `docs/optimization/architecture-spike-findings.md` +
+  `deferred-optimization-backlog.md` with measured reopen conditions).
+- Live-Ollama benches (TTFT, structured-output) verified at their segment commits; not
+  re-run at close-out (no live Ollama in the close-out environment).
+
+**New tables:** `signals` (12.10), `tenants` + `tenant_id` FK across owned tables (12.14),
+`global_patterns` (12.15). 12.13 extends existing `prompt_versions` (no new table).
+**ADRs:** ADR-008 (tenant isolation), ADR-009 (privacy-preserving aggregation) — both Accepted.
+
 ---
 
 ## Milestone Summary
@@ -406,6 +437,15 @@ backend/prompts/ats/analyze.yaml
 ---
 
 ## Backlog (Post-Phase-11)
+
+### Deferred optimizations (Phases 13–18)
+
+Phase 12.9 measured six architecture candidates and deferred/rejected all six. They are registered with
+their measured reopen conditions in **`docs/optimization/deferred-optimization-backlog.md`** — Phases 13–18
+consult that file before re-litigating any of them. Reopen only when the candidate's measured condition
+fires (msgpack IPC, FAISS vector backend, Nuitka packaging, pinned memory; PyO3 escalates to a Phase 13 epic).
+
+### Other
 
 - Windows and Linux packaging
 - GitHub Actions CI pipeline

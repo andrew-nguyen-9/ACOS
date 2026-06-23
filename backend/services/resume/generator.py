@@ -76,6 +76,7 @@ class ResumeGenerator:
         application_id: str | None = None,
         company: str = "",
         job_title: str = "",
+        strategy: dict | None = None,
     ) -> dict:
         # Step 1: validate template
         template = get_template(template_name)
@@ -83,6 +84,11 @@ class ResumeGenerator:
         # Step 2: extract keywords
         keywords: dict = self._kw_extractor.extract(job_description)
         kw_list: list[str] = keywords.get("required_skills", []) + keywords.get("keywords", [])
+        # 12.12: optional strategy hint — surface the tenant's high-ROI keyword targets
+        # first (deduped). Advisory only; an absent strategy leaves generation unchanged.
+        if strategy and strategy.get("keyword_targets"):
+            targets = [k for k in strategy["keyword_targets"] if k]
+            kw_list = list(dict.fromkeys(targets + kw_list))
 
         # Step 3: select evidence (wider pool for scoring)
         max_bullets: int = template.get("max_experience_bullets", 4) * 3

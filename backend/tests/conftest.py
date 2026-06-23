@@ -40,6 +40,20 @@ def _reset_chroma_manager():
     reset_chroma_manager()
 
 
+@pytest.fixture(autouse=True)
+def _reset_recovery_state():
+    """Clear the module-global READONLY_RECOVERY flag between tests.
+
+    Some recovery/restore tests set it via a manual enter/clear; if an assertion in
+    that window fails, the flag leaks and 503s every later mutating route. Reset here
+    so test ordering can't pollute unrelated tests."""
+    from backend.recovery import RECOVERY
+
+    RECOVERY.clear()
+    yield
+    RECOVERY.clear()
+
+
 def _enable_fk(dbapi_connection: object, _: object) -> None:
     cursor = dbapi_connection.cursor()  # type: ignore[union-attr]
     cursor.execute("PRAGMA foreign_keys=ON")
@@ -68,9 +82,18 @@ def test_engine():
 
 @pytest.fixture(scope="function")
 def test_session(test_engine) -> Generator[Session, None, None]:
-    """Database session backed by in-memory SQLite."""
+    """Database session backed by in-memory SQLite.
+
+    12.14: seed the `default` tenant and bind it on the session so tenant-scoped
+    repositories auto-inject/auto-filter to it — existing single-tenant tests stay
+    green without per-test changes. Tests exercising the guard or multiple tenants
+    override `session.info["tenant_id"]` themselves.
+    """
+    from backend.services.tenancy import ensure_default_tenant, set_session_tenant
+
     TestSession = sessionmaker(bind=test_engine, autocommit=False, autoflush=False)
     session = TestSession()
+    set_session_tenant(session, ensure_default_tenant(session))
     yield session
     session.rollback()
     session.close()

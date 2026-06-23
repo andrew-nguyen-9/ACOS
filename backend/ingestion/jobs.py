@@ -64,6 +64,12 @@ def run_ingest_job(job_id: str, path: str, tmpdir: str) -> None:
     extractor = EntityExtractor(ollama if ollama.is_available() else None)
     try:
         with BACKGROUND_SESSION_FACTORY() as session:  # type: ignore[operator]
+            # 12.14: the background worker opens a raw session outside the request
+            # dependencies, so bind the tenant here or every scoped write raises
+            # TenantScopeError. Single-user/local → the default profile.
+            from backend.services.tenancy import ensure_default_tenant, set_session_tenant
+
+            set_session_tenant(session, ensure_default_tenant(session))
             # session passed so the indexer mirrors document text into FTS5 (12.7).
             indexer = RAGIndexer(chroma, embedder, session=session)
             pipeline = IngestionPipeline(

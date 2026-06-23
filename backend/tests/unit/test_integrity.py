@@ -31,7 +31,7 @@ def test_foreign_key_check_detects_orphan():
     session = sessionmaker(bind=engine)()
     exp = Experience(
         title="X", company="Y", employment_type="full_time",
-        start_date="2020-01", source="manual",
+        start_date="2020-01", source="manual", tenant_id="default",
     )
     session.add(exp)
     session.flush()

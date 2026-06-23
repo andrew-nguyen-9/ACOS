@@ -115,13 +115,19 @@ def fuse(dense: list[dict], lexical_results: list[dict]) -> list[dict]:
     return list(by_id.values())
 
 
-def search(session: Session, query: str, doc_types: list[str], k: int = 10) -> list[dict]:
-    """FTS5 MATCH + bm25() rank, filtered to ``doc_types``.
+def search(
+    session: Session, query: str, doc_types: list[str], k: int = 10,
+    tenant_id: str | None = None,
+) -> list[dict]:
+    """FTS5 MATCH + bm25() rank, filtered to ``doc_types`` (and ``tenant_id`` when set).
 
     Returns ``[{"id", "text", "doc_type", "lexical_score"}]`` best-first. SQLite
     ``bm25()`` returns a value where *more negative = better*; we negate it to a
     positive score and normalize to ``[0, 1]`` so the reranker can fuse it with
     the dense semantic score.
+
+    12.14: ``documents_fts`` is raw SQL (the ORM auto-filter can't reach it), so the
+    tenant predicate is applied explicitly here. ``tenant_id=None`` → unscoped.
     """
     match = _match_query(query)
     if not match or not doc_types:
@@ -130,12 +136,16 @@ def search(session: Session, query: str, doc_types: list[str], k: int = 10) -> l
     placeholders = ", ".join(f":dt{i}" for i in range(len(doc_types)))
     params: dict[str, object] = {"match": match, "k": k}
     params.update({f"dt{i}": dt for i, dt in enumerate(doc_types)})
+    tenant_clause = ""
+    if tenant_id is not None:
+        tenant_clause = " AND tenant_id = :tenant_id"
+        params["tenant_id"] = tenant_id
 
     rows = session.execute(
         text(
             "SELECT doc_id, content, doc_type, bm25(documents_fts) AS score "
             "FROM documents_fts "
-            f"WHERE documents_fts MATCH :match AND doc_type IN ({placeholders}) "
+            f"WHERE documents_fts MATCH :match AND doc_type IN ({placeholders}){tenant_clause} "
             "ORDER BY score LIMIT :k"
         ),
         params,

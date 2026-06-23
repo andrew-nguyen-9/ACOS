@@ -4,9 +4,10 @@ from sqlalchemy import String, Float, JSON, CheckConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.models.base import Base, generate_uuid, utcnow
+from backend.models.tenant import TenantScopedMixin
 
 
-class Metric(Base):
+class Metric(TenantScopedMixin, Base):
     """Append-only observability metric sample (Phase 11.2).
 
     One row per recorded measurement; drift is computed by comparing rolling

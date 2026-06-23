@@ -2,9 +2,10 @@ import logging
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from backend.api.deps import get_tenant_context
 from backend.api.errors import install_error_handlers
 from backend.observability import TimingMiddleware
 from backend.config import get_settings
@@ -19,6 +20,7 @@ from backend.recovery import (
 from backend.api.v1.routes.application import router as application_router
 from backend.api.v1.routes.backup import router as backup_router
 from backend.api.v1.routes.copilot import router as copilot_router
+from backend.api.v1.routes.flywheel import router as flywheel_router
 from backend.api.v1.routes.cover_letter import router as cover_letter_router
 from backend.api.v1.routes.health import router as health_router
 from backend.api.v1.routes.ingestion import router as ingestion_router
@@ -81,21 +83,28 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # Tenant-scoped routers carry the TenantContext dependency (12.14, ADR-008): an
+    # explicit per-route contract on top of the session-boundary guard. System /
+    # operational routers (health, settings, maintenance, backup, observability) are
+    # tenant-free.
+    tenant_dep = [Depends(get_tenant_context)]
+
     app.include_router(health_router, prefix="/api/v1")
-    app.include_router(ingestion_router, prefix="/api/v1")
-    app.include_router(rag_router, prefix="/api/v1")
-    app.include_router(resume_router, prefix="/api/v1")
-    app.include_router(cover_letter_router, prefix="/api/v1")
-    app.include_router(questions_router, prefix="/api/v1")
-    app.include_router(application_router, prefix="/api/v1")
-    app.include_router(learning_router, prefix="/api/v1")
+    app.include_router(ingestion_router, prefix="/api/v1", dependencies=tenant_dep)
+    app.include_router(rag_router, prefix="/api/v1", dependencies=tenant_dep)
+    app.include_router(resume_router, prefix="/api/v1", dependencies=tenant_dep)
+    app.include_router(cover_letter_router, prefix="/api/v1", dependencies=tenant_dep)
+    app.include_router(questions_router, prefix="/api/v1", dependencies=tenant_dep)
+    app.include_router(application_router, prefix="/api/v1", dependencies=tenant_dep)
+    app.include_router(learning_router, prefix="/api/v1", dependencies=tenant_dep)
     app.include_router(observability_router, prefix="/api/v1")
-    app.include_router(copilot_router, prefix="/api/v1")
-    app.include_router(optimization_router, prefix="/api/v1")
+    app.include_router(copilot_router, prefix="/api/v1", dependencies=tenant_dep)
+    app.include_router(optimization_router, prefix="/api/v1", dependencies=tenant_dep)
     app.include_router(settings_router, prefix="/api/v1")
-    app.include_router(strategy_router, prefix="/api/v1")
+    app.include_router(strategy_router, prefix="/api/v1", dependencies=tenant_dep)
     app.include_router(maintenance_router, prefix="/api/v1")
     app.include_router(backup_router, prefix="/api/v1")
+    app.include_router(flywheel_router, prefix="/api/v1", dependencies=tenant_dep)
 
     return app
 

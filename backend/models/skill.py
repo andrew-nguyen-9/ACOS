@@ -4,6 +4,7 @@ from sqlalchemy import String, Text, CheckConstraint, ForeignKey, Table, Column
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.models.base import Base, generate_uuid, utcnow
+from backend.models.tenant import TenantScopedMixin
 
 
 # Many-to-many association tables
@@ -22,7 +23,7 @@ project_skills_table = Table(
 )
 
 
-class Skill(Base):
+class Skill(TenantScopedMixin, Base):
     __tablename__ = "skills"
     __table_args__ = (
         CheckConstraint(
