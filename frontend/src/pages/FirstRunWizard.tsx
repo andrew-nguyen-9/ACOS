@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { CheckCircle, Loader2, AlertTriangle, Zap } from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { UploadStep } from "@/components/onboarding/UploadStep";
 import { apiFetch } from "@/services/api";
 import { updateSetting, completeOnboarding } from "@/services/settings";
 
@@ -177,6 +178,7 @@ export default function FirstRunWizard({ onComplete }: Props) {
                 />
               </div>
             </div>
+            <UploadStep />
             {error && <p className="text-red-400 text-sm">{error}</p>}
             <button
               onClick={() => void finishSetup()}
