@@ -436,6 +436,29 @@ backend/prompts/ats/analyze.yaml
 
 ---
 
+## Phase 13 outcomes — surfacing, onboarding, packaging, automation (2026-06-23)
+
+Phase 13 surfaced the headless Phase-12 flywheel, finished onboarding, reclaimed the
+displaced M5 packaging, and added approval-gated automation.
+
+| Segment | Outcome | Status |
+|---------|---------|--------|
+| 13.0–13.4 | Flywheel data layer + skill-ROI / strategy / global-pattern surfaces + prompt-review queue (ADR-009/010) | Shipped |
+| 13.5 | Onboarding doc-upload → skill/Career-Voice surfacing, synthetic clearly labeled (no cold-start engine; 12.3 was the warmup skeleton) | Shipped |
+| 13.6 | Autonomous prompt-proposal loop — **propose-only, never promotes** (ADR-010) | Shipped |
+| 13.7 | Consent-gated first-run model pull with progress + degraded fallback | Shipped |
+| 13.8 | macOS DMG: signing/notarization config + build script + `PACKAGING.md` | **Configured, not release-verified** (needs cert + release machine) |
+| 13.9 | Signed background auto-update + release notes (ADR-011) | Shipped — **single deliberate network channel** |
+| 13.10 | Verification debt: scored golden-set + k-anon demo fixture + live-bench gate | Shipped; deferred-opt items all stay **VOID** (no reopen number fired) |
+
+**Deferred (not in Phase 13):** multi-profile UI (substrate only), Chroma per-tenant
+read-filter, real authentication, Windows/Linux packaging, and the four VOID
+optimization-backlog items. **Network boundary changed:** ACOS is no longer strictly
+no-network — one signed, TLS-only, data-free update channel exists (ADR-011); ADR-008's
+deferred-authn note is now load-bearing.
+
+---
+
 ## Backlog (Post-Phase-11)
 
 ### Deferred optimizations (Phases 13–18)

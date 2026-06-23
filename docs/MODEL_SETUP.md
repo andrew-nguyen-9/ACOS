@@ -300,8 +300,19 @@ the name exactly matches what ACOS expects (e.g., `qwen3:8b` not `qwen3:8b-q4_0`
 
 ---
 
+## Packaged app (DMG)
+
+Ollama is **not** bundled in the macOS DMG — it stays an external prerequisite. The
+packaged app spawns only the Python sidecar and talks to your separately-installed Ollama
+on `localhost`. The first-run wizard can download a missing model for you with progress
+(Phase 13.7). See [`PACKAGING.md`](PACKAGING.md) for how the DMG is built, signed, and
+verified, and for the single signed auto-update channel (ADR-011).
+
+---
+
 ## See Also
 
 - [User Guide](USER_GUIDE.md) — end-to-end usage walkthrough
 - [Troubleshooting](TROUBLESHOOTING.md) — common issues and fixes
+- [Packaging](PACKAGING.md) — DMG build, signing, external-Ollama contract, auto-update
 - [Data Import Guide](DATA_IMPORT.md) — populating the knowledge graph
