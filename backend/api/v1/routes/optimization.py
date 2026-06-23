@@ -13,6 +13,7 @@ from backend.services.optimization.applier import Applier, ApprovalRequired
 from backend.services.optimization.recommender import Recommender
 from backend.services.optimization.loop import LearningLoop
 from backend.services import audit
+from backend.security import permissions
 
 router = APIRouter(tags=["optimization"])
 
@@ -53,6 +54,8 @@ async def list_proposals(
 @router.post("/optimization/proposals/generate")
 async def generate_proposals(session: AsyncSession = Depends(get_async_session)) -> dict:
     def _impl(s: Session) -> dict:
+        # 16.6 (ADR-018): enforce the module's capability manifest (default-closed).
+        permissions.require("optimization", action="optimization", resource="optimization_proposals", session=s)
         created = Recommender(s).generate_proposals()
         # 16.3 (ADR-016): audit the optimization recommendation — counts, no bodies.
         audit.safe_record(s, "optimization", {"created": len(created)})
