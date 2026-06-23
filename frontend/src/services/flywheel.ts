@@ -36,8 +36,10 @@ export const flywheelService = {
   getSkillRoi: (opts: { metric?: string; min_n?: number } = {}) =>
     apiFetch<SkillRoiResponse>(`/flywheel/skills/roi${qs(opts)}`),
 
+  // POST, not GET: a pasted JD can be many KB — as a query param it would blow
+  // the URL/header limit (414). The body carries it (matches routes/flywheel.py).
   getStrategy: (target_jd: string) =>
-    apiFetch<StrategyRecommendation>(`/flywheel/strategy${qs({ target_jd })}`),
+    post<StrategyRecommendation>("/flywheel/strategy", { target_jd }),
 
   getGlobalRoi: (opts: { metric?: string } = {}) =>
     apiFetch<GlobalRoiResponse>(`/flywheel/global/roi${qs(opts)}`),

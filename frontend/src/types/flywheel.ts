@@ -27,7 +27,7 @@ export interface SkillRoiResponse {
   recommended: string[];
 }
 
-/** GET /flywheel/strategy — asdict(StrategyRecommendation). */
+/** POST /flywheel/strategy — asdict(StrategyRecommendation). JD travels in the body (414-safe). */
 export interface StrategyRecommendation {
   industry: string;
   section_order: string[];

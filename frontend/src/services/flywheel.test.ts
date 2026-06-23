@@ -56,7 +56,7 @@ test("query builder omits params whose value is undefined", async () => {
   expect(url).not.toContain("metric=");
 });
 
-test("getStrategy parses the recommendation shape and passes target_jd", async () => {
+test("getStrategy parses the recommendation shape and posts target_jd in the body", async () => {
   const payload: StrategyRecommendation = {
     industry: "technology",
     section_order: ["summary", "skills", "experience"],
@@ -73,7 +73,13 @@ test("getStrategy parses the recommendation shape and passes target_jd", async (
   const res = await flywheelService.getStrategy("Senior Python role");
 
   expect(res).toEqual(payload);
-  expect(String(lastCall()[0])).toContain("target_jd=Senior+Python+role");
+  // TRAP 5: the JD travels in a POST body, never the URL — a long pasted JD as a
+  // query param blows the URL/header limit (414). The URL stays param-free.
+  const [url, init] = lastCall();
+  expect(String(url)).toContain("/flywheel/strategy");
+  expect(String(url)).not.toContain("target_jd");
+  expect(init?.method).toBe("POST");
+  expect(JSON.parse(String(init?.body))).toEqual({ target_jd: "Senior Python role" });
 });
 
 test("getGlobalRoi parses cross-tenant rankings", async () => {

@@ -69,18 +69,26 @@ async def get_skill_roi(
         raise HTTPException(status_code=422, detail=str(exc))
 
 
-@router.get("/flywheel/strategy")
+class StrategyRequest(BaseModel):
+    target_jd: str
+
+
+@router.post("/flywheel/strategy")
 async def get_strategy(
-    target_jd: str,
+    req: StrategyRequest,
     session: AsyncSession = Depends(get_async_session),
 ) -> dict:
-    """Per-tenant resume structure + ATS strategy for a target job description."""
+    """Per-tenant resume structure + ATS strategy for a target job description.
+
+    POST, not GET: a pasted JD can be many KB, which would blow the URL/header
+    limit as a query param (414). It travels in the request body instead.
+    """
     settings = get_settings()
 
     def _impl(s: Session) -> dict:
         ollama = OllamaClient(base_url=settings.ollama_base_url)
         extractor = KeywordExtractor(ollama, PromptLoader())
-        keywords = extractor.extract(target_jd)
+        keywords = extractor.extract(req.target_jd)
         rec = recommend(s, keywords=keywords, tenant_id=get_session_tenant(s))
         return asdict(rec)
 
